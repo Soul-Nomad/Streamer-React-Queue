@@ -6,8 +6,20 @@ export default function StreamerDashboard() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [queue, setQueue] = useState<Video[]>([]);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check for errors in URL
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    const errDesc = hashParams.get("error_description") || searchParams.get("error_description");
+    if (errDesc) {
+      setAuthError(errDesc.replace(/\+/g, ' '));
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -72,6 +84,13 @@ export default function StreamerDashboard() {
         <div className="bg-[#11141c] p-8 rounded-xl border border-[#222735] shadow-2xl max-w-sm w-full text-center">
           <h1 className="text-2xl font-semibold mb-2">Painel do Streamer</h1>
           <p className="text-[#828ba0] mb-6 text-sm">Faça login com a Twitch para começar a receber vídeos.</p>
+          
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-6 text-sm font-medium">
+              Erro de Autenticação: {authError}
+            </div>
+          )}
+
           <button
             onClick={handleLogin}
             className="w-full bg-[#9146FF] hover:bg-[#a268ff] text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
