@@ -192,7 +192,13 @@ export default function ParticipantView({ session }: { session: SessionState }) 
           <button onClick={copyInvite} className={clsx("w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors border", copied ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-[#1F1F23] text-white border-[#26262C] hover:bg-[#26262C]")}>
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} Copiar Convite
           </button>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors">
+          <button onClick={() => { 
+            localStorage.removeItem('active_room_id');
+            localStorage.removeItem('active_role');
+            localStorage.removeItem('active_session_payload');
+            localStorage.removeItem('pending_room_id');
+            window.location.reload(); 
+          }} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors">
             <LogOut className="w-4 h-4" /> Sair da Sala
           </button>
         </div>
