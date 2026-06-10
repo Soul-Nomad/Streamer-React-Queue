@@ -1,4 +1,4 @@
-import { X, ShieldAlert } from 'lucide-react';
+import { X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function TermosDeUso({ onClose }: { onClose: () => void }) {
@@ -13,23 +13,8 @@ export default function TermosDeUso({ onClose }: { onClose: () => void }) {
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-3xl bg-[#111116] border border-[#2d2d3a] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] font-sans overflow-hidden"
+        className="relative w-full max-w-3xl bg-[#111116] border border-[#2d2d3a] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] font-sans"
       >
-        {/* EM DESENVOLVIMENTO OVERLAY */}
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md pointer-events-auto">
-          <div className="flex flex-col items-center text-center p-8 bg-[#1A1A1A] border border-[#FF6B35]/20 rounded-xl shadow-2xl max-w-sm mx-4 animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 bg-[#FF6B35]/10 rounded-full flex items-center justify-center mb-6 border border-[#FF6B35]/20">
-              <ShieldAlert className="w-8 h-8 text-[#FF6B35] animate-pulse" />
-            </div>
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Em Desenvolvimento</h3>
-            <p className="text-sm text-[#B0B0B0] leading-relaxed mb-6 font-medium">
-              Os termos de uso estão sendo atualizados com novas diretrizes de segurança e transparência.
-            </p>
-            <div className="px-3 py-1 bg-[#FF6B35]/10 border border-[#FF6B35]/30 rounded text-[#FF6B35] font-mono text-[10px] font-bold uppercase tracking-widest">
-              EM ATUALIZAÇÃO • v2
-            </div>
-          </div>
-        </div>
         <div className="flex items-center justify-between p-6 border-b border-[#2d2d3a]">
           <h2 className="text-xl font-black text-white uppercase tracking-wider">Termos de Uso</h2>
           <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer">
