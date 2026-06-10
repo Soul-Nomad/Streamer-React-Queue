@@ -1216,6 +1216,45 @@ app.post(['/sessions/:id/toggle_whitelist', '/api/sessions/:id/toggle_whitelist'
   }
 });
 
+// POST /sessions/:id/unban_user - Lift ban
+app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user'], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { data } = req.body;
+    const targetUserId = typeof data === 'string' ? data : data?.userId;
+
+    const state: any = await getSession(roomId);
+    if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
+
+    const allBans = (state.allBans || []).map((b: any) => {
+      if (b.userId === targetUserId) return { ...b, active: false };
+      return b;
+    });
+
+    const banRecord = (state.allBans || []).find((b: any) => b.userId === targetUserId);
+    const targetUsername = banRecord?.username?.toLowerCase();
+
+    const blacklistUsernames = (state.blacklistUsernames || []).filter((u: string) => u.toLowerCase() !== targetUsername);
+
+    const updatedState = { ...state, allBans, blacklistUsernames };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', roomId);
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    res.json({ success: true, session: updatedState });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /sessions/:id/give_strike - Issue warning strike
 app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (req, res) => {
   try {
@@ -1323,12 +1362,34 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
     const targetUsername = targetUser?.twitchData?.login || targetUser?.name || 'unknown';
     
     const blacklistUsernames = [...(state.blacklistUsernames || [])];
-    if (!blacklistUsernames.includes(targetUsername)) {
-      blacklistUsernames.push(targetUsername);
+    if (!blacklistUsernames.includes(targetUsername.toLowerCase())) {
+      blacklistUsernames.push(targetUsername.toLowerCase());
     }
 
+    // Create Persistent Ban Record
+    const newBan: any = {
+      id: 'ban_' + Date.now(),
+      userId: targetUserId,
+      username: targetUsername,
+      ip: targetUser?.ip || '',
+      banType: banType || 'permanent',
+      reason: reason || 'Banido permanentemente pelo moderador.',
+      moderator: 'Host',
+      createdAt: Date.now(),
+      active: true,
+      history: [{
+        timestamp: Date.now(),
+        action: 'ban',
+        reason: reason || 'Banido pelo moderador',
+        moderator: 'Host'
+      }]
+    };
+
+    const allBans = [...(state.allBans || [])];
+    allBans.push(newBan);
+
     const filteredUsers = (state.users || []).filter((u: any) => u.userId !== targetUserId);
-    const updatedState = { ...state, users: filteredUsers, blacklistUsernames };
+    const updatedState = { ...state, users: filteredUsers, blacklistUsernames, allBans };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
