@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { socket } from '../socket';
 import { SessionState } from '../types';
-import { Settings, Save } from 'lucide-react';
+import { Settings, Save, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsView({ session }: { session: SessionState }) {
@@ -136,7 +136,22 @@ export default function SettingsView({ session }: { session: SessionState }) {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12">
+    <div className="relative w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12">
+        {/* EM DESENVOLVIMENTO OVERLAY */}
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md pointer-events-auto rounded-lg overflow-hidden">
+          <div className="flex flex-col items-center text-center p-8 bg-[#1A1A1A] border border-[#FF6B35]/20 rounded-xl shadow-2xl max-w-sm mx-4 animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-[#FF6B35]/10 rounded-full flex items-center justify-center mb-6 border border-[#FF6B35]/20">
+              <ShieldAlert className="w-8 h-8 text-[#FF6B35] animate-pulse" />
+            </div>
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Em Desenvolvimento</h3>
+            <p className="text-sm text-[#B0B0B0] leading-relaxed mb-6 font-medium">
+              Esta seção está passando por uma reformulação de segurança e estará disponível na próxima atualização do sistema.
+            </p>
+            <div className="px-3 py-1 bg-[#FF6B35]/10 border border-[#FF6B35]/30 rounded text-[#FF6B35] font-mono text-[10px] font-bold uppercase tracking-widest">
+              SISTEMA PROTEGIDO • V2
+            </div>
+          </div>
+        </div>
         <div className="flex-1 flex flex-col min-h-0 text-left bg-[#1A1A1A] border border-[#222222] rounded p-6 overflow-y-auto w-full max-w-5xl mx-auto">
           <div className="mb-6 border-b border-[#222222] pb-4 flex justify-between items-center">
             <div>
