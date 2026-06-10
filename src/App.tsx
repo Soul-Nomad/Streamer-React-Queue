@@ -11,7 +11,7 @@ import HostView from './components/HostView';
 import ParticipantView from './components/ParticipantView';
 import TermosDeUso from './components/TermosDeUso';
 import PoliticaDePrivacidade from './components/PoliticaDePrivacidade';
-import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, X, WifiOff, Wifi } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Toast {
@@ -24,6 +24,7 @@ export default function App() {
   const [isHost, setIsHost] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [modalOpen, setModalOpen] = useState<'termos' | 'privacidade' | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
   
   const showToast = (message: string, type: 'error' | 'info' | 'success' = 'info') => {
     setToast({ message, type });
@@ -51,9 +52,14 @@ export default function App() {
     if (socket.connected) {
        handleConnect();
     }
+    
+    socket.on('disconnect', () => {
+       setReconnecting(true);
+    });
 
     socket.on('session_state', (state: SessionState) => {
        setSession(state);
+       setReconnecting(false);
        const me = state.users.find(u => u.userId === socket.getUserId() || u.id === socket.id);
        const amIHost = me ? me.isHost : (localStorage.getItem('active_role') === 'host');
        setIsHost(amIHost);
@@ -65,6 +71,14 @@ export default function App() {
     
     socket.on('error', (msg: string) => {
        showToast(msg, 'error');
+    });
+
+    socket.on('timeout', (msg: string) => {
+       showToast(msg, 'info');
+    });
+
+    socket.on('warn', (msg: string) => {
+       showToast(msg, 'info');
     });
 
     socket.on('session_created', (roomId: string) => {
@@ -98,10 +112,13 @@ export default function App() {
     
     return () => {
        socket.off('connect', handleConnect);
+       socket.off('disconnect');
        socket.off('session_state');
        socket.off('session_ended');
        socket.off('session_created');
        socket.off('error');
+       socket.off('timeout');
+       socket.off('warn');
     };
   }, []);
 
@@ -118,6 +135,21 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-[#121212]">
+      {/* Reconnection Banner Badge */}
+      <AnimatePresence>
+        {session && reconnecting && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-0 left-0 w-full z-[10000] bg-[#FF8C42] text-white px-4 py-2 flex items-center justify-center gap-2 select-none shadow-lg text-xs font-bold"
+          >
+            <WifiOff className="w-4 h-4 animate-pulse" />
+            Conexão instável. Tentando reconectar (Tentativa 1)...
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Development Status Banner - Show only on Home (Lobby) */}
       {!session && (
         <div className="select-none border-b border-white/10 bg-[#FF8C42] px-4 py-1.5 text-center">
