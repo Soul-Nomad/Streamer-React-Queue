@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { socket } from '../socket';
+import { socket, getBackendUrl } from '../socket';
 import { 
   MonitorPlay, 
   LogIn, 
@@ -81,7 +81,7 @@ export default function Lobby() {
   const fetchActiveRooms = async () => {
     setDiscoveredRoomsLoading(true);
     try {
-      const res = await fetch('/api/rooms');
+      const res = await fetch(`${getBackendUrl()}/api/rooms`);
       const data = await res.json();
       setDiscoveredRooms(data.rooms || []);
     } catch (e) {
@@ -112,6 +112,11 @@ export default function Lobby() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const sUser = session?.user ?? null;
       setSupabaseUser(sUser);
+      if (sUser) {
+        localStorage.setItem('active_supabase_user_id', sUser.id);
+      } else {
+        localStorage.removeItem('active_supabase_user_id');
+      }
       if (session?.provider_token) {
         setProviderToken(session.provider_token);
         if (sUser) {
@@ -136,6 +141,11 @@ export default function Lobby() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const sUser = session?.user ?? null;
       setSupabaseUser(sUser);
+      if (sUser) {
+        localStorage.setItem('active_supabase_user_id', sUser.id);
+      } else {
+        localStorage.removeItem('active_supabase_user_id');
+      }
       if (session?.provider_token) {
         setProviderToken(session.provider_token);
         if (sUser) {
@@ -183,7 +193,7 @@ export default function Lobby() {
     if (!supabaseUser || !providerToken || !twitchUserIdState) return;
 
     setLoadingTwitchData(true);
-    fetch(`/api/twitch/followed?token=${providerToken}&userId=${twitchUserIdState}`)
+    fetch(`${getBackendUrl()}/api/twitch/followed?token=${providerToken}&userId=${twitchUserIdState}`)
       .then(res => res.json())
       .then(data => {
          if (data && !data.error) {

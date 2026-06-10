@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { socket } from '../socket';
+import { socket, getBackendUrl } from '../socket';
 import { SessionState } from '../types';
 import ReactPlayer from 'react-player';
 import { XEmbed, LinkedInEmbed } from 'react-social-media-embed';
@@ -185,7 +185,7 @@ function CustomInstagramPlayer({ url, getRatioClass, webcamStream, WebcamPreview
 
     const targetUrl = `https://www.instagram.com/p/${igId}/`;
 
-    fetch(`/api/instagram-stream?url=${encodeURIComponent(targetUrl)}`)
+    fetch(`${getBackendUrl()}/api/instagram-stream?url=${encodeURIComponent(targetUrl)}`)
       .then((res) => {
         if (!res.ok) throw new Error('Erro ao obter fluxo de transmissão');
         return res.json();
@@ -490,7 +490,7 @@ export default function HostView({ session }: { session: SessionState }) {
                           
       if (isShortened) {
         setResolving(true);
-        fetch(`/api/resolve?url=${encodeURIComponent(currentVideo.url)}`)
+        fetch(`${getBackendUrl()}/api/resolve?url=${encodeURIComponent(currentVideo.url)}`)
           .then(res => res.json())
           .then(data => {
             if (data.url) {
