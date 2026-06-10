@@ -93,6 +93,7 @@ export default function Lobby() {
   // Notifications and simulated interactions
   const [requestedQueues, setRequestedQueues] = useState<string[]>([]);
   const [submittingHost, setSubmittingHost] = useState(false);
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
   // Fetch active queue slots from our Express server
   const fetchActiveRooms = async () => {
@@ -394,7 +395,7 @@ export default function Lobby() {
 
   // Launch Host Stream Room
   const handleCreate = async () => {
-    if (!supabaseUser) return;
+    if (!supabaseUser || submittingHost) return;
     setSubmittingHost(true);
     const payload = buildTwitchPayload(true);
 
@@ -443,7 +444,15 @@ export default function Lobby() {
 
   // Join Target Queue
   const handleJoin = (targetRoomId: string) => {
-    if (!targetRoomId.trim() || !supabaseUser) return;
+    if (!targetRoomId.trim() || isJoiningRoom) return;
+
+    if (!supabaseUser) {
+      handleLoginTwitch();
+      return;
+    }
+
+    setIsJoiningRoom(true);
+
     const payload = buildTwitchPayload(false);
 
     const cleanRoomCode = targetRoomId.trim().toUpperCase();
@@ -464,6 +473,11 @@ export default function Lobby() {
 
     localStorage.setItem("active_session_payload", JSON.stringify(joinPayload));
     socket.emit("join_session", joinPayload);
+
+    // Timeout safety fallback
+    setTimeout(() => {
+        setIsJoiningRoom(false);
+    }, 10000);
   };
 
   const handleManualCodeJoinSubmit = (e: React.FormEvent) => {
@@ -941,6 +955,7 @@ export default function Lobby() {
               <div className="pt-2 flex flex-wrap gap-3.5 items-center">
                 {supabaseUser ? (
                   <button
+                    disabled={submittingHost || isJoiningRoom}
                     onClick={() => {
                       if (discoveredRooms.length > 0) {
                         handleJoin(discoveredRooms[0].roomId);
@@ -948,12 +963,19 @@ export default function Lobby() {
                         setIsHostConfirmOpen(true);
                       }
                     }}
-                    className="h-11 px-6 bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] hover:from-[#ff7947] hover:to-[#ff9b57] hover:scale-[1.02] active:scale-95 text-xs text-white font-extrabold tracking-wider uppercase rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-[#FF6B35]/20 hover:shadow-[#FF6B35]/40"
+                    className={clsx(
+                      "h-11 px-6 bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] hover:from-[#ff7947] hover:to-[#ff9b57] active:scale-95 text-xs text-white font-extrabold tracking-wider uppercase rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#FF6B35]/20 hover:shadow-[#FF6B35]/40",
+                      (submittingHost || isJoiningRoom) ? "opacity-70 cursor-wait" : "hover:scale-[1.02] cursor-pointer"
+                    )}
                   >
-                    <Sparkles className="w-4 h-4" />
-                    {discoveredRooms.length > 0
+                    {(submittingHost || isJoiningRoom) ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                        <Sparkles className="w-4 h-4" />
+                    )}
+                    {submittingHost ? "Preparando Sala..." : isJoiningRoom ? "Conectando..." : (discoveredRooms.length > 0
                       ? "Participar da Fila Maior"
-                      : "Iniciar Fila do Meu Canal"}
+                      : "Iniciar Fila do Meu Canal")}
                   </button>
                 ) : (
                   <button
@@ -967,7 +989,8 @@ export default function Lobby() {
 
                 <button
                   onClick={() => setIsJoinModalOpen(true)}
-                  className="h-11 px-5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.15] text-xs font-bold text-slate-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  disabled={submittingHost || isJoiningRoom}
+                  className="h-11 px-5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.15] text-xs font-bold text-slate-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Search className="w-4 h-4 text-slate-400" /> Buscar outra
                   sala
