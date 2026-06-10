@@ -1456,29 +1456,60 @@ export default function HostView({ session }: { session: SessionState }) {
                 )}
              </div>
           ) : (
-             <div className="flex flex-col items-center text-center p-12 bg-[#1A1A1A]/50 backdrop-blur-lg rounded-sm border border-[#222222] max-w-md mx-4 select-none">
-                <Cast className="w-12 h-12 text-[#505050] mb-6" />
-                <h2 className="text-lg font-bold uppercase tracking-[0.2em] mb-2 text-[#FFFFFF]">Tela Ociosa</h2>
-                <p className="text-xs text-[#B0B0B0] mb-6 leading-relaxed max-w-xs">Aguardando participantes enviarem vídeos para o código de sala fornecido abaixo.</p>
+             <div className="flex flex-col items-stretch text-center p-8 bg-[#16161c] border border-[#22222d] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#FF6B35] via-[#9146FF] to-[#10B981]" />
                 
-                <div className="flex items-center gap-4 bg-[#0D0D0D] p-4 rounded-sm border border-[#222222]/60 text-xs w-full">
-                  <div className="flex flex-col items-start pr-3 border-r border-[#1e2330] flex-1">
-                     <span className="text-[#B0B0B0] uppercase font-bold tracking-wider text-[9px]">LINK DA SALA</span>
-                     <span className="text-[#EFEFEF] font-mono mt-0.5 text-[10px] truncate w-full">{window.location.host}/?room={session.id}</span>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="p-3 bg-[#FF6B35]/10 border border-[#FF6B35]/25 mb-4 rounded-none">
+                    <Cast className="w-8 h-8 text-[#FF6B35]" />
                   </div>
-                  <div className="flex flex-col items-center pl-1 shrink-0">
-                     <span className="text-[#B0B0B0] uppercase font-bold tracking-wider text-[9px] mb-0.5">CÓDIGO</span>
-                     <span className="text-[#9c8cb3] font-bold text-sm tracking-widest font-mono">{session.id}</span>
-                  </div>
+                  <h2 className="text-md font-extrabold uppercase tracking-widest text-[#FFFFFF] font-sans">Sala ociosa</h2>
+                  <p className="text-[11px] text-[#B0B0B0] mt-1.5 leading-relaxed max-w-xs font-sans">Sua sala de mídia está ativa e pronta para reproduzir transmissões.</p>
                 </div>
 
-                <button 
-                  onClick={copyInvite} 
-                  className="mt-4 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#222222] border border-[#2d2d2d] rounded-sm text-xs hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold w-full transition-all cursor-pointer capitalize"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  {copied ? "Link Copiado!" : "Copiar Link de Convite"}
-                </button>
+                {/* Paso a paso onboarding visual */}
+                <div className="space-y-4 mb-6 text-left border-y border-[#20202b]/70 py-4">
+                  <h3 className="text-[9px] font-black text-[#8c92ac] uppercase tracking-widest font-mono">Guia de Uso Rápido:</h3>
+                  
+                  <div className="flex gap-3">
+                    <span className="w-5 h-5 bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">1</span>
+                    <div className="leading-tight">
+                      <h4 className="text-[11px] font-extrabold text-slate-200 font-sans">Envie o Link de Convite</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Copie o link abaixo e compartilhe com seu chat ou moderadores.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <span className="w-5 h-5 bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/30 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">2</span>
+                    <div className="leading-tight">
+                      <h4 className="text-[11px] font-extrabold text-slate-200 font-sans font-sans">Público Envia Vídeos</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Seus viewers escolhem vídeos do YouTube, Instagram, TikTok e Twitch.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <span className="w-5 h-5 bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/30 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">3</span>
+                    <div className="leading-tight">
+                      <h4 className="text-[11px] font-extrabold text-slate-200 font-sans font-sans">Gerencie na Esquerda</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Use a barra lateral esquerda para aceitar mídias e controlar a fila.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-2.5 bg-[#0D0D12] p-3 border border-[#20202d] text-xs">
+                  <div className="flex items-center justify-between text-left">
+                    <div className="min-w-0 pr-3">
+                      <span className="text-[#8c92ac] uppercase font-bold tracking-widest text-[8px] font-mono block">CÓDIGO DE ACESSO</span>
+                      <span className="text-[#10B981] font-black text-sm tracking-wider font-mono mt-0.5 block">{session.id}</span>
+                    </div>
+                    <button 
+                      onClick={copyInvite} 
+                      className="px-3 py-1.5 bg-[#1F1F2A] hover:bg-[#282836] hover:text-white border border-[#2d2d3e] text-slate-300 font-bold font-mono text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
+                    >
+                      {copied ? "COPIADO!" : "COPIAR LINK"}
+                    </button>
+                  </div>
+                </div>
              </div>
           )}
         </div>

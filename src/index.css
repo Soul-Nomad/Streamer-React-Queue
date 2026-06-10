@@ -26,4 +26,14 @@
     color: #FFFFFF;
     overflow-x: hidden;
   }
+
+  /* Global Right-Angles Enforcer */
+  *, ::before, ::after {
+    border-radius: 0px !important;
+  }
+
+  /* Preserve rounded dots and circles for status indicators or specific circles */
+  .rounded-full {
+    border-radius: 9999px !important;
+  }
 }

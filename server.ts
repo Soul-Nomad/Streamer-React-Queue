@@ -8,6 +8,7 @@ import axios from 'axios';
 import dns from 'dns';
 import punycode from 'punycode';
 import crypto from 'crypto';
+import fs from 'fs';
 // @ts-ignore
 import instagramGetUrlPkg from 'instagram-url-direct';
 import { dbStore } from './src/database.js';
@@ -19,6 +20,63 @@ const __filename = typeof import.meta !== 'undefined' && import.meta.url
 const __dirname = typeof import.meta !== 'undefined' && import.meta.url
   ? path.dirname(__filename)
   : (typeof (globalThis as any).__dirname !== 'undefined' ? (globalThis as any).__dirname : '');
+
+// Persistent tracker for all-time hosts who have ever opened a room on this platform
+let historyHosts = new Set<string>();
+try {
+  const hostsFilePath = path.join(process.cwd(), 'data', 'history_hosts.json');
+  if (fs.existsSync(hostsFilePath)) {
+    const data = JSON.parse(fs.readFileSync(hostsFilePath, 'utf-8'));
+    if (Array.isArray(data)) {
+      data.forEach((l: string) => {
+        if (typeof l === 'string') {
+          historyHosts.add(l.toLowerCase());
+        }
+      });
+    }
+  }
+} catch (e) {
+  console.error('[History Hosts] Failed to load history_hosts.json:', e);
+}
+
+// Preload former hosts from existing history.json if available
+try {
+  const oldHistoryPath = path.join(process.cwd(), 'data', 'history.json');
+  if (fs.existsSync(oldHistoryPath)) {
+    const logs = JSON.parse(fs.readFileSync(oldHistoryPath, 'utf-8'));
+    if (Array.isArray(logs)) {
+      logs.forEach((log: any) => {
+        if (log.videoId === 'session_init' && log.actionDetails) {
+          const match = log.actionDetails.match(/Streamer @([a-zA-Z0-9_]+)/i);
+          if (match && match[1]) {
+            historyHosts.add(match[1].toLowerCase());
+          }
+        }
+      });
+    }
+  }
+} catch (e) {
+  console.warn('[History Hosts] Failed to pre-seed from history.json:', e);
+}
+
+function addHistoryHost(login: string) {
+  if (!login) return;
+  const lower = login.toLowerCase();
+  if (!historyHosts.has(lower)) {
+    historyHosts.add(lower);
+    try {
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const hostsFilePath = path.join(dataDir, 'history_hosts.json');
+      fs.writeFileSync(hostsFilePath, JSON.stringify(Array.from(historyHosts), null, 2), 'utf-8');
+      console.log(`[History Hosts] Broadcaster @${lower} added to history_hosts.json`);
+    } catch (e) {
+      console.error('[History Hosts] Failed to save history_hosts.json:', e);
+    }
+  }
+}
 
 // Helper to generate a unique but persistent user ID based on IP
 function getPersistentUserId(ip: string): string {
@@ -356,7 +414,7 @@ app.get('/api/twitch/followed', async (req, res) => {
         headers: {
            'Authorization': `OAuth ${token}`
         },
-        timeout: 2500
+        timeout: 4000
      });
      if (valRes.data && valRes.data.client_id) {
         clientId = valRes.data.client_id;
@@ -364,6 +422,10 @@ app.get('/api/twitch/followed', async (req, res) => {
   } catch (e: any) {
      console.warn(`[Helix Followed API] Validation check failed:`, e.message);
   }
+
+  let onlineList: any[] = [];
+  let followedList: any[] = [];
+  let apiError: string | null = null;
 
   try {
      // 1. Fetch live followed streams
@@ -374,7 +436,16 @@ app.get('/api/twitch/followed', async (req, res) => {
         },
         timeout: 4000
      });
+     onlineList = (streamsRes.data?.data || []).map((stream: any) => ({
+        ...stream,
+        hasOpenedQueueBefore: historyHosts.has(stream.user_login?.toLowerCase())
+     }));
+  } catch (err: any) {
+     console.warn(`[Helix Followed Streams Fail]:`, err.response?.data || err.message);
+     apiError = err.response?.data?.message || err.message;
+  }
 
+  try {
      // 2. Fetch followed channels overall list
      const followsRes = await axios.get(`https://api.twitch.tv/helix/channels/followed?user_id=${userId}`, {
         headers: {
@@ -383,18 +454,31 @@ app.get('/api/twitch/followed', async (req, res) => {
         },
         timeout: 4000
      });
-
-     res.json({
-        online: streamsRes.data?.data || [],
-        followed: followsRes.data?.data || []
-     });
+     followedList = (followsRes.data?.data || []).map((follow: any) => ({
+        ...follow,
+        hasOpenedQueueBefore: historyHosts.has(follow.broadcaster_login?.toLowerCase())
+     }));
   } catch (err: any) {
-     console.error('[Helix Followed API Fail]:', err.response?.data || err.message);
-     res.status(500).json({ 
-        error: 'Failed to retrieve details from Twitch API', 
-        details: err.response?.data || err.message 
+     console.warn(`[Helix Followed Channels Fail]:`, err.response?.data || err.message);
+     if (!apiError) {
+        apiError = err.response?.data?.message || err.message;
+     }
+  }
+
+  // Gracefully handle complete failure by returning an error message in body instead of a 500 status code
+  if (onlineList.length === 0 && followedList.length === 0 && apiError) {
+     return res.status(200).json({
+        online: [],
+        followed: [],
+        error: `Failed to retrieve followed list: ${apiError}`
      });
   }
+
+  res.json({
+     online: onlineList,
+     followed: followedList,
+     ...(apiError ? { warning: apiError } : {})
+  });
 });
 
 app.get('/api/instagram-stream', async (req, res) => {
@@ -1003,6 +1087,10 @@ io.on('connection', (socket) => {
       isBroadcaster: true,
       badges: Array.from(new Set([...(tData.badges || []), 'broadcaster']))
     };
+
+    if (currentUser.twitchData && currentUser.twitchData.login) {
+      addHistoryHost(currentUser.twitchData.login);
+    }
 
     // Resolve persistent profile
     const profile = dbStore.getOrCreateUserProfile(currentUser.userId, currentUser.name, clientIp);

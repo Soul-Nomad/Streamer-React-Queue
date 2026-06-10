@@ -392,6 +392,7 @@ export default function Lobby() {
           category: stream.game_name?.toLowerCase().includes('chat') ? 'just-chatting' : 'gaming',
           roomId: activeRoom?.roomId || null,
           activeQueueCount: activeRoom ? activeRoom.queueCount : -1, // -1 means streamer is live but queue room is offline/closed
+          hasOpenedQueueBefore: !!stream.hasOpenedQueueBefore,
           uptimeText: 'Ao Vivo',
           trendingFactor: 'Canal Seguido'
         });
@@ -434,7 +435,8 @@ export default function Lobby() {
               login: follow.broadcaster_login,
               displayName: follow.broadcaster_name,
               avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${follow.broadcaster_name}&backgroundColor=222`,
-              followedAt: follow.followed_at
+              followedAt: follow.followed_at,
+              hasOpenedQueueBefore: !!follow.hasOpenedQueueBefore
             });
          }
       });
@@ -606,21 +608,21 @@ export default function Lobby() {
           {/* Section 1: Live Followed Queues Overview */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
                 <Radio className="w-3 h-3 text-[#10B981]" /> Fila dos Seguidos
               </span>
-              <span className="text-[10px] bg-[#9146FF]/10 text-[#9146FF] px-1.5 py-0.5 rounded font-bold font-mono">
-                {twitchFollowedData?.online?.length || 0}
+              <span className="text-[10px] bg-[#9146FF]/10 text-[#9146FF] px-1.5 py-0.5 rounded-none font-bold font-mono font-sans">
+                {processedOnlineStreamers.filter(s => s.roomId !== null).length}
               </span>
             </div>
 
             {/* If not logged in follow state */}
             {!supabaseUser ? (
-              <div className="p-3 bg-[#111115] border border-[#1d1d27] rounded-lg text-center space-y-2">
+              <div className="p-3 bg-[#111115] border border-[#1d1d27] rounded-none text-center space-y-2">
                 <p className="text-[10px] text-slate-500 leading-relaxed font-sans">Faça login com a Twitch para ver seus streamers favoritos na barra de fila ao vivo.</p>
                 <button 
                   onClick={handleLoginTwitch}
-                  className="w-full py-1.5 bg-[#9146FF]/10 hover:bg-[#9146FF]/20 border border-[#9146FF]/30 text-white rounded text-[10px] font-bold transition-colors cursor-pointer"
+                  className="w-full py-1.5 bg-[#9146FF]/10 hover:bg-[#9146FF]/20 border border-[#9146FF]/30 text-white rounded-none text-[10px] font-bold transition-colors cursor-pointer"
                 >
                   Vincular Twitch
                 </button>
@@ -629,64 +631,39 @@ export default function Lobby() {
               <div className="space-y-2 py-4">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="flex items-center gap-3 animate-pulse">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800"></div>
+                    <div className="w-8 h-8 rounded-none bg-slate-800"></div>
                     <div className="flex-1 space-y-1.5">
-                      <div className="h-2.5 bg-slate-800 rounded w-2/3"></div>
-                      <div className="h-2 bg-slate-800 rounded w-1/2"></div>
+                      <div className="h-2.5 bg-slate-800 rounded-none w-2/3"></div>
+                      <div className="h-2 bg-slate-800 rounded-none w-1/2"></div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : twitchFollowedData?.online?.length === 0 ? (
-              <div className="p-3 bg-slate-900/10 border border-dashed border-[#222] rounded-lg text-center">
-                <p className="text-[10px] text-slate-500">Nenhum canal seguido está ao vivo com fila no momento.</p>
+            ) : processedOnlineStreamers.filter(s => s.roomId !== null).length === 0 ? (
+              <div className="p-3 bg-slate-900/10 border border-dashed border-[#222] rounded-none text-center">
+                <p className="text-[10px] text-slate-500 font-sans leading-relaxed font-sans">Nenhum canal seguido está ao vivo com fila aberta agora.</p>
               </div>
             ) : (
               <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
-                {processedOnlineStreamers.slice(0, 4).map((streamer, idx) => (
+                {processedOnlineStreamers.filter(s => s.roomId !== null).map((streamer, idx) => (
                   <div 
                     key={idx}
                     onClick={() => streamer.roomId && handleJoin(streamer.roomId)}
-                    className={`flex items-center justify-between p-2 rounded-lg border transition-all ${
-                      streamer.roomId 
-                        ? 'bg-[#151d18]/40 border-[#10B981]/20 hover:border-[#10B981]/50 cursor-pointer' 
-                        : 'bg-transparent border-transparent hover:bg-[#111116]'
-                    }`}
+                    className="flex items-center justify-between p-2 rounded-none border border-[#10B981]/20 bg-[#151d18]/40 hover:border-[#10B981]/50 cursor-pointer transition-all"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative">
-                        <img src={streamer.avatarUrl} className="w-7 h-7 rounded-md object-cover border border-[#2d2d3c]" alt="" />
-                        {streamer.roomId && (
-                          <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-[#10B981] ring-1 ring-black" />
-                        )}
+                        <img src={streamer.avatarUrl} className="w-7 h-7 rounded-none object-cover border border-[#2d2d3c]" alt="" />
+                        <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-none bg-[#10B981] ring-1 ring-black" />
                       </div>
                       <div className="text-left min-w-0">
                         <span className="text-xs font-bold text-slate-200 block truncate" style={{ color: streamer.color || '#fff' }}>{streamer.displayName}</span>
                         <span className="text-[9px] text-[#8e8e9c] block truncate">{streamer.game || 'Sem Jogo'}</span>
                       </div>
                     </div>
-                    <div>
-                      {streamer.roomId ? (
-                        <div className="text-right shrink-0">
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#11c78b] block">Fila On</span>
-                          <span className="text-[9px] text-[#A0A0A0] font-mono block font-semibold">{streamer.activeQueueCount} vds</span>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRequestQueue(streamer.login);
-                          }}
-                          disabled={requestedQueues.includes(streamer.login)}
-                          className={`text-[8px] uppercase font-mono px-1.5 py-0.5 rounded transition-all shrink-0 ${
-                            requestedQueues.includes(streamer.login)
-                              ? 'bg-slate-800 text-slate-500'
-                              : 'bg-[#9146FF]/10 text-[#9146FF] hover:bg-[#9146FF]/20 border border-[#9146FF]/20'
-                          }`}
-                        >
-                          {requestedQueues.includes(streamer.login) ? 'Ok!' : 'Pedir Fila'}
-                        </button>
-                      )}
+                    <div className="text-right shrink-0">
+                      <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#11c78b] block">Fila On</span>
+                      <span className="text-[9px] text-[#A0A0A0] font-mono block font-semibold">{streamer.activeQueueCount} vds</span>
                     </div>
                   </div>
                 ))}
@@ -874,64 +851,131 @@ export default function Lobby() {
               <span className="text-xs text-slate-500 font-medium">Filtro em tempo real</span>
             </div>
 
-            {processedOnlineStreamers.filter(s => s.roomId !== null).length === 0 ? (
-              <div className="bg-[#121216] border border-[#20202a] rounded-xl p-8 text-center space-y-3">
-                <HelpCircle className="w-8 h-8 text-slate-600 mx-auto" />
-                <div className="max-w-md mx-auto space-y-1">
-                  <span className="text-sm font-bold text-slate-300 block">Nenhuma fila de seguidor aberta agora</span>
-                  <p className="text-xs text-slate-500 leading-relaxed">Nenhum streamer que você segue tem uma sala de fila aberta no nosso sistema neste momento. Você pode visualizar "Salas Populares" para interagir com o resto da comunidade.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {processedOnlineStreamers.filter(s => s.roomId !== null).map((streamer, idx) => (
-                  <div 
-                    key={idx}
-                    className="group bg-[#111116] border border-[#1f1f2a] hover:border-[#10B981]/50 rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl hover:shadow-[#10B981]/5 text-left flex flex-col justify-between"
-                  >
-                    {/* Visual aspect preview */}
-                    <div className="relative bg-slate-900 aspect-video overflow-hidden border-b border-[#1b1b24]">
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-                      <div className="absolute top-2.5 left-2.5 bg-[#46cf61] text-black px-2 py-0.5 rounded-md text-[9px] font-mono tracking-widest uppercase font-black z-20 flex items-center gap-1">
-                        <Check className="w-3 h-3 text-black" /> Fila Aberta
-                      </div>
-                      <div className="absolute bottom-2.5 right-2.5 bg-[#121216]/90 border border-slate-700/50 px-2 py-1 rounded text-[9px] font-mono font-bold z-20 text-slate-200">
-                        {streamer.viewers.toLocaleString('pt-BR')} viewers
-                      </div>
-
-                      {/* Mock thumbnail art representation */}
-                      <div className="absolute inset-0 flex items-center justify-center text-slate-600">
-                        <Tv className="w-12 h-12 opacity-15" />
-                      </div>
-                    </div>
-
-                    <div className="p-4 space-y-3.5">
-                      <div className="flex items-start gap-3">
-                        <img src={streamer.avatarUrl} className="w-8 h-8 rounded-lg object-cover border border-[#2d2d3c]" alt="" />
-                        <div className="min-w-0 flex-1 leading-tight">
-                          <span className="text-xs font-black block truncate" style={{ color: streamer.color }}>{streamer.displayName}</span>
-                          <span className="text-[10px] text-slate-400 font-bold block truncate mt-0.5">{streamer.title}</span>
-                          <span className="text-[9px] text-[#9146FF] font-mono font-bold uppercase block mt-1">{streamer.game}</span>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-[#1a1a24] pt-3 flex items-center justify-between gap-2">
-                        <div className="text-left font-mono">
-                          <span className="text-[8px] text-slate-500 uppercase block font-bold leading-none">Vídeos na fila</span>
-                          <span className="text-xs font-extrabold text-[#11c78b] block mt-0.5">{streamer.activeQueueCount} envios</span>
-                        </div>
-                        <button 
-                          onClick={() => handleJoin(streamer.roomId)}
-                          className="h-8 px-3.1 bg-[#10B981] hover:bg-[#0ba06e] text-[10px] text-black font-black uppercase tracking-wider rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-md shadow-[#10B981]/15"
-                        >
-                          Entrar e Enviar Mídia
-                        </button>
-                      </div>
+            {(() => {
+              const sortedAndPrioritized = [...processedOnlineStreamers].sort((a, b) => {
+                // 1. roomId !== null (active queue has top priority)
+                if (a.roomId !== null && b.roomId === null) return -1;
+                if (a.roomId === null && b.roomId !== null) return 1;
+                
+                // 2. hasOpenedQueueBefore === true (used product gets next priority)
+                if (a.hasOpenedQueueBefore && !b.hasOpenedQueueBefore) return -1;
+                if (!a.hasOpenedQueueBefore && b.hasOpenedQueueBefore) return 1;
+                
+                // Sort by viewer count or just alphabetical as fallback
+                return (b.viewers || 0) - (a.viewers || 0);
+              });
+              
+              if (sortedAndPrioritized.length === 0) {
+                return (
+                  <div className="bg-[#121216] border border-[#20202a] rounded-none p-8 text-center space-y-3">
+                    <HelpCircle className="w-8 h-8 text-slate-600 mx-auto" />
+                    <div className="max-w-md mx-auto space-y-1">
+                      <span className="text-sm font-bold text-slate-300 block font-mono">Nenhum canal seguido está ao vivo</span>
+                      <p className="text-xs text-slate-500 leading-relaxed font-sans">Nenhum criador que você segue está ao vivo no momento.</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              }
+              
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {sortedAndPrioritized.map((streamer, idx) => {
+                    const isLiveQueue = streamer.roomId !== null;
+                    const isVeteran = streamer.hasOpenedQueueBefore;
+                    
+                    return (
+                      <div 
+                        key={idx}
+                        className={`group bg-[#111116] border transition-all duration-300 text-left flex flex-col justify-between rounded-none ${
+                          isLiveQueue 
+                            ? 'border-[#10B981]/40 hover:border-[#10B981] hover:shadow-lg hover:shadow-[#10B981]/5' 
+                            : isVeteran
+                            ? 'border-[#9146FF]/30 hover:border-[#9146FF]/80 opacity-90 hover:opacity-102'
+                            : 'border-[#2d2d3e]/40 hover:border-[#2d2d3e]/90 opacity-50 hover:opacity-100' // low priority
+                        }`}
+                      >
+                        {/* Visual aspect preview */}
+                        <div className="relative bg-slate-900 aspect-video overflow-hidden border-b border-[#1b1b24] rounded-none">
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent z-10" />
+                          
+                          {/* Badge indicating system status */}
+                          {isLiveQueue ? (
+                            <div className="absolute top-2.5 left-2.5 bg-[#10B981] text-black px-2 py-0.5 rounded-none text-[9px] font-mono tracking-wider uppercase font-black z-20 flex items-center gap-1">
+                              <Check className="w-3 h-3 text-black" /> Fila Aberta
+                            </div>
+                          ) : isVeteran ? (
+                            <div className="absolute top-2.5 left-2.5 bg-[#9146FF] text-white px-2 py-0.5 rounded-none text-[9px] font-mono tracking-wider uppercase font-black z-20 flex items-center gap-1">
+                              <Radio className="w-3 h-3 text-white animate-pulse" /> Já abriu Fila
+                            </div>
+                          ) : (
+                            <div className="absolute top-2.5 left-2.5 bg-slate-800/80 text-slate-400 px-2 py-0.5 rounded-none text-[9px] font-mono tracking-wider uppercase font-bold z-20 flex items-center gap-1">
+                              <Tv className="w-3 h-3 text-slate-400" /> Sem Histórico
+                            </div>
+                          )}
+                          
+                          <div className="absolute bottom-2.5 right-2.5 bg-[#121216]/90 border border-slate-700/50 px-2 py-1 rounded-none text-[9px] font-mono font-bold z-20 text-slate-200">
+                            {streamer.viewers.toLocaleString('pt-BR')} assistindo
+                          </div>
+
+                          {/* Mock thumbnail art representation */}
+                          <div className="absolute inset-0 flex items-center justify-center text-slate-800">
+                            <Tv className="w-12 h-12 opacity-15" />
+                          </div>
+                        </div>
+
+                        <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+                          <div className="flex items-start gap-3">
+                            <img src={streamer.avatarUrl} className="w-8 h-8 rounded-none object-cover border border-[#2d2d3c]" alt="" />
+                            <div className="min-w-0 flex-1 leading-tight">
+                              <span className="text-xs font-black block truncate" style={{ color: streamer.color }}>{streamer.displayName}</span>
+                              <p className="text-[10px] text-slate-400 font-semibold block truncate mt-0.5" title={streamer.title}>{streamer.title}</p>
+                              <span className="text-[9px] text-[#9146FF] font-mono font-bold uppercase block mt-1">{streamer.game}</span>
+                            </div>
+                          </div>
+
+                          <div className="border-t border-[#1a1a24] pt-3 flex items-center justify-between gap-2 mt-auto">
+                            {isLiveQueue ? (
+                              <>
+                                <div className="text-left font-mono">
+                                  <span className="text-[8px] text-slate-500 uppercase block font-bold leading-none">Coleção</span>
+                                  <span className="text-xs font-extrabold text-[#11c78b] block mt-0.5">{streamer.activeQueueCount} mídias</span>
+                                </div>
+                                <button 
+                                  onClick={() => handleJoin(streamer.roomId)}
+                                  className="h-8 px-3 bg-[#10B981] hover:bg-[#0ba06e] text-[9px] text-black font-black uppercase tracking-wider rounded-none transition-colors cursor-pointer flex items-center gap-1 shadow-md shadow-[#10B981]/15"
+                                >
+                                  Entrar na Fila
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-left font-mono">
+                                  <span className="text-[8px] text-slate-500 uppercase block font-bold leading-none">Status</span>
+                                  <span className="text-xs font-bold text-slate-400 block mt-0.5">Sem Sala no Momento</span>
+                                </div>
+                                <button 
+                                  onClick={() => handleRequestQueue(streamer.login)}
+                                  disabled={requestedQueues.includes(streamer.login)}
+                                  className={`h-8 px-3 text-[9px] uppercase font-bold rounded-none transition-all cursor-pointer ${
+                                    requestedQueues.includes(streamer.login)
+                                      ? 'bg-emerald-950/20 text-[#10B981] border border-emerald-900/30'
+                                      : isVeteran
+                                      ? 'bg-[#9146FF]/10 text-[#9146FF] hover:bg-[#9146FF]/25 border border-[#9146FF]/30'
+                                      : 'bg-white/[0.02] hover:bg-slate-800 text-slate-500 hover:text-white border border-[#2d2d3e]'
+                                  }`}
+                                >
+                                  {requestedQueues.includes(streamer.login) ? '✓ OK!' : 'Pedir Fila'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </section>
 
           {/* SECTION 2: CONTINUE DE ONDE PAROU (LAST SESSIONS) */}
@@ -1180,7 +1224,7 @@ export default function Lobby() {
           {/* SECTION 6: CANAIS SEGUIDOS OFFLINE COM MAIS DETALHES */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <div className="p-1 h-7 w-7 bg-indigo-500/10 text-[#a855f7] rounded-lg flex items-center justify-center">
+              <div className="p-1 h-7 w-7 bg-indigo-500/10 text-[#a855f7] rounded-none flex items-center justify-center">
                 <FolderHeart className="w-4 h-4 text-[#a855f7]" />
               </div>
               <h3 className="text-base font-extrabold uppercase tracking-wide text-white font-sans">
@@ -1188,33 +1232,59 @@ export default function Lobby() {
               </h3>
             </div>
 
-            <div className="bg-[#0e0e12] border border-[#191924]/50 rounded-xl p-5">
+            <div className="bg-[#0e0e12] border border-[#191924]/50 rounded-none p-5">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-                {offlineFollowedStreamers.map((stream, idx) => (
-                  <div 
-                    key={idx}
-                    className="p-3 bg-[#13131b]/60 border border-[#232333]/30 rounded-xl text-center space-y-2 relative group"
-                  >
-                    <img src={stream.avatarUrl} className="w-11 h-11 rounded-xl object-cover mx-auto border border-[#2c2c3d]/60 opacity-60 group-hover:opacity-102 transition-opacity" alt="" />
-                    
-                    <div className="space-y-0.5 min-w-0">
-                      <span className="text-xs font-black text-slate-300 block truncate leading-none">{stream.displayName}</span>
-                      <span className="text-[8px] text-slate-600 block leading-none font-mono">Última Live há 3d</span>
-                    </div>
+                {(() => {
+                  const sortedOffline = [...offlineFollowedStreamers].sort((a, b) => {
+                    const valA = a.hasOpenedQueueBefore ? 1 : 0;
+                    const valB = b.hasOpenedQueueBefore ? 1 : 0;
+                    return valB - valA;
+                  });
 
-                    <button 
-                      onClick={() => handleRequestQueue(stream.login)}
-                      disabled={requestedQueues.includes(stream.login)}
-                      className={`w-full py-1 rounded text-[9px] font-bold block transition-all ${
-                        requestedQueues.includes(stream.login)
-                          ? 'bg-emerald-950/20 text-[#10B981] border border-emerald-900/30'
-                          : 'bg-white/[0.02] hover:bg-slate-800 text-slate-400 group-hover:text-white border border-white/[0.04]'
-                      }`}
-                    >
-                      {requestedQueues.includes(stream.login) ? 'Avisado! ✔' : 'Pedir Fila'}
-                    </button>
-                  </div>
-                ))}
+                  return sortedOffline.map((stream, idx) => {
+                    const isVeteran = stream.hasOpenedQueueBefore;
+                    return (
+                      <div 
+                        key={idx}
+                        className={`p-3 bg-[#13131b]/60 border rounded-none text-center space-y-2 relative group flex flex-col justify-between ${
+                          isVeteran 
+                            ? 'border-[#9146FF]/30 opacity-95 group-hover:opacity-102 hover:border-[#9146FF]' 
+                            : 'border-[#232333]/30 opacity-50 hover:opacity-90'
+                        }`}
+                      >
+                        <div>
+                          <div className="relative inline-block">
+                            <img src={stream.avatarUrl} className="w-11 h-11 rounded-none object-cover mx-auto border border-[#2c2c3d]/60 opacity-80 group-hover:opacity-102 transition-opacity" alt="" />
+                            {isVeteran && (
+                              <span className="absolute -top-0.5 -right-0.5 text-[7px] font-black uppercase bg-[#9146FF] text-white px-1 font-mono rounded-none">VET</span>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-0.5 min-w-0 mt-1">
+                            <span className="text-xs font-black text-slate-300 block truncate leading-none">{stream.displayName}</span>
+                            <span className="text-[8px] text-slate-600 block leading-none font-mono">
+                              {isVeteran ? 'Já abriu Fila' : 'Offline'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => handleRequestQueue(stream.login)}
+                          disabled={requestedQueues.includes(stream.login)}
+                          className={`w-full py-1 rounded-none text-[9px] font-bold block transition-all ${
+                            requestedQueues.includes(stream.login)
+                              ? 'bg-emerald-950/20 text-[#10B981] border border-emerald-900/30'
+                              : isVeteran
+                              ? 'bg-[#9146FF]/10 text-[#9146FF] hover:bg-[#9146FF]/25 border border-[#9146FF]/20'
+                              : 'bg-white/[0.02] hover:bg-slate-800 text-slate-400 group-hover:text-white border border-white/[0.04]'
+                          }`}
+                        >
+                          {requestedQueues.includes(stream.login) ? 'Avisado! ✔' : 'Pedir Fila'}
+                        </button>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           </section>

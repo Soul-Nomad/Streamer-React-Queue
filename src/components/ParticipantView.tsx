@@ -431,7 +431,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       <span className="font-bold text-sm text-white truncate w-full block">@{u.name}</span>
                     </div>
                     {renderTwitchBadges(u)}
-                    {(u.badges && u.badges.length === 0 || !u.twitchData) && <span className="text-[10px] text-[#ADADB8]">Espectador</span>}
+                    {(!u.twitchData?.badges?.length || !u.twitchData) && <span className="text-[10px] text-[#ADADB8]">Espectador</span>}
                   </div>
                   {u.id === socket.id && <div className="text-[10px] font-bold px-2 py-1 bg-[#1F1F23] rounded uppercase tracking-wider text-[#9146FF]">Você</div>}
                 </div>
