@@ -355,7 +355,7 @@ function CustomTikTokPlayer({ url, getRatioClass, webcamStream, WebcamPreview }:
        <div className={clsx("w-full h-full flex items-center justify-center p-0 transition-all duration-300 relative overflow-hidden", webcamStream ? "pt-[150px]" : "pt-0")}>
           <iframe
              src={embedUrl}
-             className="w-[102%] h-[102%] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0 rounded-sm bg-[#0A0A0A]"
+             className="w-full h-full border-0 rounded-sm bg-[#0A0A0A]"
              allowFullScreen
              allow="autoplay; encrypted-media; picture-in-picture"
           ></iframe>

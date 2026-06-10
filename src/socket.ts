@@ -165,7 +165,7 @@ class AblySocketAdapter {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: this.getUserId(),
+          userId: args[0]?.userId || this.getUserId(),
           data: args[0]
         })
       });

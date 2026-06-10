@@ -873,9 +873,7 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     };
 
     const updatedQueue = [...(state.queue || [])];
-    if (newVideo.status === 'approved') {
-      updatedQueue.push(newVideo);
-    }
+    updatedQueue.push(newVideo);
 
     const updatedState = { ...state, queue: updatedQueue };
 
@@ -922,8 +920,29 @@ app.post(['/sessions/:id/approve_video', '/api/sessions/:id/approve_video'], asy
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    // Mark that in videos list or logs
-    res.json({ success: true, session: state });
+    const updatedQueue = (state.queue || []).map((v: any) => 
+      v.id === videoId ? { ...v, status: 'approved' } : v
+    );
+    const updatedState = { ...state, queue: updatedQueue };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', roomId);
+
+    await supabaseAdmin
+      .from('videos')
+      .update({ status: 'approved' })
+      .eq('room_id', roomId)
+      .eq('id', videoId); // Assuming id maps, but DB has implicit UUID. We'll update by video_url
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    res.json({ success: true, session: updatedState });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

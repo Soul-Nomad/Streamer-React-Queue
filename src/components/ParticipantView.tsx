@@ -110,7 +110,8 @@ export default function ParticipantView({ session }: { session: SessionState }) 
         num1: captchaChallenge.num1,
         num2: captchaChallenge.num2,
         answer: captchaAnswer.trim()
-      }
+      },
+      userId: me?.userId || socket.getUserId()
     };
 
     if (targetRoomId) {
