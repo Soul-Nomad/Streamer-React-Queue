@@ -812,10 +812,11 @@ export default function HostView({ session }: { session: SessionState }) {
 
             <button 
               onClick={() => {
+                const activeRoomId = localStorage.getItem('active_room_id');
+                socket.emit('end_session', { roomId: activeRoomId || undefined });
                 localStorage.removeItem('active_room_id');
                 localStorage.removeItem('active_role');
                 localStorage.removeItem('active_session_payload');
-                socket.emit('end_session');
               }} 
               className="w-11 h-11 rounded-sm flex items-center justify-center text-[#F44336] bg-[#F44336]/10 hover:text-white hover:bg-[#F44336] transition-all cursor-pointer animate-fade-in"
               title="Encerrar Sessão"

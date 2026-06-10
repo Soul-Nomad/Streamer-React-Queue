@@ -88,6 +88,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.set('trust proxy', 1);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // RATE LIMIT ON HTTP LEVEL
 const ipHttpTrack = new Map<string, { count: number, resetTime: number }>();

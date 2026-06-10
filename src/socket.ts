@@ -2,6 +2,17 @@ import * as Ably from 'ably';
 
 export function getBackendUrl(): string {
   if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // If running in development/local or preview containers, always use the current origin
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('.run.app') ||
+      hostname.includes('ais-dev') ||
+      hostname.includes('ais-pre')
+    ) {
+      return window.location.origin.replace(/\/+$/, '');
+    }
     const runtimeConfig = (window as any).__RUNTIME_CONFIG__ || {};
     const backendUrl = runtimeConfig.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || window.location.origin;
     return backendUrl.replace(/\/+$/, '');
@@ -191,11 +202,12 @@ class AblySocketAdapter {
 
     const cleanBackendUrl = getBackendUrl();
 
+    const userId = this.getUserId();
     this.ably = new Ably.Realtime({
-      authUrl: `${cleanBackendUrl}/api/auth/ably-token`,
+      authUrl: `${cleanBackendUrl}/api/auth/ably-token?userId=${encodeURIComponent(userId)}&roomId=${encodeURIComponent(roomId)}`,
       authMethod: 'POST',
       authParams: {
-        userId: this.getUserId(),
+        userId,
         roomId
       }
     });
