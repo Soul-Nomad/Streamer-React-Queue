@@ -782,6 +782,13 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
     }
 
     const cleanUsers = (state.users || []).filter((u: any) => u.userId !== userId);
+    
+    // Persistent Ban Check
+    const username = twitchData?.login || name || 'Viewer';
+    if (state.blacklistUsernames?.includes(username.toLowerCase())) {
+      return res.status(403).json({ error: 'Você está permanentemente banido desta sala.' });
+    }
+
     const newUser = {
       id: userId,
       userId,
@@ -832,7 +839,23 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
     const userRecord = state.users.find((u: any) => u.userId === userId);
-    const username = userRecord?.name || 'Anonymous';
+    
+    // ANONYMITY REMOVAL: Require Twitch Data
+    if (!userRecord?.twitchData?.login) {
+      return res.status(401).json({ error: 'Apenas usuários autenticados com conta da Twitch podem enviar vídeos nesta sessão.' });
+    }
+
+    const username = userRecord?.name || userRecord?.twitchData?.displayName || 'Viewer';
+
+    // CHECK FOR BAN OR TIMEOUT
+    if (userRecord.isBanned) {
+      return res.status(403).json({ error: 'Você está permanentemente banido desta sala.' });
+    }
+
+    if (userRecord.timeoutUntil && Date.now() < userRecord.timeoutUntil) {
+      const remaining = Math.ceil((userRecord.timeoutUntil - Date.now()) / 1000);
+      return res.status(403).json({ error: `Você está em timeout. Aguarde mais ${remaining} segundos.` });
+    }
 
     const vCheck = sanitizeAndValidateUrl(url, state.settings);
     if (!vCheck.valid) {
@@ -1239,13 +1262,30 @@ app.post(['/sessions/:id/timeout_user', '/api/sessions/:id/timeout_user'], async
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    // Disconnect target user locally via trigger
+    const timeoutUntil = Date.now() + (minutes * 60 * 1000);
+    const updatedUsers = (state.users || []).map((u: any) => {
+      if (u.userId === targetUserId) {
+        return { ...u, timeoutUntil };
+      }
+      return u;
+    });
+
+    const updatedState = { ...state, users: updatedUsers };
+    
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', roomId);
+
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
-      await channel.publish('error', `Acesso suspenso: você recebeu timeout de ${minutes} minutos.`);
+      // ONLY publish session_state to avoid duplicate "error/status" messages if client handles it manually
+      await channel.publish('session_state', updatedState);
+      // Removed the 'error' publish to avoid duplication on client screen
     }
 
-    res.json({ success: true, session: state });
+    res.json({ success: true, session: updatedState });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1256,13 +1296,39 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
   try {
     const roomId = req.params.id;
     const { data } = req.body;
-    const targetUserId = data?.userId;
+    const { userId: targetUserId, banType, reason } = data;
 
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
+    // Handle TIMEOUT logic if banType is temporary
+    if (banType === 'temporary') {
+      const timeoutUntil = Date.now() + (10 * 60 * 1000); // 10 mins default for dashboard "temporary"
+      const updatedUsers = (state.users || []).map((u: any) => {
+        if (u.userId === targetUserId) return { ...u, timeoutUntil };
+        return u;
+      });
+      const updatedState = { ...state, users: updatedUsers };
+      const supabaseAdmin = getSupabaseAdmin();
+      await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+      if (ablyRest) {
+        const channel = ablyRest.channels.get(`session:${roomId}`);
+        await channel.publish('session_state', updatedState);
+      }
+      return res.json({ success: true, session: updatedState });
+    }
+
+    // Permanent Ban
+    const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
+    const targetUsername = targetUser?.twitchData?.login || targetUser?.name || 'unknown';
+    
+    const blacklistUsernames = [...(state.blacklistUsernames || [])];
+    if (!blacklistUsernames.includes(targetUsername)) {
+      blacklistUsernames.push(targetUsername);
+    }
+
     const filteredUsers = (state.users || []).filter((u: any) => u.userId !== targetUserId);
-    const updatedState = { ...state, users: filteredUsers };
+    const updatedState = { ...state, users: filteredUsers, blacklistUsernames };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
@@ -1273,7 +1339,8 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
       await channel.publish('session_state', updatedState);
-      await channel.publish('error', `Usuário banido permanentemente.`);
+      // Publish a specific kick event so the client knows it was banned immediately
+      await channel.publish('kick', { userId: targetUserId, reason: reason || 'Banido permanentemente.' });
     }
 
     res.json({ success: true, session: updatedState });
