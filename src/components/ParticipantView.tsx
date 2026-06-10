@@ -73,8 +73,21 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const [timeoutSeconds, setTimeoutSeconds] = useState(0);
 
   const me = session.users.find(u => u.userId === socket.getUserId() || u.id === socket.id);
-  const isBanned = me?.isBanned || session.blacklistUsernames?.includes(me?.twitchData?.login || '');
+  const isBanned = me?.isBanned || session.blacklistUsernames?.some(u => u.toLowerCase() === (me?.twitchData?.login || '').toLowerCase());
   
+  // Auto-redirect if banned
+  useEffect(() => {
+    if (isBanned) {
+      const timer = setTimeout(() => {
+        localStorage.removeItem('active_room_id');
+        localStorage.removeItem('active_role');
+        localStorage.removeItem('active_session_payload');
+        window.location.href = '/';
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBanned]);
+
   const queueEndRef = useRef<HTMLDivElement>(null);
   const hostUser = session.users.find(u => u.isHost);
   const hostTwitchLogin = hostUser?.twitchData?.login || 'twitch';
@@ -317,9 +330,39 @@ export default function ParticipantView({ session }: { session: SessionState }) 
 
             {/* 2. Scrollable Queue & History Timeline */}
             <div className={clsx(
-              "flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6 transition-all duration-500",
-              timeoutSeconds > 0 && "blur-md pointer-events-none grayscale opacity-50"
+              "flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6 transition-all duration-500 relative",
+              timeoutSeconds > 0 && "blur-xl grayscale opacity-30 pointer-events-none"
             )}>
+              
+              {/* Timeout Card for Queue Area */}
+              {timeoutSeconds > 0 && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center p-6 bg-black/20 pointer-events-auto">
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-[#18181B] border border-[#9146FF]/30 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-4"
+                  >
+                    <div className="w-16 h-16 bg-[#9146FF]/10 rounded-full flex items-center justify-center mb-2">
+                       <Clock className="w-8 h-8 text-[#9146FF] animate-pulse" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Sessão Suspensa</h2>
+                      <p className="text-sm text-[#ADADB8] mt-1">Você recebeu um timeout temporário e não pode interagir no momento.</p>
+                    </div>
+                    
+                    <div className="bg-[#0E0E10] px-6 py-4 rounded-xl border border-[#1F1F23] w-full">
+                      <span className="text-4xl font-black text-white tabular-nums">
+                        {Math.floor(timeoutSeconds/60)}:{String(timeoutSeconds%60).padStart(2, '0')}
+                      </span>
+                      <span className="block text-[10px] uppercase font-bold text-[#606060] tracking-widest mt-1">Tempo Restante</span>
+                    </div>
+
+                    <p className="text-[10px] text-[#606060] uppercase leading-tight">
+                      O acesso será restaurado automaticamente assim que o cronômetro zerar.
+                    </p>
+                  </motion.div>
+                </div>
+              )}
               
               {/* Info Banner for New Users (Friction reduction) */}
               {(me?.totalSubmitted === 0 && historyVideos.length === 0) && (
@@ -399,19 +442,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             </div>
 
             {/* 3. Sticky Bottom Submission Bar Component */}
-            <div className="absolute bottom-0 left-0 w-full bg-[#18181B] border-t border-[#1F1F23] p-3 md:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom z-20">
+            <div className={clsx(
+              "absolute bottom-0 left-0 w-full bg-[#18181B] border-t border-[#1F1F23] p-3 md:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom z-20 transition-all duration-500",
+              timeoutSeconds > 0 && "blur-xl pointer-events-none opacity-30"
+            )}>
               
-              {timeoutSeconds > 0 && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#18181B]/80 backdrop-blur-sm rounded-t-xl overflow-hidden">
-                   <div className="flex flex-col items-center text-center p-4">
-                      <Clock className="w-6 h-6 text-[#9146FF] animate-pulse mb-1.5" />
-                      <span className="text-xs font-black uppercase tracking-widest text-[#ADADB8]">Sessão Suspensa (Timeout)</span>
-                      <span className="text-2xl font-black text-white mt-1">{Math.floor(timeoutSeconds/60)}:{String(timeoutSeconds%60).padStart(2, '0')}</span>
-                      <p className="text-[10px] text-[#606060] mt-1 uppercase tracking-tight">Aguarde o fim da penalidade para participar</p>
-                   </div>
-                </div>
-              )}
-
               {!me?.twitchData?.login && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#18181B]/95 backdrop-blur-lg rounded-t-xl overflow-hidden border-t border-[#9146FF]/30">
                    <div className="flex flex-col items-center text-center p-4">
