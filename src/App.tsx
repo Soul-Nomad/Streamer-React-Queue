@@ -109,6 +109,17 @@ export default function App() {
        localStorage.removeItem('active_session_payload');
        showToast("A sessão do host foi finalizada.", 'info');
     });
+
+    socket.on('kick', (data: { userId: string, reason: string }) => {
+       if (data.userId === socket.getUserId()) {
+          setSession(null);
+          setIsHost(false);
+          localStorage.removeItem('active_room_id');
+          localStorage.removeItem('active_role');
+          localStorage.removeItem('active_session_payload');
+          showToast(`Você foi banido da sala: ${data.reason}`, 'error');
+       }
+    });
     
     return () => {
        socket.off('connect', handleConnect);
@@ -116,6 +127,7 @@ export default function App() {
        socket.off('session_state');
        socket.off('session_ended');
        socket.off('session_created');
+       socket.off('kick');
        socket.off('error');
        socket.off('timeout');
        socket.off('warn');
