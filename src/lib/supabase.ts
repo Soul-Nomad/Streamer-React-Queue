@@ -112,6 +112,7 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
   const initialSessionState = {
     id: roomId,
     hostId: hostId,
+    twitchData: twitchData,
     users: [],
     queue: [],
     currentVideoId: null,

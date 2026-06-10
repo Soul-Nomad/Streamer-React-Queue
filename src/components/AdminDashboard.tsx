@@ -4,17 +4,98 @@ import { SessionState } from '../types';
 import { 
   ShieldCheck, ShieldAlert, Users, Clock, ArrowLeftRight, CheckCircle, 
   XOctagon, AlertTriangle, MessageSquare, Search, Filter, ShieldOff, Check, X,
-  ShieldHalf, Settings, Save
+  ShieldHalf, Settings, Save, ExternalLink
 } from 'lucide-react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 
+const renderUserAvatarAdmin = (user: any, sizeClass = "w-8 h-8") => {
+  const twitch = user?.twitchData;
+  if (twitch?.avatarUrl) {
+    return (
+      <img
+        src={twitch.avatarUrl}
+        alt={twitch.displayName || user.username || user.name || '?'}
+        referrerPolicy="no-referrer"
+        className={`${sizeClass} rounded-sm object-cover border border-[#404040] bg-[#121212] shrink-0`}
+      />
+    );
+  }
+  const name = twitch?.displayName || user.username || user.name || '?';
+  const color = twitch?.color || '#505050';
+  const initials = name.trim().substring(0, 2).toUpperCase();
+  return (
+    <div
+      className={`${sizeClass} rounded-sm flex items-center justify-center font-bold text-[10px] text-white shrink-0 border border-[#404040]`}
+      style={{ backgroundColor: color }}
+    >
+      {initials}
+    </div>
+  );
+};
+
+const renderTwitchBadgesAdmin = (user: any) => {
+  const badges = user?.twitchData?.badges || [];
+  if (badges.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 shrink-0 mt-0.5">
+      {badges.map((b: string) => {
+        if (b === 'broadcaster') {
+          return (
+            <span key={b} className="bg-[#FF3B30] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse" title="Broadcaster (Streamer)">
+              👑 STR
+            </span>
+          );
+        }
+        if (b === 'moderator') {
+          return (
+            <span key={b} className="bg-[#4CAF50] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30" title="Moderador">
+              🛡️ MOD
+            </span>
+          );
+        }
+        if (b === 'vip') {
+          return (
+            <span key={b} className="bg-[#E25CFF] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30" title="VIP">
+              💎 VIP
+            </span>
+          );
+        }
+        if (b === 'subscriber') {
+          return (
+            <span key={b} className="bg-[#FFD700] text-black text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FFB300]/30" title="Inscrito">
+              ⭐ SUB
+            </span>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+};
+
 export default function AdminDashboard({ session }: { session: SessionState }) {
   const [activeView, setActiveView] = useState<'overview' | 'users' | 'history'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const allUsers = session.allUserProfiles || [];
+  const allUsers = useMemo(() => {
+    const list = session.allUserProfiles || [];
+    if (list.length > 0) return list;
+    return (session.users || []).map((u: any) => ({
+      userId: u.userId || u.id,
+      username: u.twitchData?.login || u.name,
+      reputation: u.reputation ?? 100,
+      strikes: u.strikes ?? 0,
+      totalSubmitted: u.totalSubmitted ?? 0,
+      approvedCount: u.approvedCount ?? 0,
+      rejectedCount: u.rejectedCount ?? 0,
+      shadowBanned: u.shadowBanned ?? false,
+      restrictedUntil: u.restrictedUntil ?? 0,
+      twitchData: u.twitchData
+    }));
+  }, [session.allUserProfiles, session.users]);
+
   const bans = session.allBans || [];
   const history = session.allHistoryLogs || [];
   const alerts = session.suspiciousAlerts || [];
@@ -135,19 +216,32 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                      <p className="text-[#505050] text-sm italic font-mono">Nenhum evento anômalo detectado.</p>
                    </div>
                  ) : (
-                   alerts.map(a => (
-                     <div key={a.id} className={clsx("p-4 rounded border flex items-start gap-4", a.severity === 'high' ? 'bg-[#F44336]/5 border-[#F44336]/20' : a.severity === 'medium' ? 'bg-[#FF8C42]/5 border-[#FF8C42]/20' : 'bg-[#222222]/40 border-[#222222]')}>
-                       <ShieldAlert className={clsx("w-5 h-5 mt-0.5", a.severity === 'high' ? 'text-[#F44336]' : a.severity === 'medium' ? 'text-[#FF8C42]' : 'text-[#B0B0B0]')} />
-                       <div className="flex-1">
-                         <div className="flex justify-between items-start">
-                           <span className="font-bold text-sm text-white font-mono">@{a.username}</span>
-                           <span className="text-[10px] font-mono text-[#505050]">{new Date(a.timestamp).toLocaleTimeString()}</span>
-                         </div>
-                         <p className="text-xs text-[#B0B0B0] mt-1">{a.message}</p>
-                         <p className="text-[9px] text-[#505050] mt-1.5 font-mono uppercase">Tipo: {a.type}</p>
-                       </div>
-                     </div>
-                   ))
+                   alerts.map(a => {
+                      const matchedUser = session.users?.find(u => u.name === a.username || u.userId === a.userId || u.twitchData?.login === a.username);
+                      const twitch = matchedUser?.twitchData;
+                      const displayName = twitch?.displayName || a.username;
+                      const color = twitch?.color || '#FFFFFF';
+                      return (
+                        <div key={a.id} className={clsx("p-4 rounded border flex items-start gap-4", a.severity === 'high' ? 'bg-[#F44336]/5 border-[#F44336]/20' : a.severity === 'medium' ? 'bg-[#FF8C42]/5 border-[#FF8C42]/20' : 'bg-[#222222]/40 border-[#222222]')}>
+                          {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-8 h-8 mt-0.5") : (
+                            <ShieldAlert className={clsx("w-8 h-8 mt-0.5 p-1 bg-[#222222] border border-[#333333] rounded", a.severity === 'high' ? 'text-[#F44336]' : a.severity === 'medium' ? 'text-[#FF8C42]' : 'text-[#B0B0B0]')} />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="min-w-0">
+                                <span className="font-bold text-sm block truncate" style={{ color: color }}>{displayName}</span>
+                                {twitch?.login && (
+                                  <span className="text-[10px] text-[#505050] font-mono">@{twitch.login}</span>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-mono text-[#505050] shrink-0 mt-0.5">{new Date(a.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                            <p className="text-xs text-[#B0B0B0] mt-1">{a.message}</p>
+                            <p className="text-[9px] text-[#505050] mt-1.5 font-mono uppercase">Tipo: {a.type}</p>
+                          </div>
+                        </div>
+                      );
+                    })
                  )}
                </div>
              </div>
@@ -163,16 +257,25 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                      <p className="text-[#505050] text-sm italic font-mono">Nenhum banimento ativo na sala.</p>
                    </div>
                  ) : (
-                   bans.filter(b => b.active).map(b => (
-                     <div key={b.id} className="p-3 bg-[#121212] rounded border border-[#222222]">
-                       <div className="flex justify-between items-center mb-1">
-                         <span className="text-xs font-bold text-white font-mono">@{b.username}</span>
-                         <button onClick={() => handleUnban(b.userId)} className="text-[10px] bg-[#222222] hover:bg-[#333333] border border-[#404040] px-2 py-1 rounded cursor-pointer transition-colors text-[#4CAF50] font-bold font-mono">Desbanir</button>
-                       </div>
-                       <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-1.5 py-0.5 rounded uppercase font-mono font-bold tracking-widest leading-none border border-[#F44336]/10">{b.banType}</span>
-                       <p className="text-[11px] text-[#B0B0B0] mt-1.5 line-clamp-2 font-mono">{b.reason}</p>
-                     </div>
-                   ))
+                   bans.filter(b => b.active).map(b => {
+                      const matchedUser = session.users?.find(u => u.name === b.username || u.userId === b.userId || u.twitchData?.login === b.username);
+                      const twitch = matchedUser?.twitchData;
+                      const displayName = twitch?.displayName || b.username;
+                      const color = twitch?.color || '#FFFFFF';
+                      return (
+                        <div key={b.id} className="p-3 bg-[#121212] rounded border border-[#222222] flex gap-3">
+                          {matchedUser && renderUserAvatarAdmin(matchedUser, "w-8 h-8 shrink-0")}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center mb-1 gap-2">
+                              <span className="text-xs font-bold font-mono truncate" style={{ color: color }}>{displayName}</span>
+                              <button onClick={() => handleUnban(b.userId)} className="text-[10px] bg-[#222222] hover:bg-[#333333] border border-[#404040] px-2 py-1 rounded cursor-pointer transition-colors text-[#4CAF50] font-bold font-mono shrink-0">Desbanir</button>
+                            </div>
+                            <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-1.5 py-0.5 rounded uppercase font-mono font-bold tracking-widest leading-none border border-[#F44336]/10">{b.banType}</span>
+                            <p className="text-[11px] text-[#B0B0B0] mt-1.5 line-clamp-2 font-mono">{b.reason}</p>
+                          </div>
+                        </div>
+                      );
+                    })
                  )}
                </div>
              </div>
@@ -206,53 +309,79 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                </thead>
                <tbody>
                  {filteredUsers.map(user => {
-                   const isBanned = bans.some(b => b.userId === user.userId && b.active);
-                   return (
-                     <tr key={user.userId} className="border-b border-[#222222] hover:bg-[#222222]/40 transition-colors">
-                       <td className="p-4">
-                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded bg-[#222222] flex justify-center items-center font-bold text-xs text-white border border-[#404040]">
-                              {user.username.substring(0,2).toUpperCase()}
+                    const isBanned = bans.some(b => b.userId === user.userId && b.active);
+                    const twitch = user.twitchData;
+                    const displayName = twitch?.displayName || user.username || user.name;
+                    const login = twitch?.login || (user.username !== displayName ? user.username : null);
+                    const color = twitch?.color || '#FFFFFF';
+                    return (
+                      <tr key={user.userId} className="border-b border-[#222222] hover:bg-[#222222]/40 transition-colors">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                             {renderUserAvatarAdmin(user, "w-10 h-10")}
+                             <div className="min-w-0">
+                               <div className="flex items-center gap-2">
+                                 <span className="font-bold text-sm block truncate" style={{ color: color }}>{displayName}</span>
+                                 {renderTwitchBadgesAdmin(user)}
+                               </div>
+                               
+                               <div className="flex flex-col gap-0.5 mt-0.5 opacity-90">
+                                 {login && (
+                                   <span className="text-[10px] text-[#A0A0A0] block font-mono">
+                                     @{login}
+                                   </span>
+                                 )}
+                                 <span className="text-[8px] text-[#606060] block font-mono">
+                                   ID: {user.userId}
+                                 </span>
+                                 {login && (
+                                   <a 
+                                     href={"https://twitch.tv/" + login} 
+                                     target="_blank" 
+                                     rel="noreferrer" 
+                                     className="text-[9px] text-[#9146FF] hover:underline flex items-center gap-1 mt-0.5 font-sans font-medium"
+                                   >
+                                     <ExternalLink className="w-3 h-3 text-[#A87FF4]" />
+                                     twitch.tv/{login}
+                                   </a>
+                                 )}
+                               </div>
+                             </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                             <div className="w-full max-w-[100px] h-2 bg-[#222222] rounded-sm overflow-hidden border border-[#404040]">
+                               <div className={clsx("h-full", user.reputation >= 80 ? 'bg-[#4CAF50]' : user.reputation >= 40 ? 'bg-[#FF8C42]' : 'bg-[#F44336]')} style={{ width: user.reputation + "%" }}></div>
+                             </div>
+                             <span className="text-xs font-bold text-[#B0B0B0]">{user.reputation}%</span>
+                          </div>
+                        </td>
+                        <td className="p-4 font-bold text-sm">
+                          <span className={clsx(user.strikes > 0 ? 'text-[#FF8C42]' : 'text-[#B0B0B0]')}>{user.strikes}/5</span>
+                        </td>
+                        <td className="p-4 text-xs text-[#B0B0B0]">
+                          {user.totalSubmitted} <span className="text-[#505050]">({user.approvedCount} / {user.rejectedCount})</span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center gap-1.5 mr-2">
+                              {isBanned && <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#F44336]/10">BANIDO</span>}
+                              {user.shadowBanned && <span className="text-[9px] bg-[#FF8C42]/20 text-[#FF8C42] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#FF8C42]/10">SHADOW</span>}
+                              {user.restrictedUntil && user.restrictedUntil > Date.now() && <span className="text-[9px] bg-[#FF8C42]/20 text-[#FF8C42] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#FF8C42]/15">RESTRICT</span>}
                             </div>
-                            <div>
-                              <span className="font-bold text-sm text-white block">@{user.username}</span>
-                              <span className="text-[9px] text-[#505050] block">{user.userId}</span>
+                            
+                            <div className="flex bg-[#222222] rounded p-0.5 border border-[#404040]">
+                              <button onClick={() => handlePunish(user.userId, 'temporary')} className="px-2 py-1 hover:bg-[#333333] rounded text-[10px] text-white cursor-pointer transition-colors font-bold font-mono" title="Timeout">TIMEOUT</button>
+                              <button onClick={() => handlePunish(user.userId, 'permanent')} className="px-2 py-1 hover:bg-[#F44336]/20 rounded text-[10px] text-[#F44336] cursor-pointer transition-colors font-bold font-mono" title="Ban Permanente">BANIR</button>
+                              <button onClick={() => handlePunish(user.userId, 'shadow')} className="px-2 py-1 hover:bg-[#FF8C42]/20 rounded text-[10px] text-[#FF8C42] cursor-pointer transition-colors font-bold font-mono" title="Shadow Ban">SHADOW</button>
+                              <button onClick={() => handleLiftRestrictions(user.userId)} className="px-2 py-1 hover:bg-[#4CAF50]/15 rounded text-[10px] text-[#4CAF50] cursor-pointer transition-colors border-l border-[#404040] ml-1 pl-3 font-bold font-mono" title="Remover Restrições">PERDOAR</button>
                             </div>
-                         </div>
-                       </td>
-                       <td className="p-4">
-                         <div className="flex items-center gap-2">
-                            <div className="w-full max-w-[100px] h-2 bg-[#222222] rounded-sm overflow-hidden border border-[#404040]">
-                              <div className={clsx("h-full", user.reputation >= 80 ? 'bg-[#4CAF50]' : user.reputation >= 40 ? 'bg-[#FF8C42]' : 'bg-[#F44336]')} style={{ width: `${user.reputation}%` }}></div>
-                            </div>
-                            <span className="text-xs font-bold text-[#B0B0B0]">{user.reputation}%</span>
-                         </div>
-                       </td>
-                       <td className="p-4 font-bold text-sm">
-                         <span className={clsx(user.strikes > 0 ? 'text-[#FF8C42]' : 'text-[#B0B0B0]')}>{user.strikes}/5</span>
-                       </td>
-                       <td className="p-4 text-xs text-[#B0B0B0]">
-                         {user.totalSubmitted} <span className="text-[#505050]">({user.approvedCount} / {user.rejectedCount})</span>
-                       </td>
-                       <td className="p-4">
-                         <div className="flex items-center justify-end gap-2">
-                           <div className="flex items-center gap-1.5 mr-2">
-                             {isBanned && <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#F44336]/10">BANIDO</span>}
-                             {user.shadowBanned && <span className="text-[9px] bg-[#FF8C42]/20 text-[#FF8C42] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#FF8C42]/10">SHADOW</span>}
-                             {user.restrictedUntil && user.restrictedUntil > Date.now() && <span className="text-[9px] bg-[#FF8C42]/20 text-[#FF8C42] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#FF8C42]/15">RESTRICT</span>}
-                           </div>
-                           
-                           <div className="flex bg-[#222222] rounded p-0.5 border border-[#404040]">
-                             <button onClick={() => handlePunish(user.userId, 'temporary')} className="px-2 py-1 hover:bg-[#333333] rounded text-[10px] text-white cursor-pointer transition-colors font-bold font-mono" title="Timeout">TIMEOUT</button>
-                             <button onClick={() => handlePunish(user.userId, 'permanent')} className="px-2 py-1 hover:bg-[#F44336]/20 rounded text-[10px] text-[#F44336] cursor-pointer transition-colors font-bold font-mono" title="Ban Permanente">BANIR</button>
-                             <button onClick={() => handlePunish(user.userId, 'shadow')} className="px-2 py-1 hover:bg-[#FF8C42]/20 rounded text-[10px] text-[#FF8C42] cursor-pointer transition-colors font-bold font-mono" title="Shadow Ban">SHADOW</button>
-                             <button onClick={() => handleLiftRestrictions(user.userId)} className="px-2 py-1 hover:bg-[#4CAF50]/15 rounded text-[10px] text-[#4CAF50] cursor-pointer transition-colors border-l border-[#404040] ml-1 pl-3 font-bold font-mono" title="Remover Restrições">PERDOAR</button>
-                           </div>
-                         </div>
-                       </td>
-                     </tr>
-                   )
-                 })}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                </tbody>
              </table>
            </div>
@@ -301,9 +430,31 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                      <td className="p-4 text-xs text-[#B0B0B0]">
                         {format(new Date(log.timestamp), 'dd/MM HH:mm')}
                      </td>
-                     <td className="p-4 font-bold text-sm text-white">
-                        @{log.submitterName}
-                     </td>
+                     <td className="p-4">
+                         {(() => {
+                           const matchedUser = session.users?.find(u => u.name === log.submitterName || u.userId === log.submitterId || u.twitchData?.login === log.submitterName);
+                           const twitch = matchedUser?.twitchData;
+                           const displayName = twitch?.displayName || log.submitterName;
+                           const color = twitch?.color || '#FFFFFF';
+                           return (
+                             <div className="flex items-center gap-2">
+                               {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-6 h-6") : (
+                                 <div className="w-6 h-6 rounded bg-[#222222] flex items-center justify-center text-[10px] font-bold border border-[#444] text-white">
+                                   ?
+                                 </div>
+                               )}
+                               <div className="min-w-0">
+                                 <span className="font-bold text-sm text-white truncate block" style={{ color: color }}>
+                                   {displayName}
+                                 </span>
+                                 {twitch?.login && (
+                                   <span className="text-[9px] text-[#505050] block font-mono">@{twitch.login}</span>
+                                 )}
+                               </div>
+                             </div>
+                           );
+                         })()}
+                      </td>
                      <td className="p-4 max-w-sm">
                         <p className="text-xs text-white truncate font-medium">{log.url}</p>
                         <span className="text-[9px] text-[#505050] font-mono">{log.platform}</span>

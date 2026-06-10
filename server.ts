@@ -700,23 +700,40 @@ app.get('/api/rooms', async (req, res) => {
     const supabaseAdmin = getSupabaseAdmin();
     const { data: activeRoomsDb, error } = await supabaseAdmin
       .from('rooms')
-      .select('id, twitch_channel_id, is_active, last_active_at, viewer_count, video_queue_count')
+      .select('id, twitch_channel_id, is_active, last_active_at, viewer_count, video_queue_count, room_settings(settings_json)')
       .eq('is_active', true);
 
     if (error) {
       throw error;
     }
 
-    const activeRooms = (activeRoomsDb || []).map(room => ({
-      roomId: room.id,
-      hostName: room.twitch_channel_id || 'Streamer',
-      hostAvatar: '',
-      hostLogin: room.twitch_channel_id || '',
-      hostTwitchUserId: room.twitch_channel_id || '',
-      usersCount: room.viewer_count || 1,
-      queueCount: room.video_queue_count || 0,
-      uptime: Date.now() - new Date(room.last_active_at || Date.now()).getTime()
-    }));
+    const activeRooms = (activeRoomsDb || []).map(room => {
+      let hostAvatarUrl = '';
+      let hostDisplayName = room.twitch_channel_id || 'Streamer';
+      
+      const settings = Array.isArray(room.room_settings) 
+          ? (room.room_settings[0] as any)?.settings_json 
+          : (room.room_settings as any)?.settings_json;
+
+      const hostUser = settings?.users?.find?.((u: any) => u.isHost === true);
+      const hostTwitch = hostUser?.twitchData || settings?.twitchData;
+
+      if (hostTwitch) {
+        hostAvatarUrl = hostTwitch.profileImageUrl || hostTwitch.avatarUrl || '';
+        hostDisplayName = hostTwitch.displayName || hostTwitch.login || hostDisplayName;
+      }
+
+      return {
+        roomId: room.id,
+        hostName: hostDisplayName,
+        hostAvatar: hostAvatarUrl,
+        hostLogin: room.twitch_channel_id || '',
+        hostTwitchUserId: room.twitch_channel_id || '',
+        usersCount: room.viewer_count || 1,
+        queueCount: room.video_queue_count || 0,
+        uptime: Date.now() - new Date(room.last_active_at || Date.now()).getTime()
+      };
+    });
 
     activeRooms.sort((a, b) => b.usersCount - a.usersCount);
     res.json({ rooms: activeRooms });

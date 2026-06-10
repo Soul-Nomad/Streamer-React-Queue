@@ -27,13 +27,31 @@
     overflow-x: hidden;
   }
 
-  /* Global Right-Angles Enforcer */
-  *, ::before, ::after {
-    border-radius: 0px !important;
+  /* Premium modern scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-
-  /* Preserve rounded dots and circles for status indicators or specific circles */
-  .rounded-full {
-    border-radius: 9999px !important;
+  ::-webkit-scrollbar-track {
+    background: #0a0a0c;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #252535;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9146FF/50;
   }
 }
+
+/* Custom ambient glowing states and utility definitions */
+@utility glow-purple {
+  box-shadow: 0 0 20px rgba(145, 70, 255, 0.15);
+}
+@utility glow-orange {
+  box-shadow: 0 0 20px rgba(255, 107, 53, 0.15);
+}
+@utility glow-success {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
