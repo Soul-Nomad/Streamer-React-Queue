@@ -72,18 +72,20 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const [remainingCooldown, setRemainingCooldown] = useState(0);
   const [timeoutSeconds, setTimeoutSeconds] = useState(0);
 
-  const me = session.users.find(u => u.userId === socket.getUserId() || u.id === socket.id);
+  const userId = socket.getUserId();
+  const me = session.users.find(u => u.userId === userId || u.id === socket.id);
   const isBanned = me?.isBanned || session.blacklistUsernames?.some(u => u.toLowerCase() === (me?.twitchData?.login || '').toLowerCase());
   
   // Auto-redirect if banned
   useEffect(() => {
     if (isBanned) {
       const timer = setTimeout(() => {
+        // Only redirect if still banned after the delay
         localStorage.removeItem('active_room_id');
         localStorage.removeItem('active_role');
         localStorage.removeItem('active_session_payload');
         window.location.href = '/';
-      }, 3000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [isBanned]);
@@ -201,8 +203,52 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-[100dvh] bg-[#0E0E10] text-[#EFEFF1] font-sans selection:bg-[#9146FF] selection:text-white w-full overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[100dvh] bg-[#0E0E10] text-[#EFEFF1] font-sans selection:bg-[#9146FF] selection:text-white w-full overflow-hidden relative">
       
+      {/* Timeout Overlay for the WHOLE screen */}
+      <AnimatePresence>
+        {timeoutSeconds > 0 && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-[#18181B] border border-[#9146FF]/30 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-4"
+            >
+              <div className="w-16 h-16 bg-[#9146FF]/10 rounded-full flex items-center justify-center mb-2">
+                 <Clock className="w-8 h-8 text-[#9146FF] animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-white uppercase tracking-tight">Sessão Suspensa</h2>
+                <p className="text-sm text-[#ADADB8] mt-1">Você recebeu um timeout temporário e não pode interagir no momento.</p>
+              </div>
+              
+              <div className="bg-[#0E0E10] px-6 py-4 rounded-xl border border-[#1F1F23] w-full">
+                <span className="text-4xl font-black text-white tabular-nums">
+                  {Math.floor(timeoutSeconds/60)}:{String(timeoutSeconds%60).padStart(2, '0')}
+                </span>
+                <span className="block text-[10px] uppercase font-bold text-[#606060] tracking-widest mt-1">Tempo Restante</span>
+              </div>
+
+              <p className="text-[10px] text-[#606060] uppercase leading-tight">
+                O acesso será restaurado automaticamente assim que o cronômetro zerar.
+              </p>
+              
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 text-[10px] text-[#9146FF] hover:underline uppercase font-bold"
+              >
+                Atualizar Status
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Desktop Sidebar / Mobile Hidden Drawer */}
       <nav className={clsx(
         "fixed md:relative z-50 w-[260px] h-full bg-[#18181B] border-r border-[#1F1F23] flex flex-col transition-transform duration-300",
@@ -329,40 +375,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             )}
 
             {/* 2. Scrollable Queue & History Timeline */}
-            <div className={clsx(
-              "flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6 transition-all duration-500 relative",
-              timeoutSeconds > 0 && "blur-xl grayscale opacity-30 pointer-events-none"
-            )}>
-              
-              {/* Timeout Card for Queue Area */}
-              {timeoutSeconds > 0 && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center p-6 bg-black/20 pointer-events-auto">
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-[#18181B] border border-[#9146FF]/30 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-4"
-                  >
-                    <div className="w-16 h-16 bg-[#9146FF]/10 rounded-full flex items-center justify-center mb-2">
-                       <Clock className="w-8 h-8 text-[#9146FF] animate-pulse" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Sessão Suspensa</h2>
-                      <p className="text-sm text-[#ADADB8] mt-1">Você recebeu um timeout temporário e não pode interagir no momento.</p>
-                    </div>
-                    
-                    <div className="bg-[#0E0E10] px-6 py-4 rounded-xl border border-[#1F1F23] w-full">
-                      <span className="text-4xl font-black text-white tabular-nums">
-                        {Math.floor(timeoutSeconds/60)}:{String(timeoutSeconds%60).padStart(2, '0')}
-                      </span>
-                      <span className="block text-[10px] uppercase font-bold text-[#606060] tracking-widest mt-1">Tempo Restante</span>
-                    </div>
-
-                    <p className="text-[10px] text-[#606060] uppercase leading-tight">
-                      O acesso será restaurado automaticamente assim que o cronômetro zerar.
-                    </p>
-                  </motion.div>
-                </div>
-              )}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6 transition-all duration-500 relative">
               
               {/* Info Banner for New Users (Friction reduction) */}
               {(me?.totalSubmitted === 0 && historyVideos.length === 0) && (
@@ -442,10 +455,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             </div>
 
             {/* 3. Sticky Bottom Submission Bar Component */}
-            <div className={clsx(
-              "absolute bottom-0 left-0 w-full bg-[#18181B] border-t border-[#1F1F23] p-3 md:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom z-20 transition-all duration-500",
-              timeoutSeconds > 0 && "blur-xl pointer-events-none opacity-30"
-            )}>
+            <div className="absolute bottom-0 left-0 w-full bg-[#18181B] border-t border-[#1F1F23] p-3 md:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom z-20 transition-all duration-500">
               
               {!me?.twitchData?.login && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#18181B]/95 backdrop-blur-lg rounded-t-xl overflow-hidden border-t border-[#9146FF]/30">

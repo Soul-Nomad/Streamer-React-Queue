@@ -111,13 +111,18 @@ export default function App() {
     });
 
     socket.on('kick', (data: { userId: string, reason: string }) => {
-       if (data.userId === socket.getUserId()) {
+       const currentUserId = socket.getUserId();
+       if (data.userId === currentUserId || data.userId === socket.id) {
           setSession(null);
           setIsHost(false);
           localStorage.removeItem('active_room_id');
           localStorage.removeItem('active_role');
           localStorage.removeItem('active_session_payload');
-          showToast(`Você foi banido da sala: ${data.reason}`, 'error');
+          showToast(`Você foi desconectado da sala: ${data.reason}`, 'error');
+          // Force a small delay then redirect to home to refresh state
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
        }
     });
     

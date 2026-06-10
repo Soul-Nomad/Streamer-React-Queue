@@ -1216,6 +1216,78 @@ app.post(['/sessions/:id/toggle_whitelist', '/api/sessions/:id/toggle_whitelist'
   }
 });
 
+// POST /sessions/:id/admin_action - Generic Administrative Actions
+app.post(['/sessions/:id/admin_action', '/api/sessions/:id/admin_action'], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { data } = req.body;
+    const { action, userId: targetUserId } = data || {};
+
+    const state: any = await getSession(roomId);
+    if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
+
+    let updatedUsers = [...(state.users || [])];
+    let updatedAllBans = [...(state.allBans || [])];
+    let updatedBlacklist = [...(state.blacklistUsernames || [])];
+
+    if (action === 'remove_strikes') {
+      updatedUsers = updatedUsers.map((u: any) => 
+        u.userId === targetUserId ? { ...u, strikes: 0 } : u
+      );
+    } else if (action === 'lift_restrictions' || action === 'forgive') {
+      // PERDOAR: Clear ban, timeout, and strikes
+      updatedUsers = updatedUsers.map((u: any) => {
+        if (u.userId === targetUserId) {
+          return { 
+            ...u, 
+            isBanned: false, 
+            timeoutUntil: 0, 
+            strikes: 0, 
+            shadowBanned: false, 
+            restrictedUntil: 0 
+          };
+        }
+        return u;
+      });
+
+      // Also mark ban as inactive in history if exists
+      updatedAllBans = updatedAllBans.map((b: any) => 
+        b.userId === targetUserId ? { ...b, active: false } : b
+      );
+
+      // Remove from username blacklist if possible
+      const targetUser = updatedUsers.find((u: any) => u.userId === targetUserId);
+      if (targetUser?.twitchData?.login) {
+        const login = targetUser.twitchData.login.toLowerCase();
+        updatedBlacklist = updatedBlacklist.filter(u => u.toLowerCase() !== login);
+      }
+    }
+
+    const updatedState = { 
+      ...state, 
+      users: updatedUsers, 
+      allBans: updatedAllBans, 
+      blacklistUsernames: updatedBlacklist 
+    };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', roomId);
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    res.json({ success: true, session: updatedState });
+  } catch (err: any) {
+    console.error('[Admin Action Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /sessions/:id/unban_user - Lift ban
 app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user'], async (req, res) => {
   try {
@@ -1296,12 +1368,14 @@ app.post(['/sessions/:id/timeout_user', '/api/sessions/:id/timeout_user'], async
   try {
     const roomId = req.params.id;
     const { data } = req.body;
-    const { userId: targetUserId, minutes } = data;
+    const { userId: targetUserId, minutes } = data || {};
 
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    const timeoutUntil = Date.now() + (minutes * 60 * 1000);
+    const durationMinutes = minutes || 5; // Default to 5 minutes if not specified
+    const timeoutUntil = Date.now() + (durationMinutes * 60 * 1000);
+    
     const updatedUsers = (state.users || []).map((u: any) => {
       if (u.userId === targetUserId) {
         return { ...u, timeoutUntil };
@@ -1319,9 +1393,7 @@ app.post(['/sessions/:id/timeout_user', '/api/sessions/:id/timeout_user'], async
 
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
-      // ONLY publish session_state to avoid duplicate "error/status" messages if client handles it manually
       await channel.publish('session_state', updatedState);
-      // Removed the 'error' publish to avoid duplication on client screen
     }
 
     res.json({ success: true, session: updatedState });
