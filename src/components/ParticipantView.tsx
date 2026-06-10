@@ -71,8 +71,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [remainingCooldown, setRemainingCooldown] = useState(0);
 
-  const me = session.users.find(u => u.id === socket.id);
+  const me = session.users.find(u => u.userId === socket.getUserId() || u.id === socket.id);
   const queueEndRef = useRef<HTMLDivElement>(null);
+  const hostUser = session.users.find(u => u.isHost);
+  const hostTwitchLogin = hostUser?.twitchData?.login || 'twitch';
+  const parentHostname = window.location.hostname;
 
   // Sync cooldown tracking
   useEffect(() => {
@@ -214,6 +217,28 @@ export default function ParticipantView({ session }: { session: SessionState }) 
         {activeTab === 'home' && (
           <div className="flex-1 flex flex-col min-h-0 relative">
             
+            {/* 0. Twitch Player & Chat Area */}
+            {hostUser?.twitchData?.login && (
+              <div className="w-full shrink-0 flex flex-col md:flex-row bg-[#000] border-b border-[#1F1F23]">
+                <div className="w-full md:w-[70%] aspect-video md:h-[400px]">
+                  <iframe
+                    src={`https://player.twitch.tv/?channel=${hostTwitchLogin}&parent=${parentHostname}&autoplay=true&muted=false`}
+                    height="100%"
+                    width="100%"
+                    allowFullScreen
+                    className="border-r border-[#1F1F23]"
+                  ></iframe>
+                </div>
+                <div className="w-full md:w-[30%] h-[300px] md:h-[400px]">
+                  <iframe
+                    src={`https://www.twitch.tv/embed/${hostTwitchLogin}/chat?parent=${parentHostname}&darkpopout`}
+                    height="100%"
+                    width="100%"
+                  ></iframe>
+                </div>
+              </div>
+            )}
+
             {/* 1. Playing Now Sticky Header */}
             {currentVideo && (
               <div className="shrink-0 bg-[#18181B] border-b border-[#1F1F23] shadow-md z-10 px-4 py-3 md:px-6 md:py-4 flex flex-col gap-2 relative overflow-hidden">

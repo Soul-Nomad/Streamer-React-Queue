@@ -86,6 +86,28 @@ function getPersistentUserId(ip: string): string {
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+// Auto-cleanup DB interval (every 10 mins)
+setInterval(async () => {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: settings } = await supabaseAdmin.from('room_settings').select('room_id, settings_json');
+    if (!settings) return;
+
+    for (const room of settings) {
+      const retentionHours = room.settings_json?.videoRetentionHours ?? room.settings_json?.video_retention_hours ?? 48;
+      if (retentionHours <= 0 || retentionHours > 48) continue;
+      const cutoffTime = new Date(Date.now() - retentionHours * 60 * 60 * 1000).toISOString();
+      
+      await supabaseAdmin.from('videos')
+        .delete()
+        .eq('room_id', room.room_id)
+        .lt('inserted_at', cutoffTime);
+    }
+  } catch (err) {
+    console.error('[Cleanup Interval Error]:', err);
+  }
+}, 1000 * 60 * 10);
+
 app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

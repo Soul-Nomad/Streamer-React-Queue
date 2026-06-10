@@ -54,7 +54,7 @@ export default function App() {
 
     socket.on('session_state', (state: SessionState) => {
        setSession(state);
-       const me = state.users.find(u => u.id === socket.id);
+       const me = state.users.find(u => u.userId === socket.getUserId() || u.id === socket.id);
        const amIHost = me ? me.isHost : (localStorage.getItem('active_role') === 'host');
        setIsHost(amIHost);
 

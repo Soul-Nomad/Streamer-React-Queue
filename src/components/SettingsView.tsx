@@ -122,6 +122,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
          minFollowMinutes: roomSettings.min_follow_minutes || ((roomSettings.min_follow_days || 0) * 1440),
          isManualApprovalRequired: roomSettings.isManualApprovalRequired,
          blockLiveStreams: roomSettings.blockLiveStreams,
+         videoRetentionHours: roomSettings.video_retention_hours ?? 48,
          globalCooldownSeconds: roomSettings.globalCooldownSeconds ?? 5,
          userCooldownSeconds: roomSettings.cooldown_seconds ?? 30,
          maxSubmissionsPerHour: roomSettings.maxSubmissionsPerHour ?? 60
@@ -172,6 +173,18 @@ export default function SettingsView({ session }: { session: SessionState }) {
                     <input type="checkbox" checked={!!roomSettings.blockLiveStreams} onChange={e => setRoomSettings({...roomSettings, blockLiveStreams: e.target.checked})} className="rounded bg-[#222222] border-[#404040] text-[#FF6B35] focus:ring-[#FF6B35] w-4 h-4" />
                     <span>Bloquear envio de Transmissões Ao Vivo (Lives)</span>
                   </label>
+
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[#B0B0B0] mb-2 text-xs">Exclusão Automática da Fila (Horas)</label>
+                      <input 
+                        type="number" min="1" max="48"
+                        value={roomSettings.video_retention_hours ?? 48} 
+                        onChange={e => setRoomSettings({...roomSettings, video_retention_hours: Math.min(48, Math.max(1, parseInt(e.target.value) || 48))})}
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                      />
+                    </div>
+                  </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
