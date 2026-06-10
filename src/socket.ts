@@ -92,6 +92,16 @@ class AblySocketAdapter {
     console.log(`[Socket Adapter Emit] Event: ${event}`, args);
     const roomId = typeof window !== 'undefined' ? (localStorage.getItem('active_room_id') || args[0]?.roomId) : args[0]?.roomId;
     
+    // Auto-ack implementation for long polling feedback
+    let ackTimeout = setTimeout(() => {
+       if (event === 'join_session' || event === 'create_session') {
+           this.trigger('warn', 'O servidor está acordando. Isso pode levar alguns segundos adicionais...');
+       }
+    }, 3000);
+
+    const abortController = new AbortController();
+    const fetchTimeout = setTimeout(() => abortController.abort(), 12000); // 12s timeout
+
     // 1. Session establishment routines
     if (event === 'create_session' || event === 'join_session') {
       const payload = args[0] || {};
@@ -128,8 +138,12 @@ class AblySocketAdapter {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyPayload)
+          body: JSON.stringify(bodyPayload),
+          signal: abortController.signal
         });
+
+        clearTimeout(ackTimeout);
+        clearTimeout(fetchTimeout);
 
         if (res.ok) {
           const data = await res.json();
@@ -148,7 +162,13 @@ class AblySocketAdapter {
           this.trigger('error', errData.error || 'Erro na requisição da sala.');
         }
       } catch (err: any) {
-        this.trigger('error', 'Não foi possível conectar ao servidor de dados.');
+        clearTimeout(ackTimeout);
+        clearTimeout(fetchTimeout);
+        if (err.name === 'AbortError') {
+           this.trigger('error', 'A conexão demorou a responder devido a inicialização do container. Tente novamente!');
+        } else {
+           this.trigger('error', 'Não foi possível conectar ao servidor de dados.');
+        }
       }
       return;
     }
@@ -167,14 +187,28 @@ class AblySocketAdapter {
         body: JSON.stringify({
           userId: args[0]?.userId || this.getUserId(),
           data: args[0]
-        })
+        }),
+        signal: abortController.signal
       });
+
+      clearTimeout(ackTimeout);
+      clearTimeout(fetchTimeout);
 
       if (!res.ok) {
         const errDetails = await res.json();
         this.trigger('error', errDetails.error || 'Ação recusada pelo guardião da fila.');
+      } else {
+        const resData = await res.json();
+        if (resData && resData.session) {
+          this.trigger('session_state', resData.session);
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(ackTimeout);
+      clearTimeout(fetchTimeout);
+      if (err.name === 'AbortError') {
+         this.trigger('timeout', 'A ação demorou muito para responder e foi cancelada.');
+      }
       console.error('[Socket Adapter Action Error] Transaction failed:', err);
     }
   }
@@ -209,7 +243,10 @@ class AblySocketAdapter {
       authParams: {
         userId,
         roomId
-      }
+      },
+      httpRequestTimeout: 15000, // Increase cold-start timeout tolerance
+      disconnectedRetryTimeout: 5000,
+      suspendedRetryTimeout: 10000
     });
 
     this.channel = this.ably.channels.get(`session:${roomId}`);
