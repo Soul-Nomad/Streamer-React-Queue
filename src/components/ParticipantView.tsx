@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { socket } from '../socket';
 import { SessionState } from '../types';
 import { 
-  Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone
+  Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -70,8 +70,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const [captchaChallenge, setCaptchaChallenge] = useState({ num1: Math.floor(Math.random() * 9) + 1, num2: Math.floor(Math.random() * 9) + 1 });
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [remainingCooldown, setRemainingCooldown] = useState(0);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(0);
 
   const me = session.users.find(u => u.userId === socket.getUserId() || u.id === socket.id);
+  const isBanned = me?.isBanned || session.blacklistUsernames?.includes(me?.twitchData?.login || '');
+  
   const queueEndRef = useRef<HTMLDivElement>(null);
   const hostUser = session.users.find(u => u.isHost);
   const hostTwitchLogin = hostUser?.twitchData?.login || 'twitch';
@@ -80,7 +83,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   // Sync cooldown tracking
   useEffect(() => {
     const timer = setInterval(() => {
-      const myself = session.users.find(u => u.id === socket.id);
+      const myself = session.users.find(u => u.id === socket.id || u.userId === socket.getUserId());
       if (!myself) return;
       const lastSub = myself.lastSubmitted || 0;
       const now = Date.now();
@@ -93,6 +96,13 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       const globalRemaining = Math.max(0, Math.ceil((globalCooldownTrack - now) / 1000));
       
       setRemainingCooldown(Math.max(userRemaining, globalRemaining));
+
+      // Timeout tracking
+      if (myself.timeoutUntil && myself.timeoutUntil > now) {
+        setTimeoutSeconds(Math.ceil((myself.timeoutUntil - now) / 1000));
+      } else {
+        setTimeoutSeconds(0);
+      }
     }, 500);
 
     return () => clearInterval(timer);
@@ -156,7 +166,26 @@ export default function ParticipantView({ session }: { session: SessionState }) 
 
   const isCaptchaRequired = !me?.isWhitelisted;
   const isInputValid = url.trim().startsWith('http');
-  const canSubmit = isInputValid && remainingCooldown === 0 && (!isCaptchaRequired || captchaAnswer.trim() !== '');
+  const canSubmit = isInputValid && remainingCooldown === 0 && timeoutSeconds === 0 && (!isCaptchaRequired || captchaAnswer.trim() !== '');
+
+  if (isBanned) {
+    return (
+      <div className="h-screen w-full bg-[#0E0E10] flex flex-col items-center justify-center p-6 text-center">
+        <XOctagon className="w-16 h-16 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold text-white mb-2">Acesso Bloqueado</h1>
+        <p className="text-[#ADADB8] max-w-md">
+          Você foi permanentemente banido desta sessão pelo moderador. 
+          Sua conta da Twitch está na lista de restrições.
+        </p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-8 px-6 py-2 bg-[#1F1F23] text-white rounded-lg hover:bg-[#26262C] transition-colors"
+        >
+          Voltar para o Início
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-[100dvh] bg-[#0E0E10] text-[#EFEFF1] font-sans selection:bg-[#9146FF] selection:text-white w-full overflow-hidden">
@@ -287,7 +316,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             )}
 
             {/* 2. Scrollable Queue & History Timeline */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6">
+            <div className={clsx(
+              "flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6 transition-all duration-500",
+              timeoutSeconds > 0 && "blur-md pointer-events-none grayscale opacity-50"
+            )}>
               
               {/* Info Banner for New Users (Friction reduction) */}
               {(me?.totalSubmitted === 0 && historyVideos.length === 0) && (
@@ -369,6 +401,33 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             {/* 3. Sticky Bottom Submission Bar Component */}
             <div className="absolute bottom-0 left-0 w-full bg-[#18181B] border-t border-[#1F1F23] p-3 md:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom z-20">
               
+              {timeoutSeconds > 0 && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#18181B]/80 backdrop-blur-sm rounded-t-xl overflow-hidden">
+                   <div className="flex flex-col items-center text-center p-4">
+                      <Clock className="w-6 h-6 text-[#9146FF] animate-pulse mb-1.5" />
+                      <span className="text-xs font-black uppercase tracking-widest text-[#ADADB8]">Sessão Suspensa (Timeout)</span>
+                      <span className="text-2xl font-black text-white mt-1">{Math.floor(timeoutSeconds/60)}:{String(timeoutSeconds%60).padStart(2, '0')}</span>
+                      <p className="text-[10px] text-[#606060] mt-1 uppercase tracking-tight">Aguarde o fim da penalidade para participar</p>
+                   </div>
+                </div>
+              )}
+
+              {!me?.twitchData?.login && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#18181B]/95 backdrop-blur-lg rounded-t-xl overflow-hidden border-t border-[#9146FF]/30">
+                   <div className="flex flex-col items-center text-center p-4">
+                      <Shield className="w-6 h-6 text-[#9146FF] mb-2" />
+                      <span className="text-sm font-bold text-white mb-3">Identificação Obrigatória</span>
+                      <p className="text-xs text-[#ADADB8] mb-4 max-w-[280px]">Para enviar vídeos é necessário vincular sua conta da Twitch.</p>
+                      <button 
+                        onClick={() => window.location.reload()}
+                        className="bg-[#9146FF] hover:bg-[#A970FF] text-white px-6 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+                      >
+                        Vincular Twitch
+                      </button>
+                   </div>
+                </div>
+              )}
+
               {/* Warnings & Captcha Section (only expands if needed) */}
               <AnimatePresence>
                 {me?.strikes && me.strikes > 0 ? (
