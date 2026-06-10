@@ -377,6 +377,7 @@ export default function HostView({ session }: { session: SessionState }) {
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
   const [resolving, setResolving] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [optimisticLoading, setOptimisticLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchAndSyncSettings = async () => {
@@ -478,6 +479,11 @@ export default function HostView({ session }: { session: SessionState }) {
 
   // URL resolution effect to handle shortened links
   useEffect(() => {
+    // Clear optimistic loading when video changes
+    if (optimisticLoading) {
+      setOptimisticLoading(false);
+    }
+    
     if (currentVideo) {
       setResolvedUrl(currentVideo.url);
       
@@ -572,9 +578,18 @@ export default function HostView({ session }: { session: SessionState }) {
 
   const approve = (id: string) => socket.emit('approve_video', id);
   const reject = (id: string) => socket.emit('reject_video', id);
-  const playNext = () => socket.emit('end_video');
-  const playPrevious = () => socket.emit('play_previous');
-  const playVideo = (id: string) => socket.emit('play_video', id);
+  const playNext = () => {
+    setOptimisticLoading(true);
+    socket.emit('end_video');
+  };
+  const playPrevious = () => {
+    setOptimisticLoading(true);
+    socket.emit('play_previous');
+  };
+  const playVideo = (id: string) => {
+    setOptimisticLoading(true);
+    socket.emit('play_video', id);
+  };
 
   const isInstagram = (url: string) => url.includes('instagram.com');
   const isTikTok = (url: string) => url.includes('tiktok.com');
@@ -849,7 +864,7 @@ export default function HostView({ session }: { session: SessionState }) {
                   
                   <button 
                     onClick={() => setSidebarOpen(false)}
-                    className="p-1 text-[#B0B0B0] hover:text-white hover:bg-[#222222] rounded transition-all cursor-pointer"
+                    className="p-1 px-2 text-[#B0B0B0] hover:text-white hover:bg-[#222222] rounded transition-all cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1229,7 +1244,8 @@ export default function HostView({ session }: { session: SessionState }) {
             {/* Previous */}
             <button 
               onClick={() => playPrevious()} 
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] flex items-center justify-center transition-all cursor-pointer shadow-sm group"
+              disabled={optimisticLoading}
+              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] disabled:opacity-50 disabled:cursor-wait flex items-center justify-center transition-all cursor-pointer shadow-sm group"
               title="Anterior"
             >
               <SkipBack className="w-4 h-4 text-[#EFEFEF]" />
@@ -1238,7 +1254,8 @@ export default function HostView({ session }: { session: SessionState }) {
             {/* Next / skip */}
             <button 
               onClick={() => playNext()} 
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] flex items-center justify-center transition-all cursor-pointer shadow-sm group"
+              disabled={optimisticLoading}
+              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] disabled:opacity-50 disabled:cursor-wait flex items-center justify-center transition-all cursor-pointer shadow-sm group"
               title="Próximo"
             >
               <SkipForward className="w-4 h-4 text-[#EFEFEF]" />
@@ -1387,7 +1404,15 @@ export default function HostView({ session }: { session: SessionState }) {
           className="relative w-full h-full flex flex-col items-center justify-center transition-transform duration-300 ease-out"
           style={{ transform: `scale(${zoom})` }}
         >
-          {currentVideo ? (
+          {optimisticLoading && (
+            <div className={clsx("relative w-full max-h-[80vh] h-full bg-[#0A0A0A] overflow-hidden flex flex-col items-center justify-center border border-[#1f1f1f]/80 shadow-2xl animate-pulse aspect-video max-w-4xl rounded-sm")}>
+                <Loader2 className="w-10 h-10 text-[#FF6B35] animate-spin mb-4" />
+                <span className="text-[#EFEFEF] font-bold text-sm tracking-wide font-sans">Afinando transmissores...</span>
+                <span className="text-[#505050] text-[10px] mt-2 block">Preparando o próximo vídeo da fila</span>
+            </div>
+          )}
+
+          {!optimisticLoading && currentVideo ? (
              <div className={clsx("relative w-full max-h-screen bg-[#0A0A0A] overflow-hidden flex flex-col items-center justify-center", isFullscreen ? 'h-screen w-screen' : 'w-full px-2 md:px-3 lg:px-4')}>
                 {/* Loader when resolving links */}
                 {resolving && (
@@ -1456,7 +1481,7 @@ export default function HostView({ session }: { session: SessionState }) {
                      </div>
                 )}
              </div>
-          ) : (
+          ) : !optimisticLoading ? (
              <div className="flex flex-col items-stretch text-center p-8 bg-[#16161c] border border-[#22222d] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#FF6B35] via-[#9146FF] to-[#10B981]" />
                 
@@ -1512,7 +1537,7 @@ export default function HostView({ session }: { session: SessionState }) {
                   </div>
                 </div>
              </div>
-          )}
+          ) : null}
         </div>
         </>
         )}
