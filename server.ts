@@ -12,8 +12,13 @@ import crypto from 'crypto';
 import instagramGetUrlPkg from 'instagram-url-direct';
 import { dbStore } from './src/database.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = typeof import.meta !== 'undefined' && import.meta.url
+  ? fileURLToPath(import.meta.url)
+  : (typeof (globalThis as any).__filename !== 'undefined' ? (globalThis as any).__filename : '');
+
+const __dirname = typeof import.meta !== 'undefined' && import.meta.url
+  ? path.dirname(__filename)
+  : (typeof (globalThis as any).__dirname !== 'undefined' ? (globalThis as any).__dirname : '');
 
 // Helper to generate a unique but persistent user ID based on IP
 function getPersistentUserId(ip: string): string {
@@ -79,7 +84,7 @@ function sanitizeInput(text: string): string {
 }
 
 // Normalize, parse, check unicode exploits, and blacklist restrictions of incoming URLs
-function sanitizeAndValidateUrl(rawUrl: string): SecurityCheckResult {
+function sanitizeAndValidateUrl(rawUrl: string, settings: any): SecurityCheckResult {
   try {
     let cleanUrl = rawUrl.trim();
     
@@ -116,11 +121,17 @@ function sanitizeAndValidateUrl(rawUrl: string): SecurityCheckResult {
       return { valid: false, error: 'Tentativa de submissão por endereço IP direto bloqueada.' };
     }
 
+    const domainMode = settings?.domainMode || 'both';
+    let blockDomains = settings?.domainBlacklist && settings?.domainBlacklist?.length > 0 ? settings.domainBlacklist : BLOCKLIST_DOMAINS;
+    let whiteDomains = settings?.domainWhitelist && settings?.domainWhitelist?.length > 0 ? settings.domainWhitelist : WHITELIST_DOMAINS;
+
     // 5. Blocklist review
-    const hostParts = hostname.split('.');
-    for (const blockDomain of BLOCKLIST_DOMAINS) {
-      if (hostname === blockDomain || hostname.endsWith('.' + blockDomain)) {
-        return { valid: false, error: 'Domínio bloqueado. Classificação: Conteúdo Suspeito/Adulto (+18) ou Encurtador Proibido.' };
+    if (domainMode === 'both' || domainMode === 'blacklist_only') {
+      const hostParts = hostname.split('.');
+      for (const blockDomain of blockDomains) {
+        if (hostname === blockDomain || hostname.endsWith('.' + blockDomain)) {
+          return { valid: false, error: 'Domínio bloqueado pelas configurações da sala (Blacklist).' };
+        }
       }
     }
 
@@ -128,17 +139,28 @@ function sanitizeAndValidateUrl(rawUrl: string): SecurityCheckResult {
     let matchedWhitelist = false;
     let platform: 'youtube' | 'instagram' | 'tiktok' | 'other' = 'other';
 
-    for (const whitelistDomain of WHITELIST_DOMAINS) {
-      if (hostname === whitelistDomain || hostname.endsWith('.' + whitelistDomain)) {
-        matchedWhitelist = true;
-        if (whitelistDomain.includes('youtube') || whitelistDomain === 'youtu.be') {
-          platform = 'youtube';
-        } else if (whitelistDomain.includes('instagram')) {
-          platform = 'instagram';
-        } else if (whitelistDomain.includes('tiktok')) {
-          platform = 'tiktok';
+    if (domainMode === 'both' || domainMode === 'whitelist_only') {
+      for (const whitelistDomain of whiteDomains) {
+        if (hostname === whitelistDomain || hostname.endsWith('.' + whitelistDomain)) {
+          matchedWhitelist = true;
+          if (hostname.includes('youtube') || hostname === 'youtu.be') {
+            platform = 'youtube';
+          } else if (hostname.includes('instagram')) {
+            platform = 'instagram';
+          } else if (hostname.includes('tiktok')) {
+            platform = 'tiktok';
+          }
+          break;
         }
-        break;
+      }
+    } else {
+      matchedWhitelist = true; // allow all if blacklist_only
+      if (hostname.includes('youtube') || hostname === 'youtu.be') {
+        platform = 'youtube';
+      } else if (hostname.includes('instagram')) {
+        platform = 'instagram';
+      } else if (hostname.includes('tiktok')) {
+        platform = 'tiktok';
       }
     }
 
@@ -150,7 +172,7 @@ function sanitizeAndValidateUrl(rawUrl: string): SecurityCheckResult {
       } else {
         return { 
           valid: false, 
-          error: 'Domínio não está na lista de servidores confiáveis (whitelist). Use apenas YouTube, Instagram, TikTok ou canais de vídeo autorizados.' 
+          error: 'Domínio não está na lista de servidores confiáveis (whitelist). Use apenas canais de vídeo autorizados pelo Streamer.' 
         };
       }
     }
@@ -299,6 +321,82 @@ app.get('/api/resolve', async (req, res) => {
 });
 
 // Programmatically resolve Instagram reel stream URL to display in native video players without iframe security blockades
+app.get('/api/rooms', (req, res) => {
+  const activeRooms = Array.from(sessions.values()).map(sess => {
+    const host = sess.users.find((u: any) => u.isHost);
+    return {
+      roomId: sess.id,
+      hostName: host?.name || 'Unknown',
+      hostAvatar: host?.twitchData?.avatarUrl || '',
+      hostLogin: host?.twitchData?.login || '',
+      hostTwitchUserId: sess.hostTwitchUserId || host?.twitchData?.twitchUserId || '',
+      usersCount: sess.users.length,
+      queueCount: sess.queue.length,
+      uptime: Date.now() - (sess.createdAt || Date.now())
+    };
+  });
+  // Sort by users count descending
+  activeRooms.sort((a, b) => b.usersCount - a.usersCount);
+  res.json({ rooms: activeRooms });
+});
+
+// Proxy route to fetch followed streams and follows list using client provider token to avoid CORS
+app.get('/api/twitch/followed', async (req, res) => {
+  const token = req.query.token as string;
+  const userId = req.query.userId as string;
+  if (!token || !userId) {
+     return res.status(400).json({ error: 'Token and userId are required' });
+  }
+
+  let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
+
+  // Try to find the exact client ID of the user's token by validating it
+  try {
+     const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: {
+           'Authorization': `OAuth ${token}`
+        },
+        timeout: 2500
+     });
+     if (valRes.data && valRes.data.client_id) {
+        clientId = valRes.data.client_id;
+     }
+  } catch (e: any) {
+     console.warn(`[Helix Followed API] Validation check failed:`, e.message);
+  }
+
+  try {
+     // 1. Fetch live followed streams
+     const streamsRes = await axios.get(`https://api.twitch.tv/helix/streams/followed?user_id=${userId}`, {
+        headers: {
+           'Client-Id': clientId,
+           'Authorization': `Bearer ${token}`
+        },
+        timeout: 4000
+     });
+
+     // 2. Fetch followed channels overall list
+     const followsRes = await axios.get(`https://api.twitch.tv/helix/channels/followed?user_id=${userId}`, {
+        headers: {
+           'Client-Id': clientId,
+           'Authorization': `Bearer ${token}`
+        },
+        timeout: 4000
+     });
+
+     res.json({
+        online: streamsRes.data?.data || [],
+        followed: followsRes.data?.data || []
+     });
+  } catch (err: any) {
+     console.error('[Helix Followed API Fail]:', err.response?.data || err.message);
+     res.status(500).json({ 
+        error: 'Failed to retrieve details from Twitch API', 
+        details: err.response?.data || err.message 
+     });
+  }
+});
+
 app.get('/api/instagram-stream', async (req, res) => {
   const videoUrl = req.query.url as string;
   if (!videoUrl) {
@@ -501,6 +599,280 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 // Temporary in-memory store for sessions
 const sessions = new Map<string, any>();
+const userTokensPrivateMap = new Map<string, string>();
+
+function sanitizeTwitchData(twitchData: any) {
+  if (!twitchData) return undefined;
+  const { providerToken, ...rest } = twitchData;
+  return rest;
+}
+
+async function verifyRealTwitchData(session: any, user: any) {
+  if (!user.twitchData) return;
+
+  const userToken = userTokensPrivateMap.get(user.id);
+  
+  // Dynamically resolve client ID for the viewer's token
+  let viewerClientId = process.env.TWITCH_CLIENT_ID;
+  if (userToken) {
+     try {
+        const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+           headers: {
+              'Authorization': `OAuth ${userToken}`
+           }
+        });
+        if (valRes.data && valRes.data.client_id) {
+           viewerClientId = valRes.data.client_id;
+        }
+     } catch (e: any) {
+        console.warn(`[Twitch Auth] Viewer token validation failed:`, e.response?.data || e.message);
+     }
+  }
+  if (!viewerClientId) {
+     viewerClientId = 'gp762nuuoqcoxypju8c569th9wz7q5'; // default fallback
+  }
+
+  let realTwitchUserId = user.twitchData.twitchUserId;
+  let realDisplayName = user.twitchData.displayName;
+  let realLogin = user.twitchData.login;
+  let realAvatarUrl = user.twitchData.avatarUrl;
+
+  // 1. Double check the viewer's token to get their real ID/profile and prevent spoofing.
+  if (userToken) {
+     try {
+        const uRes = await axios.get('https://api.twitch.tv/helix/users', {
+           headers: {
+              'Client-Id': viewerClientId,
+              'Authorization': `Bearer ${userToken}`
+           }
+        });
+
+        if (uRes.data && uRes.data.data && uRes.data.data.length > 0) {
+           const uData = uRes.data.data[0];
+           realTwitchUserId = uData.id;
+           realDisplayName = uData.display_name;
+           realLogin = uData.login;
+           realAvatarUrl = uData.profile_image_url;
+
+           user.twitchData.twitchUserId = realTwitchUserId;
+           user.twitchData.displayName = realDisplayName;
+           user.twitchData.login = realLogin;
+           user.twitchData.avatarUrl = realAvatarUrl;
+        }
+     } catch (e: any) {
+        console.warn(`[Twitch Auth] Profile verification failed for user metadata check:`, e.response?.data || e.message);
+     }
+  }
+
+  if (user.isHost) {
+     broadcastSessionState(session.id);
+     return; // Host is exempted from viewer limits check
+  }
+
+  // 2. Query following/sub status using the streamer's (host's) token!
+  const hostToken = session.hostTwitchToken;
+  const hostTwitchUserId = session.hostTwitchUserId;
+
+  if (!hostTwitchUserId || !realTwitchUserId) {
+     console.log(`[Twitch Check] Skipped verification for @${user.name}. Missing realTwitchUserId or hostTwitchUserId.`);
+     broadcastSessionState(session.id);
+     return;
+  }
+
+  if (!hostToken && !userToken) {
+     console.log(`[Twitch Check] Skipped verification for @${user.name}. Both hostToken and userToken are missing.`);
+     broadcastSessionState(session.id);
+     return;
+  }
+
+  // Dynamically resolve client ID for the host's token
+  let hostClientId = process.env.TWITCH_CLIENT_ID;
+  if (hostToken) {
+     try {
+        const hostValRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+           headers: {
+              'Authorization': `OAuth ${hostToken}`
+           }
+        });
+        if (hostValRes.data && hostValRes.data.client_id) {
+           hostClientId = hostValRes.data.client_id;
+        }
+     } catch (e: any) {
+        console.warn(`[Twitch Auth] Host token validation check failed:`, e.response?.data || e.message);
+     }
+  }
+  if (!hostClientId) {
+     hostClientId = 'gp762nuuoqcoxypju8c569th9wz7q5'; // default fallback
+  }
+
+  let isFollower = false;
+  let followedAt: string | undefined = undefined;
+  let isSubscriber = false;
+  let isModerator = false;
+
+  const mask = (t: string | null | undefined) => t ? `${t.substring(0, 5)}...${t.substring(t.length - 5)}` : 'NULL';
+  console.log(`[Twitch Verification Start] User: @${user.name} (viewerID: ${realTwitchUserId}), HostID: ${hostTwitchUserId}. HostToken: ${mask(hostToken)}, ViewerToken: ${mask(userToken)}`);
+
+  // A. Fetch follow status via Host Token (Broadcaster API)
+  if (hostToken) {
+     try {
+        const followRes = await axios.get('https://api.twitch.tv/helix/channels/followers', {
+           params: {
+              broadcaster_id: hostTwitchUserId,
+              user_id: realTwitchUserId
+           },
+           headers: {
+              'Client-Id': hostClientId,
+              'Authorization': `Bearer ${hostToken}`
+           }
+        });
+
+        if (followRes.data && followRes.data.data && followRes.data.data.length > 0) {
+           isFollower = true;
+           followedAt = followRes.data.data[0].followed_at;
+           console.log(`[Twitch Check] Checked via Host Token: @${user.name} IS following host since ${followedAt}`);
+        } else {
+           console.log(`[Twitch Check] Checked via Host Token: @${user.name} is NOT following host`);
+        }
+     } catch (e: any) {
+        console.warn(`[Twitch Check] Follow check via Host Token error for @${user.name}:`, e.response?.data || e.message);
+     }
+  }
+
+  // Fallback follow check using viewer's own token (Helix channels/followed endpoint)
+  if (!isFollower && userToken) {
+     try {
+        console.log(`[Twitch Check Fallback] Attempting follow check via Viewer Token for @${user.name}...`);
+        const followedRes = await axios.get('https://api.twitch.tv/helix/channels/followed', {
+           params: {
+              user_id: realTwitchUserId,
+              broadcaster_id: hostTwitchUserId
+           },
+           headers: {
+              'Client-Id': viewerClientId,
+              'Authorization': `Bearer ${userToken}`
+           }
+        });
+
+        if (followedRes.data && followedRes.data.data && followedRes.data.data.length > 0) {
+           isFollower = true;
+           followedAt = followedRes.data.data[0].followed_at;
+           console.log(`[Twitch Check Fallback Success] Follow verified via Viewer Token: @${user.name} follows host since ${followedAt}`);
+        } else {
+           console.log(`[Twitch Check Fallback Success] Follow checked via Viewer Token: @${user.name} is NOT following host`);
+        }
+     } catch (e: any) {
+        console.warn(`[Twitch Check Fallback] Follow check via Viewer Token failed for @${user.name}:`, e.response?.data || e.message);
+     }
+  }
+
+  // B. Fetch subscription status via Host Token (Broadcaster API)
+  if (hostToken) {
+     try {
+        const subRes = await axios.get('https://api.twitch.tv/helix/subscriptions', {
+           params: {
+              broadcaster_id: hostTwitchUserId,
+              user_id: realTwitchUserId
+           },
+           headers: {
+              'Client-Id': hostClientId,
+              'Authorization': `Bearer ${hostToken}`
+           }
+        });
+
+        if (subRes.data && subRes.data.data && subRes.data.data.length > 0) {
+           isSubscriber = true;
+           console.log(`[Twitch Check] Checked via Host Token: @${user.name} IS subscriber`);
+        } else {
+           console.log(`[Twitch Check] Checked via Host Token: @${user.name} is NOT subscriber`);
+        }
+     } catch (e: any) {
+        console.log(`[Twitch Check] Sub checked via Host Token (no subscription or restricted for @${user.name}):`, e.response?.data?.message || e.message);
+     }
+  }
+
+  // Fallback subscription check using viewer's own token (Helix users/subscriptions endpoint)
+  if (!isSubscriber && userToken) {
+     try {
+        console.log(`[Twitch Check Fallback] Attempting subscription check via Viewer Token for @${user.name}...`);
+        const subResViewer = await axios.get('https://api.twitch.tv/helix/users/subscriptions', {
+           params: {
+              broadcaster_id: hostTwitchUserId,
+              user_id: realTwitchUserId
+           },
+           headers: {
+              'Client-Id': viewerClientId,
+              'Authorization': `Bearer ${userToken}`
+           }
+        });
+
+        if (subResViewer.data && subResViewer.data.data && subResViewer.data.data.length > 0) {
+           isSubscriber = true;
+           console.log(`[Twitch Check Fallback Success] Subscription verified via Viewer Token: @${user.name} is subscribed to host`);
+        } else {
+           console.log(`[Twitch Check Fallback Success] Subscription checked via Viewer Token: @${user.name} is NOT subscribed to host`);
+        }
+     } catch (e: any) {
+        // Since Twitch returns a 404 if not subscribed, this is the expected branch for non-subs
+        console.log(`[Twitch Check Fallback] Subscription check via Viewer Token finished (non-sub or error) for @${user.name}:`, e.response?.data?.message || e.message);
+     }
+  }
+
+  // C. Fetch moderator status via Host Token (Broadcaster API)
+  if (hostToken) {
+     try {
+        const modRes = await axios.get('https://api.twitch.tv/helix/moderation/moderators', {
+           params: {
+              broadcaster_id: hostTwitchUserId,
+              user_id: realTwitchUserId
+           },
+           headers: {
+              'Client-Id': hostClientId,
+              'Authorization': `Bearer ${hostToken}`
+           }
+        });
+
+        if (modRes.data && modRes.data.data && modRes.data.data.length > 0) {
+           isModerator = true;
+        }
+     } catch (e: any) {
+        console.log(`[Twitch Check] Moderator check error for @${user.name}:`, e.response?.data?.message || e.message);
+        // Fallback to client-side badge trust if API is blocked but viewer lists moderator badge
+        if (user.twitchData?.badges?.includes('moderator')) {
+           isModerator = true;
+           console.log(`[Twitch Check Fallback] Moderator verified via viewer badge for @${user.name}`);
+        }
+     }
+  } else {
+     if (user.twitchData?.badges?.includes('moderator')) {
+        isModerator = true;
+     }
+  }
+
+  if (user.twitchData?.badges?.includes('subscriber')) {
+     if (!isSubscriber) {
+        isSubscriber = true;
+        console.log(`[Twitch Check Fallback] Subscriber verified via viewer badge for @${user.name}`);
+     }
+  }
+
+  user.twitchData.isFollower = isFollower;
+  user.twitchData.followedAt = followedAt;
+  user.twitchData.isSubscriber = isSubscriber;
+  user.twitchData.isModerator = isModerator;
+
+  // Rebuild Twitch badges
+  const badges: string[] = [];
+  if (user.twitchData.isBroadcaster) badges.push('broadcaster');
+  if (user.twitchData.isModerator) badges.push('moderator');
+  if (user.twitchData.isVip) badges.push('vip');
+  if (user.twitchData.isSubscriber) badges.push('subscriber');
+  user.twitchData.badges = badges;
+
+  console.log(`[Twitch Verify Done] @${user.name} checked. Follower: ${isFollower} (${followedAt || 'no'}), Sub: ${isSubscriber}, Mod: ${isModerator}`);
+
+  broadcastSessionState(session.id);
+}
 
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -515,6 +887,7 @@ function broadcastSessionState(roomId: string) {
     const profile = dbStore.getProfile(u.userId || '');
     return {
       ...u,
+      twitchData: sanitizeTwitchData(u.twitchData),
       reputation: profile?.reputation ?? 50,
       totalSubmitted: profile?.totalSubmitted ?? 0,
       approvedCount: profile?.approvedCount ?? 0,
@@ -554,7 +927,8 @@ function broadcastSessionState(roomId: string) {
         reputation: profile?.reputation ?? 50,
         restrictedUntil: profile?.restrictedUntil,
         timeoutUntil: profile?.timeoutUntil,
-        shadowBanned: profile?.shadowBanned
+        shadowBanned: profile?.shadowBanned,
+        twitchData: sanitizeTwitchData(u.twitchData)
       };
     })
   };
@@ -580,7 +954,7 @@ function broadcastSessionState(roomId: string) {
 io.on('connection', (socket) => {
   const clientIpFull = (socket.handshake.headers['x-forwarded-for'] as string) || socket.handshake.address || '127.0.0.1';
   const clientIp = clientIpFull.split(',')[0].trim();
-  let currentUser = { 
+  let currentUser: any = { 
     id: socket.id, 
     userId: '', 
     name: 'Anonymous', 
@@ -592,7 +966,7 @@ io.on('connection', (socket) => {
     isBanned: false
   };
 
-  socket.on('create_session', (data: { name: string; userId?: string }) => {
+  socket.on('create_session', (data: { name: string; userId?: string; twitchData?: any }) => {
     currentUser.name = sanitizeInput(data.name || 'Streamer').substring(0, 20);
     
     // Check excessive session creation (limit 6 per 10 mins per IP)
@@ -615,6 +989,21 @@ io.on('connection', (socket) => {
     currentUser.isHost = true;
     currentUser.roomId = roomId;
 
+    const tData = { ...(data.twitchData || {}) };
+    const hostToken = tData?.providerToken || null;
+    const hostTwitchUserId = tData?.twitchUserId || null;
+    if (tData) delete tData.providerToken;
+
+    if (hostToken) {
+       userTokensPrivateMap.set(socket.id, hostToken);
+    }
+
+    currentUser.twitchData = {
+      ...tData,
+      isBroadcaster: true,
+      badges: Array.from(new Set([...(tData.badges || []), 'broadcaster']))
+    };
+
     // Resolve persistent profile
     const profile = dbStore.getOrCreateUserProfile(currentUser.userId, currentUser.name, clientIp);
     currentUser.strikes = profile.strikes;
@@ -622,20 +1011,32 @@ io.on('connection', (socket) => {
     const newSession = {
       id: roomId,
       hostId: socket.id,
+      hostUserId: currentUser.userId,
+      hostOfflineTimeout: null as any,
+      hostWarningTimeout: null as any,
+      createdAt: Date.now(),
       users: [currentUser],
       queue: [],
       currentVideoId: null,
       history: [],
       isPlaying: false,
       currentTime: 0,
+      hostTwitchToken: hostToken,
+      hostTwitchUserId: hostTwitchUserId,
       settings: {
         isManualApprovalRequired: false,
         maxVideoDuration: 300, 
         blockLiveStreams: true,
         globalCooldownSeconds: 5,
-        userCooldownSeconds: 60,
-        maxSubmissionsPerHour: 15,
-        maxStrikesBeforeBan: 5
+        userCooldownSeconds: 30,
+        maxSubmissionsPerHour: 60,
+        maxStrikesBeforeBan: 5,
+        domainMode: 'both' as const,
+        domainWhitelist: [],
+        domainBlacklist: [],
+        requireFollower: false,
+        requireSub: false,
+        minFollowMinutes: 0
       },
       blacklistIPs: [],
       blacklistUsernames: [],
@@ -657,7 +1058,7 @@ io.on('connection', (socket) => {
       submitterName: currentUser.name,
       submitterId: currentUser.userId,
       status: 'approved',
-      actionDetails: `Nova sala criada pelo Streamer @${currentUser.name}. IP: ${clientIp}`
+      actionDetails: `Nova sala criada pelo Streamer @${currentUser.name}.`
     });
 
     logSessionSecurityActivity(
@@ -672,7 +1073,7 @@ io.on('connection', (socket) => {
     broadcastSessionState(roomId);
   });
 
-  socket.on('join_session', (data: { roomId: string; name: string; userId?: string }) => {
+  socket.on('join_session', (data: { roomId: string; name: string; userId?: string; twitchData?: any }) => {
     const roomId = (data.roomId || '').toUpperCase();
     const session = sessions.get(roomId);
     
@@ -706,6 +1107,35 @@ io.on('connection', (socket) => {
     currentUser.userId = userId;
     currentUser.roomId = roomId;
     currentUser.strikes = profile.strikes;
+
+    const tData = { ...(data.twitchData || {}) };
+    const userToken = tData?.providerToken || null;
+    if (tData) delete tData.providerToken;
+
+    if (userToken) {
+       userTokensPrivateMap.set(socket.id, userToken);
+    }
+
+    currentUser.twitchData = data.twitchData ? tData : null;
+
+    if (session.hostUserId === userId) {
+      currentUser.isHost = true;
+      session.hostId = socket.id;
+      if (userToken) {
+         session.hostTwitchToken = userToken;
+      }
+      if (tData?.twitchUserId) {
+         session.hostTwitchUserId = tData.twitchUserId;
+      }
+      if (session.hostOfflineTimeout) {
+        clearTimeout(session.hostOfflineTimeout);
+        session.hostOfflineTimeout = null;
+      }
+      if (session.hostWarningTimeout) {
+        clearTimeout(session.hostWarningTimeout);
+        session.hostWarningTimeout = null;
+      }
+    }
     
     // Check shadow ban and restricted upload status
     const isShadowBannedInBans = activeBans.some(ban => ban.banType === 'shadow');
@@ -723,6 +1153,10 @@ io.on('connection', (socket) => {
       session.users.push({ ...currentUser });
     } else {
       session.users[existingIndex].id = socket.id;
+      session.users[existingIndex].isHost = currentUser.isHost;
+      session.users[existingIndex].name = currentUser.name;
+      session.users[existingIndex].twitchData = currentUser.twitchData;
+      session.users[existingIndex].strikes = currentUser.strikes;
     }
     
     socket.join(roomId);
@@ -743,9 +1177,29 @@ io.on('connection', (socket) => {
     );
     
     broadcastSessionState(roomId);
+
+    if (currentUser.twitchData && userToken) {
+       const userInSession = session.users.find((u: any) => u.id === socket.id);
+       if (userInSession) {
+          verifyRealTwitchData(session, userInSession).catch(err => {
+             console.error(`Error verifying Twitch user on join:`, err);
+          });
+       }
+    }
   });
 
-  socket.on('submit_video', (data: { url: string; captchaPayload?: { num1: number; num2: number; answer: string } }) => {
+  socket.on('refresh_twitch_status', () => {
+    if (!currentUser.roomId) return;
+    const session = sessions.get(currentUser.roomId);
+    if (!session) return;
+
+    const userInSession = session.users.find((u: any) => u.id === socket.id) || currentUser;
+    verifyRealTwitchData(session, userInSession).catch(err => {
+       console.error('Error in refresh_twitch_status:', err);
+    });
+  });
+
+  socket.on('submit_video', async (data: { url: string; captchaPayload?: { num1: number; num2: number; answer: string } }) => {
     if (!currentUser.roomId) return;
     const session = sessions.get(currentUser.roomId);
     if (!session) return;
@@ -832,7 +1286,7 @@ io.on('connection', (socket) => {
        }
 
        // 3. User Specific Cooldown check
-       const userCooldownValueInMs = (session.settings.userCooldownSeconds || 60) * 1000;
+       const userCooldownValueInMs = (session.settings.userCooldownSeconds !== undefined ? session.settings.userCooldownSeconds : 30) * 1000;
        if (timeDiff < userCooldownValueInMs) {
           const remainingSeconds = Math.ceil((userCooldownValueInMs - timeDiff) / 1000);
           socket.emit('error', `Aguarde o seu cooldown. Faltam ${remainingSeconds} segundos.`);
@@ -841,16 +1295,17 @@ io.on('connection', (socket) => {
 
        // 4. Hourly Submissions Limit
        roomInUser.submissionsTimeline = (roomInUser.submissionsTimeline || []).filter((time: number) => now - time < 3600000);
-       if (roomInUser.submissionsTimeline.length >= (session.settings.maxSubmissionsPerHour || 15)) {
+       const limitPerHour = session.settings.maxSubmissionsPerHour !== undefined ? session.settings.maxSubmissionsPerHour : 60;
+       if (roomInUser.submissionsTimeline.length >= limitPerHour) {
           logSessionSecurityActivity(
             session,
             'rate_limit',
-            `Tentativa de ultrapassar limite de envios por hora (${session.settings.maxSubmissionsPerHour}/h) de @${currentUser.name}.`,
+            `Tentativa de ultrapassar limite de envios por hora (${limitPerHour}/h) de @${currentUser.name}.`,
             currentUser.name,
             clientIp,
             'low'
           );
-          socket.emit('error', `Limite máximo de envios por hora atingido (${session.settings.maxSubmissionsPerHour} envios por hora).`);
+          socket.emit('error', `Limite máximo de envios por hora atingido (${limitPerHour} envios por hora).`);
           return;
        }
 
@@ -877,10 +1332,69 @@ io.on('connection', (socket) => {
           broadcastSessionState(currentUser.roomId);
           return;
        }
+       // 6. Twitch Settings Check (Followers / Subs)
+       const userInSession = session.users.find((u: any) => u.id === socket.id) || currentUser;
+
+       // Fast, real-time status pull right before check to bypass caching/spoofing
+       try {
+          await verifyRealTwitchData(session, userInSession);
+       } catch (e) {
+          console.error('[Twitch Submit Trigger] Error auto-refreshing user state on video submission:', e);
+       }
+
+       const isBroadcaster = !!userInSession.twitchData?.isBroadcaster;
+       const isModerator = !!userInSession.twitchData?.isModerator;
+       const isVip = !!userInSession.twitchData?.isVip;
+       const isBypassed = isBroadcaster || isModerator || isVip || currentUser.isHost || isWhitelistedParticipant;
+
+       if (!isBypassed) {
+          if (session.settings.requireFollower) {
+             if (!userInSession.twitchData?.isFollower) {
+                socket.emit('error', 'O Streamer ativou o modo Somente Seguidores. Você precisa seguir o canal para enviar vídeos.');
+                return;
+             }
+             
+             // Validate minFollowMinutes
+             const requiredMin = session.settings.minFollowMinutes || 0;
+             if (requiredMin > 0) {
+                const followedAtStr = userInSession.twitchData?.followedAt;
+                let followAgeMinutes = 0;
+                if (followedAtStr) {
+                   const followedAtDate = new Date(followedAtStr);
+                   const diffMs = Date.now() - followedAtDate.getTime();
+                   followAgeMinutes = Math.max(0, Math.floor(diffMs / 60000));
+                }
+
+                if (followAgeMinutes < requiredMin) {
+                   const diffMin = requiredMin - followAgeMinutes;
+                   let timeStr = "";
+                   if (diffMin < 60) {
+                      timeStr = `${diffMin} minuto(s)`;
+                   } else if (diffMin < 2880) { // less than 2 days
+                      const hrs = Math.floor(diffMin / 60);
+                      const mins = diffMin % 60;
+                      timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                   } else {
+                      const days = Math.floor(diffMin / 1440);
+                      const hrs = Math.ceil((diffMin % 1440) / 60);
+                      timeStr = `${days} dia(s) e ${hrs} hora(s)`;
+                   }
+                   socket.emit('error', `O Streamer exige tempo mínimo de follow de ${requiredMin} minutos (${(requiredMin / 1440).toFixed(1)} dias). Ainda faltam ${timeStr} de follow.`);
+                   return;
+                }
+             }
+          }
+          if (session.settings.requireSub) {
+             if (!userInSession.twitchData?.isSubscriber) {
+                socket.emit('error', 'O Streamer ativou o modo Somente Inscritos. Apenas subs podem enviar vídeos.');
+                return;
+             }
+          }
+       }
     }
 
     // B. URL SANITIZATION & SECURITY VALIDATIONS
-    const urlValidation = sanitizeAndValidateUrl(data.url);
+    const urlValidation = sanitizeAndValidateUrl(data.url, session.settings);
     if (!urlValidation.valid || !urlValidation.normalizedUrl || !urlValidation.platform) {
        // Suspect or malicious domains trigger infractions
        let strikeCount = 0;
@@ -1140,13 +1654,25 @@ io.on('connection', (socket) => {
     if (!currentUser.roomId || !currentUser.isHost) return;
     const session = sessions.get(currentUser.roomId);
     if (session) {
-       const user = session.users.find((u: any) => u.id === targetUserId);
+       const user = session.users.find((u: any) => u.id === targetUserId || u.userId === targetUserId);
        if (user) {
           user.isWhitelisted = !user.isWhitelisted;
+          // Synchronize with VIP badge
+          if (!user.twitchData) user.twitchData = {};
+          user.twitchData.isVip = user.isWhitelisted;
+          const badges: string[] = user.twitchData.badges || [];
+          if (user.isWhitelisted) {
+            if (!badges.includes('vip')) badges.push('vip');
+          } else {
+            const index = badges.indexOf('vip');
+            if (index > -1) badges.splice(index, 1);
+          }
+          user.twitchData.badges = badges;
+
           logSessionSecurityActivity(
             session,
             'admin_action',
-            `Status de whitelist do participante @${user.name} alterado para: ${user.isWhitelisted}`,
+            `Status de whitelist (VIP) do participante @${user.name} alterado para: ${user.isWhitelisted}`,
             currentUser.name,
             clientIp,
             'low'
@@ -1156,7 +1682,79 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('toggle_twitch_role', (data: { targetUserId: string; role: 'isSubscriber' | 'isModerator' | 'isVip' }) => {
+    if (!currentUser.roomId || !currentUser.isHost) return;
+    const session = sessions.get(currentUser.roomId);
+    if (session) {
+      const user = session.users.find((u: any) => u.id === data.targetUserId || u.userId === data.targetUserId);
+      if (user) {
+        if (!user.twitchData) {
+          user.twitchData = {};
+        }
+        
+        user.twitchData[data.role] = !user.twitchData[data.role];
+        
+        // Also sync isWhitelisted with isVip
+        if (data.role === 'isVip') {
+          user.isWhitelisted = user.twitchData.isVip;
+        }
+
+        const badges: string[] = [];
+        if (user.twitchData.isBroadcaster) badges.push('broadcaster');
+        if (user.twitchData.isModerator) badges.push('moderator');
+        if (user.twitchData.isVip) badges.push('vip');
+        if (user.twitchData.isSubscriber) badges.push('subscriber');
+        user.twitchData.badges = badges;
+
+        logSessionSecurityActivity(
+          session,
+          'admin_action',
+          `Cargo ${data.role} do participante @${user.name} alterado para: ${user.twitchData[data.role]}`,
+          currentUser.name,
+          clientIp,
+          'low'
+        );
+        broadcastSessionState(currentUser.roomId);
+      }
+    }
+  });
+
   // STRIKES & PROGRESSIVE TIMEOUTS
+  socket.on('timeout_user', (data: { userId: string; minutes?: number; reason?: string }) => {
+    if (!currentUser.roomId || !currentUser.isHost) return;
+    const session = sessions.get(currentUser.roomId);
+    if (!session) return;
+    const user = session.users.find((u: any) => u.userId === data.userId || u.id === data.userId);
+    if (user) {
+        const mins = data.minutes || 10;
+        const endTimeout = Date.now() + (mins * 60 * 1000);
+        dbStore.updateProfile(user.userId, (p) => { p.timeoutUntil = endTimeout; });
+        user.timeoutUntil = endTimeout;
+        const reason = data.reason || 'Comportamento inadequado';
+        
+        logSessionSecurityActivity(
+           session,
+           'strike_ban',
+           `Timeout de ${mins} min aplicado a @${user.name}. Razão: "${reason}".`,
+           currentUser.name,
+           clientIp,
+           'medium'
+        );
+        
+        dbStore.triggerAlert({
+           userId: user.userId,
+           username: user.name,
+           ip: user.ip || 'unknown',
+           type: 'session_abuse',
+           message: `TIMEOUT: @${user.name} foi suspenso por ${mins} minutos pela moderação.`,
+           severity: 'medium'
+        });
+
+        io.to(user.id).emit('error', `SUSPENSÃO: Você foi suspenso por ${mins} minutos pela moderação.`);
+        broadcastSessionState(currentUser.roomId);
+    }
+  });
+
   socket.on('give_strike', (data: { userId: string; reason?: string }) => {
     if (!currentUser.roomId || !currentUser.isHost) return;
     const session = sessions.get(currentUser.roomId);
@@ -1344,6 +1942,11 @@ io.on('connection', (socket) => {
 
   socket.on('end_session', () => {
     if (!currentUser.roomId || !currentUser.isHost) return;
+    const session = sessions.get(currentUser.roomId);
+    if (session) {
+      if (session.hostOfflineTimeout) clearTimeout(session.hostOfflineTimeout);
+      if (session.hostWarningTimeout) clearTimeout(session.hostWarningTimeout);
+    }
     io.to(currentUser.roomId).emit('session_ended');
     sessions.delete(currentUser.roomId);
   });
@@ -1354,6 +1957,8 @@ io.on('connection', (socket) => {
     const session = sessions.get(currentUser.roomId);
     if (session) broadcastSessionState(currentUser.roomId);
   });
+
+
 
   socket.on('admin_action', (data: { action: string; userId: string; payload?: any }) => {
     if (!currentUser.roomId || !currentUser.isHost) return;
@@ -1383,15 +1988,71 @@ io.on('connection', (socket) => {
     broadcastSessionState(currentUser.roomId);
   });
 
+  socket.on('leave_session', () => {
+    userTokensPrivateMap.delete(socket.id);
+    if (currentUser.roomId) {
+      const session = sessions.get(currentUser.roomId);
+      if (session) {
+        session.users = session.users.filter((u: any) => u.id !== socket.id);
+        if (currentUser.isHost) {
+           const isHostStillConnected = session.users.some((u: any) => u.isHost === true || u.userId === session.hostUserId);
+           if (!isHostStillConnected) {
+              if (session.hostOfflineTimeout) {
+                clearTimeout(session.hostOfflineTimeout);
+              }
+              if (session.hostWarningTimeout) {
+                clearTimeout(session.hostWarningTimeout);
+              }
+              
+              session.hostWarningTimeout = setTimeout(() => {
+                 io.to(currentUser.roomId).emit('error', 'Atenção: Sala será encerrada em 1 hora por falta de interação do Host (ausente).');
+              }, 23 * 60 * 60 * 1000); // 23h
+              
+              session.hostOfflineTimeout = setTimeout(() => {
+                 io.to(currentUser.roomId).emit('session_ended');
+                 sessions.delete(currentUser.roomId);
+              }, 24 * 60 * 60 * 1000); // 24h
+           } else {
+              broadcastSessionState(currentUser.roomId);
+           }
+        } else {
+           broadcastSessionState(currentUser.roomId);
+        }
+      }
+      socket.leave(currentUser.roomId);
+      currentUser.roomId = null;
+    }
+  });
+
   socket.on('disconnect', () => {
+    userTokensPrivateMap.delete(socket.id);
     if (currentUser.roomId) {
       const session = sessions.get(currentUser.roomId);
       if (session) {
         session.users = session.users.filter((u: any) => u.id !== socket.id);
         
         if (currentUser.isHost) {
-           io.to(currentUser.roomId).emit('session_ended');
-           sessions.delete(currentUser.roomId);
+           const isHostStillConnected = session.users.some((u: any) => u.isHost === true || u.userId === session.hostUserId);
+           if (!isHostStillConnected) {
+              // Deliver a 24-hour reconnect timeout grace period to prevent dropped sessions.
+              if (session.hostOfflineTimeout) {
+                 clearTimeout(session.hostOfflineTimeout);
+              }
+              if (session.hostWarningTimeout) {
+                 clearTimeout(session.hostWarningTimeout);
+              }
+              
+              session.hostWarningTimeout = setTimeout(() => {
+                 io.to(currentUser.roomId).emit('error', 'Atenção: Sala será encerrada em 1 hora por falta de interação do Host (ausente).');
+              }, 23 * 60 * 60 * 1000); // 23h
+              
+              session.hostOfflineTimeout = setTimeout(() => {
+                 io.to(currentUser.roomId).emit('session_ended');
+                 sessions.delete(currentUser.roomId);
+              }, 24 * 60 * 60 * 1000); // 24h
+           } else {
+              broadcastSessionState(currentUser.roomId);
+           }
         } else {
            broadcastSessionState(currentUser.roomId);
         }
@@ -1441,9 +2102,33 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(process.cwd(), 'dist')));
+    // Serve static files but disable serving index.html automatically (to allow injection)
+    app.use(express.static(path.join(process.cwd(), 'dist'), { index: false }));
+    
+    let indexHtmlContent = '';
+    try {
+      const fs = await import('fs');
+      indexHtmlContent = fs.readFileSync(path.join(process.cwd(), 'dist', 'index.html'), 'utf-8');
+    } catch (e) {
+      console.error('Failed to read dist/index.html', e);
+    }
+
     app.get('*', (req, res) => {
-      res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+      if (indexHtmlContent) {
+        const envScript = `
+  <script id="env-payload">
+    window.__RUNTIME_CONFIG__ = {
+      VITE_SUPABASE_URL: ${JSON.stringify(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '')},
+      VITE_SUPABASE_ANON_KEY: ${JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '')},
+      VITE_BACKEND_URL: ${JSON.stringify(process.env.VITE_BACKEND_URL || '')}
+    };
+  </script>
+`;
+        const injectedHtml = indexHtmlContent.replace('<head>', `<head>${envScript}`);
+        res.send(injectedHtml);
+      } else {
+        res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+      }
     });
   }
 

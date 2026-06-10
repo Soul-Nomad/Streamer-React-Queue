@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@deiutr/tiktok-dl": "^1.0.2",
     "@google/genai": "^2.4.0",
     "@supabase/supabase-js": "^2.107.0",
     "@tailwindcss/vite": "^4.1.14",
@@ -34,7 +35,8 @@
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.6.0",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "youtube-dl-exec": "^3.1.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

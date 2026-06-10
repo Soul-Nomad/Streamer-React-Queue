@@ -1,3 +1,17 @@
+export interface TwitchData {
+  avatarUrl?: string;
+  login?: string;
+  displayName?: string;
+  isSubscriber?: boolean;
+  isModerator?: boolean;
+  isVip?: boolean;
+  isBroadcaster?: boolean;
+  isFollower?: boolean;
+  followedAt?: string; // ISO String of follow date
+  color?: string;
+  badges?: string[]; // e.g. ["broadcaster", "moderator", "vip", "subscriber"]
+}
+
 export interface User {
   id: string; // Socket ID
   userId: string; // Persistent Unique ID (Saved in client localStorage)
@@ -10,6 +24,9 @@ export interface User {
   banReason?: string;
   lastSubmitted?: number;
   submissionsTimeline?: number[];
+
+  // Twitch Integrated Metadata
+  twitchData?: TwitchData;
 
   // Advanced Streamer Management features
   reputation?: number;         // Automatically calculated 0-100 reputation
@@ -50,6 +67,12 @@ export interface ModeratorSettings {
   userCooldownSeconds: number;
   maxSubmissionsPerHour: number;
   maxStrikesBeforeBan: number; // custom strike threshold
+  domainWhitelist: string[];
+  domainBlacklist: string[];
+  domainMode: 'whitelist_only' | 'blacklist_only' | 'both';
+  requireFollower?: boolean;
+  requireSub?: boolean;
+  minFollowMinutes?: number; // min follow duration required
 }
 
 export interface SecurityAuditLog {
@@ -125,7 +148,7 @@ export interface SessionState {
   allBans?: PersistentBanRecord[];
   allHistoryLogs?: PersistentHistoryLog[];
   suspiciousAlerts?: SuspiciousActivityAlert[];
-  allUserProfiles?: User[];
+  allUserProfiles?: any[];
 }
 
 

@@ -1,6 +1,6 @@
 {
-  "name": "QueueCast Independent Video Queue",
-  "description": "Uma plataforma independente para gerenciar e assistir vídeos em fila de reprodução, sem necessidade de login. Possui suporte a Reels, TikToks, YouTube Shorts e integração de facecam para transmissões de reação ao vivo.",
+  "name": "Streamer Video Queue",
+  "description": "Uma plataforma de alta performance de fila de vídeos para streamers da Twitch, com suporte a Reels, TikToks, YouTube Shorts, e moderação em tempo real.",
   "requestFramePermissions": [
     "camera",
     "microphone"

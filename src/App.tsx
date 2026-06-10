@@ -9,6 +9,8 @@ import { SessionState } from './types';
 import Lobby from './components/Lobby';
 import HostView from './components/HostView';
 import ParticipantView from './components/ParticipantView';
+import TermosDeUso from './components/TermosDeUso';
+import PoliticaDePrivacidade from './components/PoliticaDePrivacidade';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -21,6 +23,7 @@ export default function App() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [modalOpen, setModalOpen] = useState<'termos' | 'privacidade' | null>(null);
   
   const showToast = (message: string, type: 'error' | 'info' | 'success' = 'info') => {
     setToast({ message, type });
@@ -32,10 +35,32 @@ export default function App() {
   };
 
   useEffect(() => {
+    const handleConnect = () => {
+       const payloadStr = localStorage.getItem('active_session_payload');
+       if (payloadStr) {
+          try {
+             const data = JSON.parse(payloadStr);
+             socket.emit('join_session', data);
+          } catch (e) {
+             console.error('Failed to parse active session payload', e);
+          }
+       }
+    };
+
+    socket.on('connect', handleConnect);
+    if (socket.connected) {
+       handleConnect();
+    }
+
     socket.on('session_state', (state: SessionState) => {
        setSession(state);
        const me = state.users.find(u => u.id === socket.id);
-       setIsHost(me?.isHost || false);
+       const amIHost = me ? me.isHost : (localStorage.getItem('active_role') === 'host');
+       setIsHost(amIHost);
+
+       // Safely sync room registration to local persistence
+       localStorage.setItem('active_room_id', state.id);
+       localStorage.setItem('active_role', amIHost ? 'host' : 'participant');
     });
     
     socket.on('error', (msg: string) => {
@@ -44,15 +69,35 @@ export default function App() {
 
     socket.on('session_created', (roomId: string) => {
        showToast(`Sessão criada com sucesso! Código: ${roomId}`, 'success');
+       localStorage.setItem('active_room_id', roomId);
+       localStorage.setItem('active_role', 'host');
+
+       const templateStr = localStorage.getItem('host_join_template');
+       if (templateStr) {
+          try {
+             const template = JSON.parse(templateStr);
+             localStorage.setItem('active_session_payload', JSON.stringify({
+                ...template,
+                roomId
+             }));
+             localStorage.removeItem('host_join_template');
+          } catch (e) {
+             console.error('Failed to parse host join template', e);
+          }
+       }
     });
 
     socket.on('session_ended', () => {
        setSession(null);
        setIsHost(false);
+       localStorage.removeItem('active_room_id');
+       localStorage.removeItem('active_role');
+       localStorage.removeItem('active_session_payload');
        showToast("A sessão do host foi finalizada.", 'info');
     });
     
     return () => {
+       socket.off('connect', handleConnect);
        socket.off('session_state');
        socket.off('session_ended');
        socket.off('session_created');
@@ -60,35 +105,54 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleOpenModal = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'termos' || customEvent.detail === 'privacidade') {
+        setModalOpen(customEvent.detail);
+      }
+    };
+    window.addEventListener('openModal', handleOpenModal as EventListener);
+    return () => window.removeEventListener('openModal', handleOpenModal as EventListener);
+  }, []);
+
   return (
-    <div className="relative min-h-screen bg-[#0c0e12]">
+    <div className="relative min-h-screen bg-[#121212]">
+      {/* Development Status Banner */}
+      <div className="bg-[#FF8C42] py-1.5 px-4 text-center border-b border-white/10 select-none">
+        <p className="text-[9px] md:text-xs font-bold text-white uppercase tracking-wider flex items-center justify-center gap-2">
+          <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-white shrink-0" />
+          Este serviço está em fase de desenvolvimento e pode apresentar instabilidades.
+        </p>
+      </div>
+
       {/* Toast Overlay Portal Container */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed top-5 left-1/2 -translate-x-1/2 z-9999 flex items-center gap-3 bg-[#11141c]/95 border border-[#222735] px-4.5 py-3 rounded-xl shadow-2xl pointer-events-auto select-none max-w-sm w-[90%]"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 bg-[#1A1A1A] border-l-4 border-l-[#FF6B35] border border-[#222222] px-4 py-3 rounded text-white shadow-2xl pointer-events-auto select-none max-w-sm w-[90%]"
           >
             {toast.type === 'error' && (
-              <AlertCircle className="w-5 h-5 text-[#b28282] shrink-0" />
+              <AlertCircle className="w-5 h-5 text-[#F44336] shrink-0" />
             )}
             {toast.type === 'success' && (
-              <CheckCircle2 className="w-5 h-5 text-[#8caf9b] shrink-0" />
+              <CheckCircle2 className="w-5 h-5 text-[#4CAF50] shrink-0" />
             )}
             {toast.type === 'info' && (
-              <AlertCircle className="w-5 h-5 text-[#9c8cb3] shrink-0" />
+              <AlertCircle className="w-5 h-5 text-[#FF8C42] shrink-0" />
             )}
             
-            <p className="text-xs font-semibold text-[#cbd5e1] flex-1 text-left leading-relaxed">
+            <p className="text-xs font-semibold text-[#FFFFFF] flex-1 text-left leading-relaxed">
               {toast.message}
             </p>
 
             <button 
               onClick={() => setToast(null)}
-              className="p-1 hover:bg-[#1b1f2b] rounded-lg text-[#828ba0] hover:text-[#f8fafc] transition-colors cursor-pointer shrink-0"
+              className="p-1 hover:bg-[#222222] rounded text-[#B0B0B0] hover:text-[#FFFFFF] transition-colors cursor-pointer shrink-0"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -102,6 +166,12 @@ export default function App() {
         if (isHost) return <HostView session={session} />;
         return <ParticipantView session={session} />;
       })()}
+
+      {/* Legal Modals */}
+      <AnimatePresence>
+        {modalOpen === 'termos' && <TermosDeUso onClose={() => setModalOpen(null)} />}
+        {modalOpen === 'privacidade' && <PoliticaDePrivacidade onClose={() => setModalOpen(null)} />}
+      </AnimatePresence>
     </div>
   );
 }
