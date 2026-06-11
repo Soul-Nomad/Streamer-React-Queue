@@ -422,6 +422,48 @@ async function checkTwitchSubscriber(broadcasterId: string, userId: string, toke
   return false;
 }
 
+async function checkUserFollowsBroadcaster(userId: string, broadcasterId: string, token: string): Promise<{ isFollower: boolean; followedAt?: string }> {
+  try {
+    const clientId = await getTwitchClientId(token);
+    const url = `https://api.twitch.tv/helix/channels/followed?user_id=${userId}&broadcaster_id=${broadcasterId}`;
+    const res = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000
+    });
+    const d = res.data?.data;
+    if (d && d.length > 0) {
+      return { isFollower: true, followedAt: d[0].followed_at };
+    }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix User Follows Check] API lookup failed:`, err.response?.data || err.message);
+  }
+  return { isFollower: false };
+}
+
+async function checkUserSubscriberToBroadcaster(broadcasterId: string, userId: string, token: string): Promise<boolean> {
+  try {
+    const clientId = await getTwitchClientId(token);
+    const url = `https://api.twitch.tv/helix/subscriptions/user?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+    const res = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000
+    });
+    const d = res.data?.data;
+    if (d && d.length > 0) {
+      return true;
+    }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix User Subscription Check] API lookup failed:`, err.response?.data || err.message);
+  }
+  return false;
+}
+
 // Resolve shortened URLs on the server to bypass CORS and find actual video IDs
 app.get('/api/resolve', async (req, res) => {
   const targetUrl = req.query.url as string;
@@ -1038,30 +1080,88 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
 
       // 5. Dynamic twitch Follow and Subscription validation using real API metrics with local backup metadata
       const hostUser = state.users?.find((u: any) => u.isHost || u.userId === state.hostId);
-      const broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || state.hostId;
+      // Let's retrieve a guaranteed numeric broadcaster Twitch user ID
+      let broadcasterId = state.twitchData?.twitchUserId;
+      if (!broadcasterId || broadcasterId === state.hostId || (typeof broadcasterId === 'string' && broadcasterId.includes('-'))) {
+        broadcasterId = hostUser?.twitchData?.twitchUserId;
+      }
+      if (!broadcasterId || broadcasterId === state.hostId || (typeof broadcasterId === 'string' && broadcasterId.includes('-'))) {
+        try {
+          const supabaseAdmin = getSupabaseAdmin();
+          const { data: roomDb } = await supabaseAdmin
+            .from('rooms')
+            .select('twitch_channel_id')
+            .eq('id', roomId)
+            .single();
+          if (roomDb?.twitch_channel_id && !roomDb.twitch_channel_id.includes('-')) {
+            broadcasterId = roomDb.twitch_channel_id;
+          }
+        } catch (dbErr) {
+          console.error('[Verify Follower] Error fetching room twitch_channel_id:', dbErr);
+        }
+      }
+
       const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
       const targetTwitchUserId = userRecord?.twitchData?.twitchUserId;
+      const userToken = userRecord?.twitchData?.providerToken;
 
-      let meetsFollower = true;
-      let meetsSub = true;
+      let meetsFollower = false;
+      let meetsSub = false;
       let followTimeStr = userRecord?.twitchData?.followedAt;
 
-      if (broadcasterToken && broadcasterId && targetTwitchUserId && targetTwitchUserId !== broadcasterId) {
-        // Direct API Follower Verification
-        if (state.settings?.requireFollower || (state.settings?.minFollowMinutes && state.settings.minFollowMinutes > 0)) {
-          const followCheck = await checkTwitchFollower(broadcasterId, targetTwitchUserId, broadcasterToken);
-          meetsFollower = followCheck.isFollower;
-          followTimeStr = followCheck.followedAt || followTimeStr;
+      // Streamer / host themselves bypass follow/sub constraints
+      if (targetTwitchUserId && broadcasterId && targetTwitchUserId === broadcasterId) {
+        meetsFollower = true;
+        meetsSub = true;
+      } else {
+        // Direct check: If requireFollower is false and minFollowMinutes is 0, then meetsFollower is true by default
+        const needsFollowerCheck = !!(state.settings?.requireFollower || (state.settings?.minFollowMinutes && state.settings.minFollowMinutes > 0));
+        const needsSubCheck = !!state.settings?.requireSub;
+
+        meetsFollower = !needsFollowerCheck;
+        meetsSub = !needsSubCheck;
+
+        // Vector 1: Check using broadcaster token
+        if (broadcasterToken && broadcasterId && targetTwitchUserId && targetTwitchUserId !== broadcasterId) {
+          if (needsFollowerCheck) {
+            const followCheck = await checkTwitchFollower(broadcasterId, targetTwitchUserId, broadcasterToken);
+            if (followCheck.isFollower) {
+              meetsFollower = true;
+              followTimeStr = followCheck.followedAt || followTimeStr;
+            }
+          }
+          if (needsSubCheck) {
+            const subCheck = await checkTwitchSubscriber(broadcasterId, targetTwitchUserId, broadcasterToken);
+            if (subCheck) {
+              meetsSub = true;
+            }
+          }
         }
 
-        // Direct API Subscriber Verification
-        if (state.settings?.requireSub) {
-          meetsSub = await checkTwitchSubscriber(broadcasterId, targetTwitchUserId, broadcasterToken);
+        // Vector 2: Check using VIEWER's own token (active, authenticated viewer)
+        if ((!meetsFollower || !meetsSub) && userToken && broadcasterId && targetTwitchUserId && targetTwitchUserId !== broadcasterId) {
+          if (needsFollowerCheck && !meetsFollower) {
+            const followCheckViewer = await checkUserFollowsBroadcaster(targetTwitchUserId, broadcasterId, userToken);
+            if (followCheckViewer.isFollower) {
+              meetsFollower = true;
+              followTimeStr = followCheckViewer.followedAt || followTimeStr;
+            }
+          }
+          if (needsSubCheck && !meetsSub) {
+            const subCheckViewer = await checkUserSubscriberToBroadcaster(broadcasterId, targetTwitchUserId, userToken);
+            if (subCheckViewer) {
+              meetsSub = true;
+            }
+          }
         }
-      } else {
-        // Fallback: Check user record twitch data directly
-        meetsFollower = !!userRecord?.twitchData?.isFollower;
-        meetsSub = !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
+
+        // Vector 3: Local cached context (for extra protection / offline resiliency)
+        if (needsFollowerCheck && !meetsFollower) {
+          meetsFollower = !!userRecord?.twitchData?.isFollower;
+        }
+        if (needsSubCheck && !meetsSub) {
+          meetsSub = !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
+        }
       }
 
       // Combine direct API and user meta backup for extra safety

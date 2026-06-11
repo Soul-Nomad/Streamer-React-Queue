@@ -454,9 +454,45 @@ export default function Lobby() {
 
     setIsJoiningRoom(true);
 
-    const payload = buildTwitchPayload(false);
-
     const cleanRoomCode = targetRoomId.trim().toUpperCase();
+    const matchedRoom = discoveredRooms.find((r) => r.roomId === cleanRoomCode);
+
+    // Resolve follower status client-side utilizing Twitch cache
+    let matchedFollower = false;
+    let followTimestamp: string | undefined = undefined;
+
+    const hostLogin = matchedRoom?.hostLogin;
+    const hostTwitchUserId = matchedRoom?.hostTwitchUserId;
+
+    if (twitchFollowedData && (hostLogin || hostTwitchUserId)) {
+      const lowerHostLogin = hostLogin?.toLowerCase();
+
+      const foundInFollowed = twitchFollowedData.followed?.find(
+        (f: any) =>
+          (hostTwitchUserId && f.broadcaster_id === hostTwitchUserId) ||
+          (lowerHostLogin && f.broadcaster_login?.toLowerCase() === lowerHostLogin)
+      );
+
+      const foundInOnline = twitchFollowedData.online?.find(
+        (o: any) =>
+          (hostTwitchUserId && o.user_id === hostTwitchUserId) ||
+          (lowerHostLogin && o.user_login?.toLowerCase() === lowerHostLogin)
+      );
+
+      if (foundInFollowed || foundInOnline) {
+        matchedFollower = true;
+        followTimestamp = foundInFollowed?.followed_at || undefined;
+      }
+    }
+
+    const payload = buildTwitchPayload(false);
+    if (matchedFollower) {
+      payload.isFollower = true;
+      if (followTimestamp) {
+        payload.followedAt = followTimestamp;
+      }
+    }
+
     const joinPayload = {
       roomId: cleanRoomCode,
       name: payload.displayName,
@@ -465,7 +501,6 @@ export default function Lobby() {
     };
 
     // Register to recent entries local history
-    const matchedRoom = discoveredRooms.find((r) => r.roomId === cleanRoomCode);
     saveVisitHistory(
       cleanRoomCode,
       matchedRoom?.hostName || "Streamer Pool",
