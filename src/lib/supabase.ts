@@ -54,7 +54,12 @@ export const isMissingConfig = !cleanSupabaseUrl || !supabaseKey || cleanSupabas
 /**
  * Creates an administrative Supabase client that bypasses RLS policies securely on the backend server.
  */
+let cachedSupabaseAdmin: any = null;
+
 export function getSupabaseAdmin() {
+  if (cachedSupabaseAdmin) {
+    return cachedSupabaseAdmin;
+  }
   const rawUrlLocal = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || cleanSupabaseUrl || '';
   const url = cleanUrlHelper(rawUrlLocal);
   const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || supabaseKey || '').trim();
@@ -63,9 +68,10 @@ export function getSupabaseAdmin() {
     throw new Error('Supabase URL or Key are missing / placeholder.');
   }
 
-  return createClient(url, key, {
+  cachedSupabaseAdmin = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+  return cachedSupabaseAdmin;
 }
 
 /**
@@ -178,6 +184,16 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
  */
 export async function getSession(roomId: string) {
   const supabaseAdmin = getSupabaseAdmin();
+  const { data: roomData, error: roomError } = await supabaseAdmin
+    .from('rooms')
+    .select('is_active')
+    .eq('id', roomId)
+    .single();
+
+  if (roomError || !roomData || !roomData.is_active) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('room_settings')
     .select('settings_json')

@@ -32,7 +32,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
     switch (platform.toLowerCase()) {
       case 'youtube': return 'text-red-500 bg-red-500/10 border-red-500/20';
       case 'tiktok': return 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20';
-      case 'instagram': return 'text-pink-500 bg-pink-500/10 border-pink-500/20';
+      case 'instagram': return 'text-purple-500 bg-purple-500/10 border-purple-500/20';
       case 'twitch': return 'text-purple-400 bg-purple-400/10 border-purple-400/20';
       case 'x / twitter': return 'text-sky-400 bg-sky-400/10 border-sky-400/20';
       default: return 'text-gray-400 bg-gray-500/10 border-gray-500/20';

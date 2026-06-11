@@ -779,7 +779,7 @@ export default function HostView({ session }: { session: SessionState }) {
     <div className="flex flex-col h-screen bg-[#0d0d12] text-[#efefef] font-sans overflow-hidden select-none" id="streamer_host_view">
       {/* 1. Global Gradient Header Bar */}
       <header className="h-14 bg-zinc-950 border-b border-[#1f1f2e] px-4 flex items-center justify-between relative shrink-0">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-pink-500 to-emerald-400" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-purple-500 to-emerald-400" />
         
         {/* Brand & Room Info */}
         <div className="flex items-center gap-3">
@@ -1176,7 +1176,7 @@ export default function HostView({ session }: { session: SessionState }) {
                     </div>
                   ) : !optimisticLoading ? (
                     <div className="flex flex-col items-stretch text-center p-8 bg-[#13131a] border border-[#1f1f2e] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-pink-400 to-emerald-400" />
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-purple-400 to-emerald-400" />
                       
                       <div className="flex flex-col items-center mb-6">
                         <div className="p-3 bg-orange-500/10 border border-orange-500/20 mb-4 rounded">
@@ -1198,7 +1198,7 @@ export default function HostView({ session }: { session: SessionState }) {
                         </div>
 
                         <div className="flex gap-3">
-                          <span className="w-5 h-5 bg-pink-500/10 text-pink-400 border border-pink-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">2</span>
+                          <span className="w-5 h-5 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">2</span>
                           <div className="leading-tight">
                             <h4 className="font-bold text-zinc-300 font-sans">Aprovar Mídias</h4>
                             <p className="text-[10.5px] text-zinc-500 mt-0.5">As submissões do chat aparecem na coluna da esquerda para aprovação.</p>
