@@ -109,6 +109,30 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     minFollowMinutes: 0
   };
 
+  // Fetch existing room settings if any to prevent wiping out streamer custom rules when starting/reopening session
+  const { data: existingSettings } = await supabaseAdmin
+    .from('room_settings')
+    .select('*')
+    .eq('room_id', roomId)
+    .single();
+
+  const existingSettingsJson = existingSettings?.settings_json || {};
+  const existingSettingsJsonConfig = existingSettingsJson?.settings || {};
+
+  const mergedSettings = {
+    ...defaultSettings,
+    ...existingSettingsJsonConfig,
+    // Sync table columns to the JSON settings config
+    requireFollower: existingSettings?.require_follower ?? defaultSettings.requireFollower,
+    requireSub: existingSettings?.require_sub ?? defaultSettings.requireSub,
+    minFollowMinutes: existingSettings?.min_follow_minutes ?? (existingSettings?.min_follow_days ? existingSettings.min_follow_days * 1440 : defaultSettings.minFollowMinutes),
+    userCooldownSeconds: existingSettings?.cooldown_seconds ?? defaultSettings.userCooldownSeconds,
+    maxSubmissionsPerHour: existingSettings?.maxSubmissionsPerHour ?? existingSettingsJsonConfig.maxSubmissionsPerHour ?? defaultSettings.maxSubmissionsPerHour,
+    isManualApprovalRequired: existingSettings?.isManualApprovalRequired ?? existingSettingsJsonConfig.isManualApprovalRequired ?? defaultSettings.isManualApprovalRequired,
+    blockLiveStreams: existingSettings?.blockLiveStreams ?? existingSettingsJsonConfig.blockLiveStreams ?? defaultSettings.blockLiveStreams,
+    globalCooldownSeconds: existingSettings?.globalCooldownSeconds ?? existingSettingsJsonConfig.globalCooldownSeconds ?? defaultSettings.globalCooldownSeconds,
+  };
+
   const initialSessionState = {
     id: roomId,
     hostId: hostId,
@@ -119,11 +143,11 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     history: [],
     isPlaying: false,
     currentTime: 0,
-    settings: defaultSettings,
-    blacklistIPs: [],
-    blacklistUsernames: [],
-    allBans: [],
-    auditLogs: []
+    settings: mergedSettings,
+    blacklistIPs: existingSettingsJson?.blacklistIPs || [],
+    blacklistUsernames: existingSettingsJson?.blacklistUsernames || [],
+    allBans: existingSettingsJson?.allBans || [],
+    auditLogs: existingSettingsJson?.auditLogs || []
   };
 
   // 3. Upsert settings with consolidated JSON state payload
@@ -132,8 +156,13 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     .upsert({
       room_id: roomId,
       settings_json: initialSessionState,
-      require_sub: false,
-      require_follower: false
+      require_sub: existingSettings?.require_sub ?? false,
+      require_follower: existingSettings?.require_follower ?? false,
+      min_follow_days: existingSettings?.min_follow_days ?? 0,
+      min_account_age_days: existingSettings?.min_account_age_days ?? 0,
+      max_videos_per_user: existingSettings?.max_videos_per_user ?? 2,
+      max_queue_size: existingSettings?.max_queue_size ?? 50,
+      cooldown_seconds: existingSettings?.cooldown_seconds ?? 60,
     });
 
   if (settingsError) {

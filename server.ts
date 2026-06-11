@@ -571,6 +571,56 @@ app.get('/api/instagram-stream', async (req, res) => {
   }
 });
 
+// GET /api/x-stream - Resolver vídeo do X (Twitter) usando Cobalt API
+app.get('/api/x-stream', async (req, res) => {
+  const videoUrl = req.query.url as string;
+  if (!videoUrl) {
+    res.status(400).json({ error: 'URL is required' });
+    return;
+  }
+
+  console.log(`[X/Twitter Resolver] Attempting to resolve: ${videoUrl}`);
+
+  const cobaltServers = [
+    'https://co.wuk.sh/api/json',
+    'https://api.cobalt.tools/'
+  ];
+
+  for (const apiEndpoint of cobaltServers) {
+    try {
+      console.log(`[X/Twitter Resolver] Querying API: ${apiEndpoint}`);
+      const response = await axios.post(
+        apiEndpoint,
+        {
+          url: videoUrl,
+          vQuality: '720',
+          aFormat: 'mp4',
+          isAudioOnly: false
+        },
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          timeout: 8000
+        }
+      );
+
+      const d = response.data;
+      if (d && (d.url || d.text)) {
+        const resolvedUrl = d.url || d.text;
+        console.log(`[X/Twitter Resolver] Success! Resolved direct URL: ${resolvedUrl}`);
+        res.json({ videoUrl: resolvedUrl });
+        return;
+      }
+    } catch (err: any) {
+      console.warn(`[X/Twitter Resolver] Failed on ${apiEndpoint}:`, err.response?.data || err.message);
+    }
+  }
+
+  res.json({ error: 'Não foi possível extrair o vídeo direto do X/Twitter.', videoUrl });
+});
+
 // Proxy direct streaming media to bypass local browser CORS & security headers
 app.get('/api/proxy-video', async (req, res) => {
   const mediaUrl = req.query.url as string;

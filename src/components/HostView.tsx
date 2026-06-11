@@ -277,6 +277,99 @@ function CustomInstagramPlayer({ url, getRatioClass, webcamStream, WebcamPreview
   );
 }
 
+function CustomXPlayer({ url, getRatioClass, webcamStream, WebcamPreview }: CustPlayerProps) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    setLoading(true);
+    setError(null);
+    setVideoUrl(null);
+
+    fetch(`${getBackendUrl()}/api/x-stream?url=${encodeURIComponent(url)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Erro ao obter fluxo de transmissão');
+        return res.json();
+      })
+      .then((data) => {
+        if (active) {
+          if (data.videoUrl && !data.error) {
+            setVideoUrl(data.videoUrl);
+          } else {
+            setError(data.error || 'Não foi possível carregar o vídeo.');
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("X.com resolver error:", err);
+        if (active) {
+          setError('Ocorreu um erro ao carregar o vídeo de forma direta.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div className={clsx("relative w-full bg-[#0A0A0A] rounded-sm overflow-hidden flex flex-col items-center justify-center border border-[#1f1f1f]/80 p-8 text-center", getRatioClass())}>
+         <WebcamPreview />
+         <Loader2 className="w-10 h-10 text-[#FF6B35] animate-spin mb-4" />
+         <span className="text-[#EFEFEF] font-bold text-sm tracking-wide font-sans">Processando Vídeo do X/Twitter</span>
+         <span className="text-[#505050] text-xs mt-1 font-mono">Processando fluxo via Cobalt...</span>
+      </div>
+    );
+  }
+
+  if (error || !videoUrl) {
+    return (
+      <div className={clsx("relative w-full bg-[#0A0A0A] rounded-sm overflow-hidden flex flex-col items-center justify-center border border-[#1f1f1f]/80 p-6 text-center", getRatioClass())}>
+         <WebcamPreview />
+         <AlertCircle className="w-10 h-10 text-[#e0a670] mb-3" />
+         <span className="text-[#EFEFEF] font-bold text-sm">Problema ao Extrair Vídeo</span>
+         <p className="text-[#B0B0B0] text-xs mt-2 leading-relaxed">
+            Este conteúdo pode não conter vídeo, ser privado ou possui restrições.
+         </p>
+         <a 
+            href={url} 
+            target="_blank" 
+            rel="noreferrer noopener" 
+            className="mt-6 flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm bg-[#222222] border border-[#2d2d2d] hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold text-xs transition-all text-center cursor-pointer"
+         >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Visualizar no X/Twitter
+         </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className={clsx("relative bg-[#0A0A0A] rounded-sm overflow-hidden pointer-events-auto flex flex-col items-center justify-center border border-[#1f1f1f]/80 select-none shadow-2xl", getRatioClass())}>
+       <WebcamPreview />
+       <div className={clsx("w-full h-full flex items-center justify-center p-0 transition-all duration-300", webcamStream ? "pt-[150px]" : "pt-0")}>
+          <video
+             src={`/api/proxy-video?url=${encodeURIComponent(videoUrl)}`}
+             className="w-full h-full min-h-screen h-screen max-h-screen rounded-sm bg-[#0A0A0A] object-contain z-10"
+             controls
+             autoPlay
+             loop
+             playsInline
+          />
+       </div>
+    </div>
+  );
+}
+
 function CustomYouTubeShortsPlayer({ url, getRatioClass, webcamStream, WebcamPreview }: CustPlayerProps) {
   const ytId = getYouTubeId(url);
 
@@ -829,12 +922,27 @@ export default function HostView({ session }: { session: SessionState }) {
             </button>
 
             <button 
-              onClick={() => {
+              onClick={async () => {
                 const activeRoomId = localStorage.getItem('active_room_id');
-                socket.emit('end_session', { roomId: activeRoomId || undefined });
+                if (activeRoomId) {
+                  try {
+                    await fetch(`${getBackendUrl()}/api/sessions/${activeRoomId}/end_session`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ roomId: activeRoomId })
+                    });
+                  } catch (e) {
+                    console.error('Error ending session directly:', e);
+                  }
+                }
                 localStorage.removeItem('active_room_id');
+                localStorage.removeItem('active_supabase_room_id');
                 localStorage.removeItem('active_role');
                 localStorage.removeItem('active_session_payload');
+                if (socket && typeof socket.disconnect === 'function') {
+                  socket.disconnect();
+                }
+                window.location.href = '/';
               }} 
               className="w-11 h-11 rounded-sm flex items-center justify-center text-[#F44336] bg-[#F44336]/10 hover:text-white hover:bg-[#F44336] transition-all cursor-pointer animate-fade-in"
               title="Encerrar Sessão"
@@ -1455,12 +1563,12 @@ export default function HostView({ session }: { session: SessionState }) {
                        WebcamPreview={WebcamPreview} 
                     />
                  ) : isX(resolvedUrl) ? (
-                   <div className="relative w-full max-w-[540px] h-full max-h-[82vh] bg-[#151515] rounded-sm overflow-hidden border border-[#222222]/80 pointer-events-auto flex items-center justify-center p-4 shadow-2xl">
-                      <WebcamPreview />
-                      <div className="w-full h-full overflow-y-auto overflow-x-hidden flex justify-center light">
-                         {getTweetId(resolvedUrl) ? <Tweet id={getTweetId(resolvedUrl)!} /> : <div className="text-white">Tweet não encontrado.</div>}
-                      </div>
-                   </div>
+                    <CustomXPlayer 
+                       url={resolvedUrl} 
+                       getRatioClass={getRatioClass} 
+                       webcamStream={webcamStream} 
+                       WebcamPreview={WebcamPreview} 
+                    />
                 ) : isLinkedIn(resolvedUrl) ? (
                    <div className="relative w-full max-w-[540px] h-full max-h-[82vh] bg-[#151515] rounded-sm overflow-hidden border border-[#222222]/80 pointer-events-auto flex items-center justify-center p-4 shadow-2xl">
                       <WebcamPreview />
