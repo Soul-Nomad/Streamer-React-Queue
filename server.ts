@@ -1272,19 +1272,31 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
        const isStreamerOrHost = userId === state.hostId || twitchData?.isBroadcaster;
        
        if (!isStreamerOrHost && broadcasterId && targetTwitchUserId && userToken && targetTwitchUserId !== broadcasterId) {
-          const followCheckViewer = await checkUserFollowsBroadcaster(targetTwitchUserId, broadcasterId, userToken);
-          if (followCheckViewer.isFollower) {
+          const [followData, subData, fullTwitchUser] = await Promise.all([
+            checkUserFollowsBroadcaster(targetTwitchUserId, broadcasterId, userToken),
+            checkUserSubscriberToBroadcaster(targetTwitchUserId, broadcasterId, userToken),
+            getTwitchUserFullData(targetTwitchUserId, userToken)
+          ]);
+
+          if (followData.isFollower) {
             finalTwitchData.isFollower = true;
-            finalTwitchData.followedAt = followCheckViewer.followedAt || twitchData?.followedAt || null;
+            finalTwitchData.followedAt = followData.followedAt || twitchData?.followedAt || null;
           } else {
-             // In case cache shows they don't follow
-             finalTwitchData.isFollower = false;
+            finalTwitchData.isFollower = false;
           }
-          const subCheckViewer = await checkUserSubscriberToBroadcaster(broadcasterId, targetTwitchUserId, userToken);
-          if (subCheckViewer) {
+
+          if (subData.isSubscriber) {
             finalTwitchData.isSubscriber = true;
+            if (!finalTwitchData.badges) finalTwitchData.badges = [];
+            if (!finalTwitchData.badges.includes('subscriber')) finalTwitchData.badges.push('subscriber');
           } else {
-             finalTwitchData.isSubscriber = false;
+            finalTwitchData.isSubscriber = false;
+          }
+
+          if (fullTwitchUser) {
+            finalTwitchData.avatarUrl = fullTwitchUser.profile_image_url || finalTwitchData.avatarUrl;
+            finalTwitchData.displayName = fullTwitchUser.display_name || finalTwitchData.displayName;
+            finalTwitchData.color = fullTwitchUser.color || finalTwitchData.color;
           }
        }
     } catch(err) { }
@@ -1903,12 +1915,20 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
+    // Consolidate settings with priority to explicit data updates
+    const newSettings = {
+      ...(state.settings || {}),
+      ...data,
+      requireSub: data.requireSub ?? data.require_sub ?? state.settings?.requireSub ?? false,
+      requireFollower: data.requireFollower ?? data.require_follower ?? state.settings?.requireFollower ?? false,
+      userCooldownSeconds: data.userCooldownSeconds ?? data.cooldown_seconds ?? state.settings?.userCooldownSeconds ?? 0,
+      maxVideosPerUser: data.maxVideosPerUser ?? data.max_videos_per_user ?? state.settings?.maxVideosPerUser ?? 0,
+      maxQueueSize: data.maxQueueSize ?? data.max_queue_size ?? state.settings?.maxQueueSize ?? 0,
+    };
+
     const updatedState = {
       ...state,
-      settings: {
-        ...(state.settings || {}),
-        ...data
-      }
+      settings: newSettings
     };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -1916,11 +1936,12 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
       .from('room_settings')
       .update({ 
         settings_json: updatedState,
-        require_sub: data.requireSub ?? state.settings?.requireSub ?? false,
-        require_follower: data.requireFollower ?? state.settings?.requireFollower ?? false,
-        cooldown_seconds: data.userCooldownSeconds ?? state.settings?.userCooldownSeconds ?? 60,
-        max_videos_per_user: data.maxVideosPerUser ?? state.settings?.maxVideosPerUser ?? 2,
-        max_queue_size: data.maxQueueSize ?? state.settings?.maxQueueSize ?? 50,
+        require_sub: newSettings.requireSub,
+        require_follower: newSettings.requireFollower,
+        cooldown_seconds: newSettings.userCooldownSeconds,
+        max_videos_per_user: newSettings.maxVideosPerUser,
+        max_queue_size: newSettings.maxQueueSize,
+        min_follow_minutes: data.minFollowMinutes ?? state.settings?.minFollowMinutes ?? 0,
         min_follow_days: data.minFollowMinutes ? Math.ceil(data.minFollowMinutes / 1440) : (state.settings?.minFollowMinutes ? Math.ceil(state.settings.minFollowMinutes / 1440) : 0)
       })
       .eq('room_id', roomId);
@@ -2044,12 +2065,16 @@ app.post(['/sessions/:id/admin_action', '/api/sessions/:id/admin_action'], async
   }
 });
 
-// POST /sessions/:id/unban_user - Lift ban
-app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user'], async (req, res) => {
+// POST /sessions/:id/forgive_user - Lift ban (Alias for admin_action:forgive)
+app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user', '/api/sessions/:id/forgive_user'], async (req, res) => {
   try {
     const roomId = req.params.id;
     const { data } = req.body;
     const targetUserId = typeof data === 'string' ? data : data?.userId;
+
+    if (!targetUserId) return res.status(400).json({ error: 'ID do usuário obrigatório.' });
+
+    dbStore.removeBanRecord(targetUserId, 'Host/Admin', 'Perdoado pelo moderador');
 
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
@@ -2062,9 +2087,19 @@ app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user'], async (re
     const banRecord = (state.allBans || []).find((b: any) => b.userId === targetUserId);
     const targetUsername = banRecord?.username?.toLowerCase();
 
-    const blacklistUsernames = (state.blacklistUsernames || []).filter((u: string) => u.toLowerCase() !== targetUsername);
+    const blacklistUsernames = (state.blacklistUsernames || []).filter((u: string) => {
+       if (targetUsername && u.toLowerCase() === targetUsername) return false;
+       return true;
+    });
 
-    const updatedState = { ...state, allBans, blacklistUsernames };
+    const updatedUsers = (state.users || []).map((u: any) => {
+       if (u.userId === targetUserId) {
+         return { ...u, isBanned: false, timeoutUntil: undefined, strikes: 0, shadowBanned: false, restrictedUntil: undefined };
+       }
+       return u;
+    });
+
+    const updatedState = { ...state, allBans, blacklistUsernames, users: updatedUsers };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin

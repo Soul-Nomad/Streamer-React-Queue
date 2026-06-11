@@ -100,8 +100,8 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
   const history = session.allHistoryLogs || [];
   const alerts = session.suspiciousAlerts || [];
 
-  const handleUnban = (userId: string) => {
-    socket.emit('unban_user', userId);
+  const handleForgive = (userId: string) => {
+    socket.emit('admin_action', { action: 'forgive', userId });
   };
 
   const handlePunish = (userId: string, banType: string) => {
@@ -113,7 +113,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
   };
   
   const handleLiftRestrictions = (userId: string) => {
-    socket.emit('admin_action', { action: 'lift_restrictions', userId });
+    socket.emit('admin_action', { action: 'forgive', userId });
   };
 
   const [historySearchQuery, setHistorySearchQuery] = useState('');
@@ -140,38 +140,38 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
   }, [allUsers, searchQuery]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12">
+    <div className="w-full h-full flex flex-col bg-[#111116] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12 border-l border-[#1f1f2e]">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-black text-zinc-100 flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-[#FF6B35]" />
-            PRO SYSTEM TERMINAL
+          <h1 className="text-2xl font-black text-zinc-100 flex items-center gap-3 font-mono tracking-tighter">
+            <ShieldCheck className="w-8 h-8 text-orange-500" />
+            CENTRAL DE COMANDO
           </h1>
-          <p className="text-[#B0B0B0] text-sm mt-1 font-mono">
-            Moderação unificada de espectadores, monitor de anomalias e histórico de transmissões.
+          <p className="text-[#B0B0B0] text-[10px] mt-1 font-mono uppercase tracking-[0.2em] opacity-40">
+            Monitor de Transmissão e Protocolos de Segurança Ativos
           </p>
         </div>
         
-        <div className="flex bg-[#1A1A1A] p-1 rounded border border-[#222222]">
+        <div className="flex bg-zinc-900 p-0.5 rounded border border-[#1f1f2e]">
           <button 
             onClick={() => setActiveView('overview')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'overview' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
+            className={clsx("px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer font-mono", activeView === 'overview' ? 'bg-orange-600 text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100 hover:bg-zinc-800')}
           >
-            Visão Geral
+            TERMINAL
           </button>
           <button 
             onClick={() => setActiveView('users')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'users' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
+            className={clsx("px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer font-mono", activeView === 'users' ? 'bg-orange-600 text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100 hover:bg-zinc-800')}
           >
-            Usuários & Perfis
+            AUDITORES
           </button>
           <button 
             onClick={() => setActiveView('history')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'history' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
+            className={clsx("px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer font-mono", activeView === 'history' ? 'bg-orange-600 text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100 hover:bg-zinc-800')}
           >
-            Histórico Global
+            LOGS
           </button>
         </div>
       </div>
