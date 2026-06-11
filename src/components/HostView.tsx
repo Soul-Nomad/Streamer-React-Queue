@@ -568,7 +568,12 @@ export default function HostView({ session }: { session: SessionState }) {
   
   const currentVideo = session.queue.find(v => v.id === session.currentVideoId) || session.history.find(v => v.id === session.currentVideoId);
   const activeSender = currentVideo ? (session.users.find(u => u.name === currentVideo.submitter || u.userId === currentVideo.submitterId) || null) : null;
-  const focusUser = selectedUser || activeSender || null;
+  const focusUser = activeSender || selectedUser || null;
+
+  // Track the playing video sender in real-time when the active video shifts
+  useEffect(() => {
+    setSelectedUser(null);
+  }, [session.currentVideoId]);
 
   // URL resolution effect to handle shortened links
   useEffect(() => {
@@ -724,8 +729,8 @@ export default function HostView({ session }: { session: SessionState }) {
               muted
               className="w-full h-full object-cover scale-x-[-1]"
            />
-           <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/80 border border-purple-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-purple-400 flex items-center gap-1 backdrop-blur-sm">
-              <span className="w-1 h-1 rounded-full bg-purple-500 animate-pulse"></span>
+           <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/80 border border-orange-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-orange-400 flex items-center gap-1 backdrop-blur-sm">
+              <span className="w-1 h-1 rounded-full bg-orange-500 animate-pulse"></span>
               REACTION
            </div>
         </div>
@@ -741,8 +746,8 @@ export default function HostView({ session }: { session: SessionState }) {
             muted
             className="w-full h-full object-cover scale-x-[-1]"
          />
-         <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/85 border border-purple-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-zinc-100 flex items-center gap-1 backdrop-blur-sm">
-            <span className="w-1 h-1 rounded-full bg-purple-500 animate-ping"></span>
+         <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/85 border border-orange-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-zinc-100 flex items-center gap-1 backdrop-blur-sm">
+            <span className="w-1 h-1 rounded-full bg-orange-500 animate-ping"></span>
             HOST
          </div>
       </div>
@@ -774,18 +779,18 @@ export default function HostView({ session }: { session: SessionState }) {
     <div className="flex flex-col h-screen bg-[#0d0d12] text-[#efefef] font-sans overflow-hidden select-none" id="streamer_host_view">
       {/* 1. Global Gradient Header Bar */}
       <header className="h-14 bg-zinc-950 border-b border-[#1f1f2e] px-4 flex items-center justify-between relative shrink-0">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-400" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-pink-500 to-emerald-400" />
         
         {/* Brand & Room Info */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border border-red-400/40" />
-            <h1 className="text-sm font-black uppercase tracking-wider font-mono bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Live Console</h1>
+            <h1 className="text-sm font-black uppercase tracking-wider font-mono bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Live Console</h1>
           </div>
           <span className="h-4 w-px bg-zinc-800" />
           <div className="flex items-center gap-1.5 font-mono text-[10.5px]">
             <span className="text-zinc-500 uppercase">SALA:</span>
-            <span className="text-purple-400 font-extrabold tracking-widest">{session.id}</span>
+            <span className="text-orange-400 font-extrabold tracking-widest">{session.id}</span>
           </div>
         </div>
 
@@ -796,7 +801,7 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'player' 
-                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
             )}
           >
@@ -809,7 +814,7 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'submit' 
-                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
             )}
           >
@@ -822,7 +827,7 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'participants' 
-                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
             )}
           >
@@ -835,7 +840,7 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'moderation' 
-                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
             )}
           >
@@ -848,7 +853,7 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'settings' 
-                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
             )}
           >
@@ -863,7 +868,7 @@ export default function HostView({ session }: { session: SessionState }) {
             onClick={copyInvite}
             className="px-3 py-1.5 text-xs font-bold font-mono tracking-wider hover:bg-zinc-900 border border-zinc-800 rounded transition-all cursor-pointer flex items-center gap-1.5 text-zinc-300 hover:text-white"
           >
-            <Copy className="w-3.5 h-3.5 text-purple-400" />
+            <Copy className="w-3.5 h-3.5 text-orange-400" />
             {copied ? "COPIADO!" : "CONVITE"}
           </button>
           
@@ -909,7 +914,7 @@ export default function HostView({ session }: { session: SessionState }) {
             <div className="flex-1 flex items-center justify-center p-6 bg-[#0a0a0f]">
               <div className="w-full max-w-md bg-zinc-950 border border-[#1f1f2e] p-6 space-y-4">
                 <div className="space-y-1">
-                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-purple-400">Injeção Manual de Mídias</h3>
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">Injeção Manual de Mídias</h3>
                   <p className="text-[10.5px] text-zinc-500">Envie um link de vídeo diretamente sobrepondo cooldowns ou regras de validações normais de viewers.</p>
                 </div>
                 <div className="space-y-2">
@@ -918,12 +923,12 @@ export default function HostView({ session }: { session: SessionState }) {
                     value={directUrl}
                     onChange={e => setDirectUrl(e.target.value)}
                     placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500 font-mono"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500 font-mono"
                   />
                   <button 
                     onClick={handleDirectSubmit}
                     disabled={!directUrl.trim().startsWith('http')}
-                    className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-bold py-2.5 rounded text-xs transition-colors cursor-pointer font-mono"
+                    className="w-full bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-bold py-2.5 rounded text-xs transition-colors cursor-pointer font-mono"
                   >
                     INJETAR AGORA
                   </button>
@@ -936,7 +941,7 @@ export default function HostView({ session }: { session: SessionState }) {
             <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-[#0a0a0f] space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div className="space-y-0.5">
-                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-purple-400">Lista Geral de Participantes</h3>
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">Lista Geral de Participantes</h3>
                   <p className="text-[10.5px] text-zinc-500">Visualização e controle de espectadores logados na sala.</p>
                 </div>
                 <span className="text-xs font-mono font-bold bg-zinc-900 border border-zinc-800 px-2 py-1 text-zinc-300">
@@ -949,7 +954,7 @@ export default function HostView({ session }: { session: SessionState }) {
                   <div 
                     key={u.id} 
                     onClick={() => { setSelectedUser(u); setActiveTab('player'); }}
-                    className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-purple-500/50 rounded-sm cursor-pointer transition-all duration-200"
+                    className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-orange-500/50 rounded-sm cursor-pointer transition-all duration-200"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {renderUserAvatar(u, "w-8 h-8")}
@@ -1003,7 +1008,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer shadow disabled:opacity-30"
                       title="Próxima Mídia (ArrowRight / N)"
                     >
-                      <SkipForward className="w-4 h-4 text-purple-400" />
+                      <SkipForward className="w-4 h-4 text-orange-400" />
                     </button>
 
                     <div className="h-px w-6 bg-zinc-800" />
@@ -1017,7 +1022,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer shadow"
                       title="Acessar Canal Original"
                     >
-                      <ExternalLink className="w-4 h-4 text-[#efefef] hover:text-purple-400" />
+                      <ExternalLink className="w-4 h-4 text-[#efefef] hover:text-orange-400" />
                     </button>
 
                     {/* Hardware integrations */}
@@ -1026,7 +1031,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       className={clsx(
                         "w-10 h-10 rounded border flex items-center justify-center transition-all cursor-pointer shadow",
                         webcamStream 
-                          ? "bg-purple-950/45 border-purple-500 text-purple-400 animate-pulse" 
+                          ? "bg-orange-950/45 border-orange-500 text-orange-400 animate-pulse" 
                           : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
                       )}
                       title="Ativar Webcam de Reação"
@@ -1039,7 +1044,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       className={clsx(
                         "w-10 h-10 rounded border flex items-center justify-center transition-all cursor-pointer shadow",
                         aspectMenuOpen
-                          ? "bg-purple-950/45 border-purple-500 text-purple-400"
+                          ? "bg-orange-950/45 border-orange-500 text-orange-400"
                           : "bg-zinc-900 border-zinc-800 text-zinc-300"
                       )}
                       title="Modo Crop e Proporção"
@@ -1081,7 +1086,7 @@ export default function HostView({ session }: { session: SessionState }) {
                           className={clsx(
                             "px-2.5 py-1 text-left rounded-sm font-bold uppercase transition-all cursor-pointer",
                             aspectRatio === ratio
-                              ? "bg-purple-600 text-white"
+                              ? "bg-orange-600 text-white"
                               : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                           )}
                         >
@@ -1093,7 +1098,7 @@ export default function HostView({ session }: { session: SessionState }) {
                         onClick={() => setCropOverlay(!cropOverlay)}
                         className={clsx(
                           "px-2 py-1 text-center rounded-sm font-bold uppercase transition-all border border-zinc-800 cursor-pointer",
-                          cropOverlay ? "bg-purple-950/45 text-purple-400 border-purple-500/20" : "bg-zinc-900 text-zinc-500"
+                          cropOverlay ? "bg-orange-950/45 text-orange-400 border-orange-500/20" : "bg-zinc-900 text-zinc-500"
                         )}
                       >
                         SUPORTE SMART CROP
@@ -1109,7 +1114,7 @@ export default function HostView({ session }: { session: SessionState }) {
                 >
                   {optimisticLoading && (
                     <div className="w-[90%] max-w-4xl aspect-video bg-zinc-950 rounded-sm border border-zinc-800 flex flex-col items-center justify-center animate-pulse shadow-2xl">
-                      <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+                      <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
                       <span className="text-zinc-300 font-extrabold text-xs font-mono uppercase tracking-widest">Sintonizando canais...</span>
                       <span className="text-zinc-600 text-[10px] mt-1 font-sans">Preparando a próxima reprodução</span>
                     </div>
@@ -1119,7 +1124,7 @@ export default function HostView({ session }: { session: SessionState }) {
                     <div className={clsx("relative w-full max-h-full h-full bg-[#040406] flex items-center justify-center select-none", isFullscreen ? 'w-screen h-screen' : 'px-4 py-8')}>
                       {resolving && (
                         <div className="absolute inset-0 bg-zinc-950/90 backdrop-blur-md z-45 flex flex-col items-center justify-center">
-                          <Loader2 className="w-8 h-8 text-purple-400 animate-spin mb-3" />
+                          <Loader2 className="w-8 h-8 text-orange-400 animate-spin mb-3" />
                           <p className="text-xs font-black tracking-widest text-[#efefef] font-mono uppercase">Limpando frames de redirecionamento...</p>
                         </div>
                       )}
@@ -1171,11 +1176,11 @@ export default function HostView({ session }: { session: SessionState }) {
                     </div>
                   ) : !optimisticLoading ? (
                     <div className="flex flex-col items-stretch text-center p-8 bg-[#13131a] border border-[#1f1f2e] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 via-pink-400 to-emerald-400" />
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-pink-400 to-emerald-400" />
                       
                       <div className="flex flex-col items-center mb-6">
-                        <div className="p-3 bg-purple-500/10 border border-purple-500/20 mb-4 rounded">
-                          <Cast className="w-8 h-8 text-purple-400" />
+                        <div className="p-3 bg-orange-500/10 border border-orange-500/20 mb-4 rounded">
+                          <Cast className="w-8 h-8 text-orange-400" />
                         </div>
                         <h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-100 font-mono">Sala em Standby</h2>
                         <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-sans">Compartilhe o link e aguarde os espectadores enviarem novos vídeos.</p>
@@ -1185,7 +1190,7 @@ export default function HostView({ session }: { session: SessionState }) {
                         <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono">Próximos Passos:</h3>
                         
                         <div className="flex gap-3">
-                          <span className="w-5 h-5 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">1</span>
+                          <span className="w-5 h-5 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">1</span>
                           <div className="leading-tight">
                             <h4 className="font-bold text-zinc-300">Compartilhar Convite</h4>
                             <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique no botão "Convite" no cabeçalho e cole para o seu chat.</p>
@@ -1212,7 +1217,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1 text-[9px] font-black tracking-wider uppercase font-mono text-zinc-500">
                           <span>Espectador:</span>
-                          <span className="text-purple-400">@{currentVideo.submitter}</span>
+                          <span className="text-orange-400">@{currentVideo.submitter}</span>
                           {renderTwitchBadgesHost(activeSender)}
                         </div>
                         <h4 className="text-xs font-black text-zinc-200 truncate pr-4 mt-0.5" title={currentVideo.title || "Sem título informado"}>
@@ -1271,7 +1276,7 @@ export default function HostView({ session }: { session: SessionState }) {
               feedbackMsg.type === 'success' && "bg-[#111116]/95 border-green-500/40 text-green-400",
               feedbackMsg.type === 'warning' && "bg-[#111116]/95 border-amber-500/40 text-amber-400",
               feedbackMsg.type === 'error' && "bg-[#111116]/95 border-red-500/40 text-red-500",
-              feedbackMsg.type === 'info' && "bg-[#111116]/95 border-purple-500/40 text-purple-400"
+              feedbackMsg.type === 'info' && "bg-[#111116]/95 border-orange-500/40 text-orange-400"
             )}
           >
             <div className="flex items-center gap-2">

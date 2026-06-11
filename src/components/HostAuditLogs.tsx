@@ -40,7 +40,7 @@ export default function HostAuditLogs({ session, onShowFeedback }: HostAuditLogs
       {/* Module TitleBar */}
       <div className="p-3 bg-zinc-950 border-b border-[#1f1f2e] flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-mono text-xs font-black tracking-wider text-zinc-300">
-          <Terminal className="w-4 h-4 text-purple-500" />
+          <Terminal className="w-4 h-4 text-orange-500" />
           <span>Auditoria de Segurança</span>
         </div>
         <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export default function HostAuditLogs({ session, onShowFeedback }: HostAuditLogs
                   <span className="font-extrabold text-zinc-300 pr-1">{log.type.toUpperCase()}:</span>
                   <span className="text-zinc-400">{log.message}</span>
                   {log.username && (
-                    <span className="text-purple-400 font-extrabold pl-1">(@{log.username})</span>
+                    <span className="text-orange-400 font-extrabold pl-1">(@{log.username})</span>
                   )}
                 </div>
               </div>

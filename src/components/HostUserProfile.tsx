@@ -87,7 +87,7 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
     <div className="flex flex-col h-full bg-[#111116] text-zinc-100 font-sans border-l border-[#1f1f2e] select-none" id="host_user_profile">
       {/* Panel Header */}
       <div className="p-3 bg-zinc-950 border-b border-[#1f1f2e] flex items-center gap-1.5 font-mono text-xs font-black tracking-wider text-zinc-300">
-        <ShieldCheck className="w-4 h-4 text-purple-500" />
+        <ShieldCheck className="w-4 h-4 text-orange-500" />
         <span>Ficha do Espectador</span>
       </div>
 
@@ -98,7 +98,7 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
             <img 
               src={currentUser.twitchData.avatarUrl} 
               alt={currentUser.name} 
-              className="w-14 h-14 rounded-full object-cover border-2 border-purple-500/50 shadow-lg"
+              className="w-14 h-14 rounded-full object-cover border-2 border-orange-500/50 shadow-lg"
               referrerPolicy="no-referrer"
             />
           ) : (
@@ -162,7 +162,7 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
             </div>
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-zinc-500">Seguidor:</span>
-              <span className={clsx("font-bold text-[10.5px]", isFollower ? "text-purple-400" : "text-zinc-400")}>
+              <span className={clsx("font-bold text-[10.5px]", isFollower ? "text-orange-400" : "text-zinc-400")}>
                 {followDurationDesc}
               </span>
             </div>
@@ -205,7 +205,7 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
                 "py-2 px-2 border font-bold text-[11px] rounded font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer",
                 currentUser.twitchData?.isVip || currentUser.isWhitelisted
                   ? "border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white"
-                  : "border-purple-500/20 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white"
+                  : "border-orange-500/20 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white"
               )}
             >
               <Award className="w-3.5 h-3.5" />
@@ -246,7 +246,7 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
             {currentUser.adminNotes && currentUser.adminNotes.length > 0 ? (
               <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                 {currentUser.adminNotes.map((note: string, idx: number) => (
-                  <p key={idx} className="text-[10px] leading-relaxed text-zinc-300 font-mono italic border-l-2 border-purple-500/40 pl-1.5">
+                  <p key={idx} className="text-[10px] leading-relaxed text-zinc-300 font-mono italic border-l-2 border-orange-500/40 pl-1.5">
                     "{note}"
                   </p>
                 ))}
@@ -261,11 +261,11 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
                 placeholder="Adicionar nota de aviso..."
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10.5px] focus:outline-none focus:border-purple-600 placeholder-zinc-600 text-zinc-200"
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10.5px] focus:outline-none focus:border-orange-600 placeholder-zinc-600 text-zinc-200"
               />
               <button
                 onClick={handleAddNote}
-                className="px-2 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold rounded flex items-center justify-center cursor-pointer"
+                className="px-2 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold rounded flex items-center justify-center cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>

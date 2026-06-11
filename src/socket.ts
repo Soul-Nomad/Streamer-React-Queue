@@ -24,11 +24,37 @@ class AblySocketAdapter {
   private listeners: Record<string, Function[]> = {};
   private ably: Ably.Realtime | null = null;
   private channel: any = null;
+  private pollTimer: any = null;
 
   public connected = false;
   public id = '';
 
   private currentRoomId: string | null = null;
+
+  private startPolling(roomId: string) {
+    this.stopPolling();
+    this.pollTimer = setInterval(async () => {
+      if (!roomId) return;
+      try {
+        const res = await fetch(`${getBackendUrl()}/api/sessions/${roomId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.session) {
+            this.trigger('session_state', data.session);
+          }
+        }
+      } catch (err) {
+        // Ignore network polling errors
+      }
+    }, 2500);
+  }
+
+  private stopPolling() {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+  }
 
   constructor() {
     // Resolve or spawn lifetime user ID
@@ -263,8 +289,18 @@ class AblySocketAdapter {
    * Initializes Ably cloud mesh pub/sub channels.
    */
   public connectToAbly(roomId: string) {
-    if (this.ably) return;
+    if (this.ably) {
+      if (this.currentRoomId === roomId) {
+        console.log('[Socket Adapter] Already connected to Ably for room:', roomId);
+        return;
+      }
+      console.log('[Socket Adapter] Disconnecting existing Ably connection before connecting to room:', roomId);
+      this.disconnect();
+    }
 
+    this.currentRoomId = roomId;
+    this.startPolling(roomId);
+    
     const cleanBackendUrl = getBackendUrl();
 
     const userId = this.getUserId();
@@ -314,6 +350,7 @@ class AblySocketAdapter {
    * Dissolves raw connections.
    */
   public disconnect() {
+    this.stopPolling();
     if (this.ably) {
       this.ably.close();
       this.ably = null;

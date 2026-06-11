@@ -153,14 +153,14 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
       {/* Session/Header statistics */}
       <div className="p-3 bg-zinc-950 border-b border-[#1f1f2e] flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-mono text-xs font-black tracking-wider text-zinc-300">
-          <List className="w-4 h-4 text-purple-500" />
+          <List className="w-4 h-4 text-orange-500" />
           <span>Fila de Mídia</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-zinc-400">
             TOTAL: {queue.length}
           </span>
-          <span className="text-[10px] font-mono bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded text-purple-400">
+          <span className="text-[10px] font-mono bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded text-orange-400">
             ATULA: {queue.filter(v => v.status !== 'watched').length}
           </span>
         </div>
@@ -173,7 +173,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
           className={clsx(
             "py-1.5 text-xs font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer",
             tab === 'pending' 
-              ? "text-purple-400 border-purple-500 bg-zinc-900/60" 
+              ? "text-orange-400 border-orange-500 bg-zinc-900/60" 
               : "text-zinc-400 border-transparent hover:text-zinc-200"
           )}
         >
@@ -215,7 +215,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
             placeholder="Busca instantânea..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-900/80 border border-zinc-800 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-purple-600 text-zinc-100 placeholder-zinc-500"
+            className="w-full bg-zinc-900/80 border border-zinc-800 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-orange-600 text-zinc-100 placeholder-zinc-500"
           />
         </div>
         <div className="grid grid-cols-2 gap-1.5">
@@ -264,25 +264,25 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
               className={clsx(
                 "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden",
                 isCurrent 
-                  ? "bg-[#181822] border-purple-500/60 glow-purple" 
+                  ? "bg-[#181822] border-orange-500/60 glow-orange" 
                   : "bg-[#16161d]/90 border-transparent hover:border-zinc-800 hover:bg-[#1b1b24]/60"
               )}
             >
               {isCurrent && (
-                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-500 to-pink-500"></div>
+                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-red-500"></div>
               )}
 
               {/* Top Details */}
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1 text-[9px] font-mono">
                   {tab === 'pending' && (
-                    <span className="text-purple-400 font-extrabold pr-1"># {index + 1}</span>
+                    <span className="text-orange-400 font-extrabold pr-1"># {index + 1}</span>
                   )}
                   {vid.status === 'pending' && (
                     <span className="text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase animate-pulse">Pendente</span>
                   )}
                   {vid.status === 'approved' && (
-                    <span className="text-purple-400 bg-purple-500/10 px-1 py-0.5 rounded border border-purple-500/20 text-[8px] tracking-wide font-extrabold uppercase">Aprovado</span>
+                    <span className="text-orange-400 bg-orange-500/10 px-1 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">Aprovado</span>
                   )}
                   {vid.status === 'watched' && (
                     <span className="text-green-400 bg-green-500/10 px-1 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">Visto</span>
@@ -296,7 +296,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
               {/* Title & Link */}
               <h4 className={clsx(
                 "text-xs font-bold line-clamp-1 break-all mb-1 font-sans",
-                isCurrent ? "text-purple-300" : "text-zinc-100 group-hover:text-purple-400"
+                isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
               )}>
                 {vid.title || "Mídia Sincronizada"}
               </h4>
@@ -331,7 +331,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
                   {!isCurrent && (vid.status === 'approved' || vid.status === 'pending') && (
                     <button 
                       onClick={() => playVideo(vid.id)} 
-                      className="p-1 items-center justify-center bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/20 rounded transition-all cursor-pointer" 
+                      className="p-1 items-center justify-center bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-500/20 rounded transition-all cursor-pointer" 
                       title="Tocar Agora"
                     >
                       <Play className="w-3 h-3 fill-current" />

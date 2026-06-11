@@ -1037,8 +1037,8 @@ export default function Lobby() {
             {/* Showcase Visual Widget */}
             <div className="w-full sm:w-auto relative shrink-0 z-10">
               <div className="w-full sm:w-48 bg-[#100e16]/90 border border-[#31254a]/80 p-5 rounded-2xl text-center space-y-4 relative shadow-2xl transition-all duration-300 hover:scale-[1.03] hover:border-[#4d3a78]">
-                <div className="absolute -inset-0.5 bg-gradient-to-br from-[#FF6B35]/30 to-[#9146FF]/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-500 blur-sm -z-10" />
-                <div className="w-14 h-14 bg-gradient-to-br from-[#FF6B35] to-[#9146FF] rounded-xl flex items-center justify-center mx-auto text-white shadow-lg glow-purple">
+                <div className="absolute -inset-0.5 bg-gradient-to-br from-[#FF6B35]/30 to-[#FF8C42]/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-500 blur-sm -z-10" />
+                <div className="w-14 h-14 bg-gradient-to-br from-[#FF6B35] to-[#FF8C42] rounded-xl flex items-center justify-center mx-auto text-white shadow-lg glow-purple">
                   <Tv className="w-7 h-7" />
                 </div>
                 <div className="space-y-1.5">

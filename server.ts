@@ -1157,6 +1157,10 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     // CHECK CORE RULES: Follow, Sub, Cooldowns, Queue Limits, Hourly limits
     const isStreamerOrHost = userId === state.hostId || !!userRecord?.isHost || !!userRecord?.twitchData?.isBroadcaster;
 
+    let finalIsFollower = !!userRecord?.twitchData?.isFollower;
+    let finalIsSubscriber = !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
+    let finalFollowedAt = userRecord?.twitchData?.followedAt || null;
+
     if (!isStreamerOrHost) {
       // 1. Queue Limits and Max active videos per user check
       const maxVideosPerUser = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
@@ -1291,9 +1295,9 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
       }
 
       // Combine direct API and user meta backup for extra safety
-      const finalIsFollower = meetsFollower || !!userRecord?.twitchData?.isFollower;
-      const finalIsSubscriber = meetsSub || !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
-      const finalFollowedAt = followTimeStr || userRecord?.twitchData?.followedAt;
+      finalIsFollower = meetsFollower || !!userRecord?.twitchData?.isFollower;
+      finalIsSubscriber = meetsSub || !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
+      finalFollowedAt = followTimeStr || userRecord?.twitchData?.followedAt || null;
 
       // Rule: Subscriber only mode
       if (state.settings?.requireSub && !finalIsSubscriber) {
@@ -1373,7 +1377,17 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     // Save individual Cooldown and global Cooldown timestamp trigger
     const updatedUsers = (state.users || []).map((u: any) => {
       if (u.userId === userId) {
-        return { ...u, lastSubmittedAt: Date.now() };
+        const uTwitchData = u.twitchData || {};
+        return { 
+          ...u, 
+          lastSubmittedAt: Date.now(),
+          twitchData: {
+            ...uTwitchData,
+            isFollower: finalIsFollower,
+            isSubscriber: finalIsSubscriber,
+            followedAt: finalFollowedAt
+          }
+        };
       }
       return u;
     });
