@@ -157,29 +157,12 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-220px)]">
         {/* Metas & Metrics */}
         <div className="space-y-2">
-          <h4 className="text-[9px] font-black uppercase text-zinc-500 tracking-wider font-mono">Dados da Twitch</h4>
+          <h4 className="text-[9px] font-black uppercase text-zinc-500 tracking-wider font-mono">Métricas da Twitch</h4>
           <div className="bg-zinc-950/60 p-2.5 rounded-sm border border-[#1f1f2e] space-y-2">
-            <div className="flex flex-wrap gap-1.5 mb-2 border-b border-[#1f1f2e] pb-2">
-              {currentUser.twitchData?.badges?.map((badge: string) => (
-                <span key={badge} className={clsx(
-                  "text-[8px] font-black uppercase px-1.5 py-0.5 rounded-sm border",
-                  badge === 'broadcaster' ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                  badge === 'moderator' ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                  badge === 'vip' ? "bg-purple-500/10 text-purple-500 border-purple-500/20" :
-                  badge === 'subscriber' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                  "bg-zinc-800 text-zinc-400 border-zinc-700"
-                )}>
-                  {badge}
-                </span>
-              ))}
-              {(!currentUser.twitchData?.badges || currentUser.twitchData.badges.length === 0) && (
-                <span className="text-[8px] font-bold text-zinc-600 uppercase font-mono italic">Nenhum cargo especial</span>
-              )}
-            </div>
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-zinc-500">Inscrito (Sub):</span>
               <span className={clsx("font-bold text-[10.5px]", isSubscriber ? "text-amber-400" : "text-zinc-400")}>
-                {isSubscriber ? "Sim" : "Não"}
+                {isSubscriber ? "Sim (Tier 1)" : "Não"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono">
@@ -199,7 +182,7 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
           <div className="bg-zinc-950/60 p-3 rounded-sm border border-[#1f1f2e] flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-400">Strikes Ativos:</span>
             <div className="flex items-center gap-1.5">
-              {[1, 2, 3, 4, 5].map((s) => (
+              {[1, 2, 3].map((s) => (
                 <Flame 
                   key={s} 
                   className={clsx(
