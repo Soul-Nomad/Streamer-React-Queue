@@ -167,7 +167,10 @@ setTimeout(() => {
 
           await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
 
-          await broadcastState(roomId, updatedState);
+          if (ablyRest) {
+            const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+            await ablyChannel.publish('session_state', updatedState);
+          }
           break;
         }
     } catch(err) {}
@@ -530,17 +533,71 @@ async function getTwitchClientId(token: string): Promise<string> {
 
 const followCache = new Map<string, { result: { isFollower: boolean; followedAt?: string }, timestamp: number }>();
 const subCache = new Map<string, { result: boolean, timestamp: number }>();
-const roleCache = new Map<string, { result: string[], timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
 
-async function checkUserFollowsBroadcaster(userId: string, broadcasterId: string, token: string): Promise<{ isFollower: boolean; followedAt?: string }> {
+async function checkTwitchFollower(broadcasterId: string, userId: string, token: string): Promise<{ isFollower: boolean; followedAt?: string }> {
   const cacheKey = `f_${broadcasterId}_${userId}`;
   const cached = followCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
+  
+  try {
+    const clientId = await getTwitchClientId(token);
+    const url = `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+    const res = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000
+    });
+    const d = res.data?.data;
+    if (d && d.length > 0) {
+      const result = { isFollower: true, followedAt: d[0].followed_at };
+      followCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
+    }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix Follower Check] API lookup failed:`, err.response?.data || err.message);
+  }
+  const emptyRes = { isFollower: false };
+  followCache.set(cacheKey, { result: emptyRes, timestamp: Date.now() });
+  return emptyRes;
+}
+
+async function checkTwitchSubscriber(broadcasterId: string, userId: string, token: string): Promise<boolean> {
+  const cacheKey = `s_${broadcasterId}_${userId}`;
+  const cached = subCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
 
   try {
     const clientId = await getTwitchClientId(token);
-    // Use user permissions token to check their follows
+    const url = `https://api.twitch.tv/helix/subscriptions?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+    const res = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000
+    });
+    const d = res.data?.data;
+    if (d && d.length > 0) {
+      subCache.set(cacheKey, { result: true, timestamp: Date.now() });
+      return true;
+    }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix Subscriber Check] API lookup failed or unauthorized:`, err.response?.data || err.message);
+  }
+  subCache.set(cacheKey, { result: false, timestamp: Date.now() });
+  return false;
+}
+
+async function checkUserFollowsBroadcaster(userId: string, broadcasterId: string, token: string): Promise<{ isFollower: boolean; followedAt?: string }> {
+  try {
+    const cacheKey = `f_${broadcasterId}_${userId}`;
+    const cached = followCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
+
+    const clientId = await getTwitchClientId(token);
     const url = `https://api.twitch.tv/helix/channels/followed?user_id=${userId}&broadcaster_id=${broadcasterId}`;
     const res = await axios.get(url, {
       headers: {
@@ -556,11 +613,9 @@ async function checkUserFollowsBroadcaster(userId: string, broadcasterId: string
       return result;
     }
   } catch (err: any) {
-    // Optionally fallback if unauthorized, checking broadcaster followers instead
+    console.warn(`[Twitch Helix User Follows Check] API lookup failed:`, err.response?.data || err.message);
   }
-  const emptyRes = { isFollower: false };
-  followCache.set(cacheKey, { result: emptyRes, timestamp: Date.now() });
-  return emptyRes;
+  return { isFollower: false };
 }
 
 async function checkUserSubscriberToBroadcaster(broadcasterId: string, userId: string, token: string): Promise<boolean> {
@@ -583,73 +638,11 @@ async function checkUserSubscriberToBroadcaster(broadcasterId: string, userId: s
       subCache.set(cacheKey, { result: true, timestamp: Date.now() });
       return true;
     }
-  } catch (err: any) { }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix User Subscription Check] API lookup failed:`, err.response?.data || err.message);
+  }
   subCache.set(cacheKey, { result: false, timestamp: Date.now() });
   return false;
-}
-
-async function checkUserRolesInBroadcasterChannel(broadcasterId: string, userId: string, broadcasterToken: string): Promise<string[]> {
-  const cacheKey = `r_${broadcasterId}_${userId}`;
-  const cached = roleCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
-
-  const roles: string[] = [];
-  try {
-    const clientId = await getTwitchClientId(broadcasterToken);
-    
-    // Check Moderator
-    try {
-      const modRes = await axios.get(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}&user_id=${userId}`, {
-        headers: { 'Client-Id': clientId, 'Authorization': `Bearer ${broadcasterToken}` },
-        timeout: 3000
-      });
-      if (modRes.data?.data?.length > 0) roles.push('moderator');
-    } catch (e) {}
-
-    // Check VIP
-    try {
-      const vipRes = await axios.get(`https://api.twitch.tv/helix/channels/vips?broadcaster_id=${broadcasterId}&user_id=${userId}`, {
-        headers: { 'Client-Id': clientId, 'Authorization': `Bearer ${broadcasterToken}` },
-        timeout: 3000
-      });
-      if (vipRes.data?.data?.length > 0) roles.push('vip');
-    } catch (e) {}
-
-    roleCache.set(cacheKey, { result: roles, timestamp: Date.now() });
-    return roles;
-  } catch (err: any) {
-    return [];
-  }
-}
-
-/**
- * Removes sensitive tokens from the session state before broadcasting to clients
- */
-function getSecureState(state: any): any {
-  if (!state) return null;
-  const secureUsers = (state.users || []).map((u: any) => {
-    const { twitchData, ...rest } = u;
-    if (!twitchData) return u;
-    const { providerToken, ...cleanTwitch } = twitchData;
-    return { ...rest, twitchData: cleanTwitch };
-  });
-
-  const { twitchData, ...topLevelRest } = state;
-  let cleanTopTwitch = twitchData;
-  if (twitchData) {
-    const { providerToken, ...c } = twitchData;
-    cleanTopTwitch = c;
-  }
-
-  return { ...topLevelRest, users: secureUsers, twitchData: cleanTopTwitch };
-}
-
-async function broadcastState(roomId: string, state: any) {
-  if (ablyRest) {
-    const channel = ablyRest.channels.get(`session:${roomId}`);
-    const secureState = getSecureState(state);
-    await channel.publish('session_state', secureState);
-  }
 }
 
 // Resolve shortened URLs on the server to bypass CORS and find actual video IDs
@@ -1276,41 +1269,23 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
        let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId;
        const targetTwitchUserId = twitchData?.twitchUserId;
        const userToken = twitchData?.providerToken;
-       const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
        const isStreamerOrHost = userId === state.hostId || twitchData?.isBroadcaster;
        
-       if (!isStreamerOrHost && broadcasterId && targetTwitchUserId) {
-          // Sync badges and flags with single source of truth
-          const badges = Array.isArray(finalTwitchData.badges) ? [...finalTwitchData.badges] : [];
-          
-          if (userToken) {
-            const followCheckViewer = await checkUserFollowsBroadcaster(targetTwitchUserId, broadcasterId, userToken);
-            if (followCheckViewer.isFollower) {
-              finalTwitchData.isFollower = true;
-              finalTwitchData.followedAt = followCheckViewer.followedAt || twitchData?.followedAt || null;
-            } else {
-              finalTwitchData.isFollower = false;
-            }
-            const subCheckViewer = await checkUserSubscriberToBroadcaster(broadcasterId, targetTwitchUserId, userToken);
-            if (subCheckViewer) {
-              finalTwitchData.isSubscriber = true;
-              if (!badges.includes('subscriber')) badges.push('subscriber');
-            } else {
-              finalTwitchData.isSubscriber = false;
-            }
+       if (!isStreamerOrHost && broadcasterId && targetTwitchUserId && userToken && targetTwitchUserId !== broadcasterId) {
+          const followCheckViewer = await checkUserFollowsBroadcaster(targetTwitchUserId, broadcasterId, userToken);
+          if (followCheckViewer.isFollower) {
+            finalTwitchData.isFollower = true;
+            finalTwitchData.followedAt = followCheckViewer.followedAt || twitchData?.followedAt || null;
+          } else {
+             // In case cache shows they don't follow
+             finalTwitchData.isFollower = false;
           }
-
-          if (broadcasterToken) {
-            const extraRoles = await checkUserRolesInBroadcasterChannel(broadcasterId, targetTwitchUserId, broadcasterToken);
-            extraRoles.forEach(r => {
-               if (!badges.includes(r)) badges.push(r);
-               if (r === 'moderator') finalTwitchData.isModerator = true;
-               if (r === 'vip') finalTwitchData.isVip = true;
-            });
+          const subCheckViewer = await checkUserSubscriberToBroadcaster(broadcasterId, targetTwitchUserId, userToken);
+          if (subCheckViewer) {
+            finalTwitchData.isSubscriber = true;
+          } else {
+             finalTwitchData.isSubscriber = false;
           }
-
-          // Eliminar duplicatas de badges
-          finalTwitchData.badges = Array.from(new Set(badges));
        }
     } catch(err) { }
 
@@ -1348,7 +1323,7 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
 
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
-      await broadcastState(roomId, updatedState);
+      await channel.publish('session_state', updatedState);
     }
 
     res.json({ success: true, session: updatedState });
@@ -2188,7 +2163,8 @@ app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (
       .eq('room_id', roomId);
 
     if (ablyRest) {
-      await broadcastState(roomId, updatedState);
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
       if (shouldBan) {
          await channel.publish('kick', { userId: targetUserId, reason: 'Atingiu o limite máximo de strikes.' });
       }
