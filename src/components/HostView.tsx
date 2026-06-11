@@ -711,7 +711,6 @@ export default function HostView({ session }: { session: SessionState }) {
   const handleEndSession = () => {
     if (confirm("Deseja realmente fechar a transmissão e encerrar esta sessão de fila?")) {
       socket.emit('end_session');
-      window.location.href = "/";
     }
   };
 

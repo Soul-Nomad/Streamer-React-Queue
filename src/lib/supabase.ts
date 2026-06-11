@@ -200,7 +200,7 @@ export async function getSession(roomId: string) {
 
   const { data, error } = await supabaseAdmin
     .from('room_settings')
-    .select('*')
+    .select('settings_json')
     .eq('room_id', roomId)
     .single();
 
@@ -208,18 +208,7 @@ export async function getSession(roomId: string) {
     return null;
   }
 
-  const session = data.settings_json || { id: roomId, users: [], queue: [], settings: {} };
-  
-  // SYNC SOURCE OF TRUTH: Overwrite nested settings with flat column values from DB
-  session.settings = {
-    ...(session.settings || {}),
-    requireSub: data.require_sub ?? session.settings?.requireSub,
-    requireFollower: data.require_follower ?? session.settings?.requireFollower,
-    userCooldownSeconds: data.cooldown_seconds ?? session.settings?.userCooldownSeconds,
-    maxVideosPerUser: data.max_videos_per_user ?? session.settings?.maxVideosPerUser,
-    maxQueueSize: data.max_queue_size ?? session.settings?.maxQueueSize
-  };
-
+  const session = data.settings_json || {};
   if (!session.allBans) session.allBans = [];
   if (!session.blacklistUsernames) session.blacklistUsernames = [];
   

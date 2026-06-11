@@ -58,10 +58,8 @@ export default function SettingsView({ session }: { session: SessionState }) {
              ...(settingsData.settings_json || {})
           };
           
-          if (merged.maxSubmissionsPerHour === undefined) merged.maxSubmissionsPerHour = 0;
-          if (merged.cooldown_seconds === 60) merged.cooldown_seconds = 0; // default preference
-          if (merged.max_videos_per_user === undefined) merged.max_videos_per_user = 0;
-          if (merged.globalCooldownSeconds === undefined) merged.globalCooldownSeconds = 0;
+          if (merged.maxSubmissionsPerHour === undefined) merged.maxSubmissionsPerHour = 60;
+          if (merged.cooldown_seconds === 60) merged.cooldown_seconds = 30; // default preference
           
           setRoomSettings(merged);
           
@@ -138,22 +136,22 @@ export default function SettingsView({ session }: { session: SessionState }) {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#111116] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12 border-l border-[#1f1f2e] select-none">
-        <div className="flex-1 flex flex-col min-h-0 text-left bg-zinc-950/20 border border-[#1f1f2e] rounded p-6 overflow-y-auto w-full max-w-5xl mx-auto shadow-2xl">
-          <div className="mb-6 border-b border-[#1f1f2e] pb-4 flex justify-between items-center">
+    <div className="w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12">
+        <div className="flex-1 flex flex-col min-h-0 text-left bg-[#1A1A1A] border border-[#222222] rounded p-6 overflow-y-auto w-full max-w-5xl mx-auto">
+          <div className="mb-6 border-b border-[#222222] pb-4 flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-black text-zinc-100 flex items-center gap-2 font-mono tracking-tighter">
-                <Settings className="w-6 h-6 text-orange-500" />
-                DIRETRIZES DA SALA
+              <h2 className="text-xl font-black text-zinc-100 flex items-center gap-2">
+                <Settings className="w-6 h-6 text-[#FF6B35]" />
+                Configurações & Políticas de Segurança
               </h2>
-              <p className="text-[10px] text-[#B0B0B0] mt-1 font-mono uppercase tracking-widest opacity-40">Configure protocolos de moderação e regras de transmissão.</p>
+              <p className="text-sm text-[#B0B0B0] mt-1">Configure regras da sala e integrações com o canal da Twitch.</p>
             </div>
             <button 
               onClick={handleSaveSettings}
               disabled={settingsSaving || !roomSettings}
-              className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded font-black uppercase tracking-widest text-[10px] flex items-center gap-2 transition-all disabled:opacity-50 font-mono shadow-lg shadow-orange-600/20"
+              className="bg-[#2a8738] hover:bg-[#34a345] text-zinc-100 px-5 py-2 rounded font-bold uppercase tracking-wider text-xs flex items-center gap-2 transition-colors disabled:opacity-50"
             >
-              {settingsSaving ? 'SINCRONIZANDO...' : <><Save className="w-4 h-4"/> SALVAR ALTERAÇÕES</>}
+              {settingsSaving ? 'Salvando...' : <><Save className="w-4 h-4"/> Salvar Regras</>}
             </button>
           </div>
           
@@ -190,11 +188,11 @@ export default function SettingsView({ session }: { session: SessionState }) {
 
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[#B0B0B0] mb-2 text-xs">Limite Geral por Hora (0 = Ilimitado)</label>
+                      <label className="block text-[#B0B0B0] mb-2 text-xs">Limite Geral por Hora</label>
                       <input 
-                        type="number" min="0" 
-                        value={roomSettings.maxSubmissionsPerHour ?? 0} 
-                        onChange={e => setRoomSettings({...roomSettings, maxSubmissionsPerHour: Math.max(0, parseInt(e.target.value) || 0)})}
+                        type="number" min="1" 
+                        value={roomSettings.maxSubmissionsPerHour || 60} 
+                        onChange={e => setRoomSettings({...roomSettings, maxSubmissionsPerHour: Math.max(1, parseInt(e.target.value) || 1)})}
                         className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
@@ -220,11 +218,11 @@ export default function SettingsView({ session }: { session: SessionState }) {
                       />
                     </div>
                     <div>
-                      <label className="block text-[#B0B0B0] mb-2 text-xs">Tamanho Máx Fila (0 = Ilimitado)</label>
+                      <label className="block text-[#B0B0B0] mb-2 text-xs">Tamanho Máx Fila</label>
                       <input 
-                        type="number" min="0" 
-                        value={roomSettings.max_queue_size ?? 0} 
-                        onChange={e => setRoomSettings({...roomSettings, max_queue_size: Math.max(0, parseInt(e.target.value) || 0)})}
+                        type="number" min="1" 
+                        value={roomSettings.max_queue_size || 50} 
+                        onChange={e => setRoomSettings({...roomSettings, max_queue_size: Math.max(1, parseInt(e.target.value) || 50)})}
                         className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
@@ -232,11 +230,11 @@ export default function SettingsView({ session }: { session: SessionState }) {
 
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[#B0B0B0] mb-2 text-xs">Máx Vídeos / Espectador (0 = Ilimitado)</label>
+                      <label className="block text-[#B0B0B0] mb-2 text-xs">Máx Vídeos / Espectador</label>
                       <input 
-                        type="number" min="0" 
-                        value={roomSettings.max_videos_per_user ?? 0} 
-                        onChange={e => setRoomSettings({...roomSettings, max_videos_per_user: Math.max(0, parseInt(e.target.value) || 0)})}
+                        type="number" min="1" 
+                        value={roomSettings.max_videos_per_user || 2} 
+                        onChange={e => setRoomSettings({...roomSettings, max_videos_per_user: Math.max(1, parseInt(e.target.value) || 2)})}
                         className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>

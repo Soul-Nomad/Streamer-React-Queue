@@ -277,7 +277,7 @@ class PersistentDataStore {
         ban.active = false;
         ban.history.push({
           timestamp: now,
-          action: 'forgive',
+          action: 'unban',
           reason: 'Expiração automática de tempo de timeout',
           moderator: 'SISTEMA'
         });
@@ -300,7 +300,7 @@ class PersistentDataStore {
         ban.active = false;
         ban.history.push({
           timestamp: now,
-          action: 'forgive',
+          action: 'unban',
           reason: 'Expiração automática de duração',
           moderator: 'SISTEMA'
         });
@@ -319,7 +319,7 @@ class PersistentDataStore {
         ban.active = false;
         ban.history.push({
           timestamp: now,
-          action: 'forgive',
+          action: 'unban',
           reason,
           moderator
         });

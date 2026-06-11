@@ -77,19 +77,11 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
     if (diffDays === 0) followDurationDesc = 'Começou a seguir hoje';
     else if (diffDays === 1) followDurationDesc = 'Segue desde ontem';
     else if (diffDays < 30) followDurationDesc = `Seguidor há ${diffDays} dias`;
-    else if (diffDays < 365) {
+    else {
       const diffMonths = Math.floor(diffDays / 30);
       followDurationDesc = `Seguidor há ${diffMonths} ${diffMonths === 1 ? 'mês' : 'meses'}`;
-    } else {
-      const diffYears = (diffDays / 365).toFixed(1);
-      followDurationDesc = `Seguidor há ${diffYears} anos`;
     }
   }
-
-  const badges = currentUser.twitchData?.badges || [];
-  const isVip = currentUser.twitchData?.isVip || currentUser.isWhitelisted || badges.includes('vip');
-  const isMod = currentUser.twitchData?.isModerator || badges.includes('moderator');
-  const isBroadcaster = currentUser.twitchData?.isBroadcaster || badges.includes('broadcaster');
 
   return (
     <div className="flex flex-col h-full bg-[#111116] text-zinc-100 font-sans border-l border-[#1f1f2e] select-none" id="host_user_profile">
@@ -132,17 +124,8 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
             @{currentUser.name}
           </h3>
           <p className="text-[10px] text-zinc-500 font-medium font-mono">
-            {currentUser.twitchData?.login ? 'Autenticado via Twitch' : 'Convidado Local'}
+            {currentUser.twitchData?.login ? 'Autenticado' : 'Convidado Local'}
           </p>
-        </div>
-
-        {/* Badges Row */}
-        <div className="flex flex-wrap gap-1 mt-1">
-           {isBroadcaster && <span className="bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-sm border border-red-500/30 text-white uppercase tracking-tighter">Streamer</span>}
-           {isMod && <span className="bg-green-600 text-[8px] font-black px-1.5 py-0.5 rounded-sm border border-green-500/30 text-white uppercase tracking-tighter">Mod</span>}
-           {isVip && <span className="bg-purple-600 text-[8px] font-black px-1.5 py-0.5 rounded-sm border border-purple-500/30 text-white uppercase tracking-tighter">VIP</span>}
-           {isSubscriber && <span className="bg-amber-500 text-[8px] font-black px-1.5 py-0.5 rounded-sm border border-amber-400/30 text-black uppercase tracking-tighter">Inscrito (Sub)</span>}
-           {!currentUser.twitchData?.login && <span className="bg-zinc-800 text-[8px] font-black px-1.5 py-0.5 rounded-sm border border-zinc-700 text-zinc-400 uppercase tracking-tighter">Visitante</span>}
         </div>
 
         {/* Reputation Badge */}
