@@ -290,7 +290,7 @@ class AblySocketAdapter {
    */
   public connectToAbly(roomId: string) {
     if (this.ably) {
-      if (this.currentRoomId === roomId) {
+      if (this.currentRoomId === roomId || (this.currentRoomId && this.currentRoomId.toLowerCase() === roomId.toLowerCase())) {
         console.log('[Socket Adapter] Already connected to Ably for room:', roomId);
         return;
       }
