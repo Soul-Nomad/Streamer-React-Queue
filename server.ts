@@ -12,6 +12,7 @@ import instagramGetUrlPkg from 'instagram-url-direct';
 import { dbStore } from './src/database.js';
 import { getSupabaseAdmin, createSession, getSession, endSession } from './src/lib/supabase.js';
 import { generateAblyTokenRequest, ablyRest } from './src/lib/ably.js';
+import youtubedl from 'youtube-dl-exec';
 
 const __filename = typeof import.meta !== 'undefined' && import.meta.url
   ? fileURLToPath(import.meta.url)
@@ -684,7 +685,7 @@ app.get('/api/instagram-stream', async (req, res) => {
   }
 });
 
-// GET /api/x-stream - Resolver vídeo do X (Twitter) usando Cobalt API
+// GET /api/x-stream - Resolver vídeo do X (Twitter) usando youtube-dl-exec (com fallback Cobalt)
 app.get('/api/x-stream', async (req, res) => {
   const videoUrl = req.query.url as string;
   if (!videoUrl) {
@@ -692,28 +693,83 @@ app.get('/api/x-stream', async (req, res) => {
     return;
   }
 
-  let cleanUrl = videoUrl.trim();
-  // Normalize /i/status/ or /status/ format to /tw/status/ with a placeholder screen name so scrapers parse it correctly
-  if (cleanUrl.includes('/i/status/')) {
-    cleanUrl = cleanUrl.replace('/i/status/', '/tw/status/');
-  } else if (cleanUrl.match(/https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/status\/(\d+)/i)) {
-    cleanUrl = cleanUrl.replace(/\/status\/(\d+)/i, '/tw/status/$1');
+  const cleanUrl = videoUrl.trim();
+  console.log(`[X/Twitter Resolver] Attempting to resolve: ${cleanUrl}`);
+
+  // 1. Try resolving using local youtube-dl-exec for robust direct extraction
+  try {
+    console.log(`[X/Twitter Resolver] Querying local youtube-dl-exec...`);
+    const youtubedlResult = await youtubedl(cleanUrl, {
+      dumpSingleJson: true,
+      noCheckCertificates: true,
+      noWarnings: true,
+      preferFreeFormats: true,
+      addHeader: [
+        'referer:twitter.com',
+        'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      ]
+    }) as any;
+
+    if (youtubedlResult && youtubedlResult.formats && youtubedlResult.formats.length > 0) {
+      // Filter for progressive MP4 formats (direct HTTP/HTTPS protocol)
+      const httpFormats = youtubedlResult.formats.filter((f: any) => 
+        f.url && 
+        f.ext === 'mp4' && 
+        (f.protocol === 'https' || f.protocol === 'http') && 
+        f.resolution !== 'audio only' &&
+        !f.format_id.includes('audio')
+      );
+
+      if (httpFormats.length > 0) {
+        // Sort lowest to highest resolution / height
+        httpFormats.sort((a: any, b: any) => {
+          const aHeight = a.height || parseInt(a.resolution?.split('x')[1]) || 0;
+          const bHeight = b.height || parseInt(b.resolution?.split('x')[1]) || 0;
+          return aHeight - bHeight;
+        });
+
+        const bestFormat = httpFormats[httpFormats.length - 1];
+        if (bestFormat && bestFormat.url) {
+          console.log(`[X/Twitter Resolver] youtube-dl-exec succeeded! Extracted progressive MP4: [${bestFormat.resolution}] ${bestFormat.url}`);
+          res.json({ videoUrl: bestFormat.url });
+          return;
+        }
+      }
+      
+      // Secondary fallback inside ytdl: if no progressive mp4 found, try playing whatever format or url exists
+      const fallbackUrl = youtubedlResult.url || youtubedlResult.formats.reverse().find((f: any) => f.url)?.url;
+      if (fallbackUrl) {
+        console.log(`[X/Twitter Resolver] youtube-dl-exec semi-success (non-progressive fallback): ${fallbackUrl}`);
+        res.json({ videoUrl: fallbackUrl });
+        return;
+      }
+    }
+  } catch (err: any) {
+    console.error(`[X/Twitter Resolver] youtube-dl-exec failed:`, err.message);
   }
 
-  console.log(`[X/Twitter Resolver] Attempting to resolve original: ${videoUrl} -> normalized: ${cleanUrl}`);
+  // 2. Cobalt API backup fallback normalization and queries
+  let queryUrl = cleanUrl;
+  if (queryUrl.includes('/i/status/')) {
+    queryUrl = queryUrl.replace('/i/status/', '/tw/status/');
+  } else if (queryUrl.match(/https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/status\/(\d+)/i)) {
+    queryUrl = queryUrl.replace(/\/status\/(\d+)/i, '/tw/status/$1');
+  }
 
   const cobaltServers = [
-    'https://co.wuk.sh/api/json',
+    'https://cobalt.pyon.cafe/',
+    'https://cobalt.fastest.ovh/',
+    'https://co.eepy.today/',
     'https://api.cobalt.tools/'
   ];
 
   for (const apiEndpoint of cobaltServers) {
     try {
-      console.log(`[X/Twitter Resolver] Querying API: ${apiEndpoint}`);
+      console.log(`[X/Twitter Resolver Fallback] Querying API: ${apiEndpoint}`);
       const response = await axios.post(
         apiEndpoint,
         {
-          url: cleanUrl,
+          url: queryUrl,
           vQuality: '720',
           aFormat: 'mp4',
           isAudioOnly: false
@@ -730,16 +786,16 @@ app.get('/api/x-stream', async (req, res) => {
       const d = response.data;
       if (d && (d.url || d.text)) {
         const resolvedUrl = d.url || d.text;
-        console.log(`[X/Twitter Resolver] Success! Resolved direct URL: ${resolvedUrl}`);
+        console.log(`[X/Twitter Resolver Fallback] Success! Resolved direct URL: ${resolvedUrl}`);
         res.json({ videoUrl: resolvedUrl });
         return;
       }
     } catch (err: any) {
-      console.warn(`[X/Twitter Resolver] Failed on ${apiEndpoint}:`, err.response?.data || err.message);
+      console.warn(`[X/Twitter Resolver Fallback] Failed on ${apiEndpoint}:`, err.response?.data || err.message);
     }
   }
 
-  res.json({ error: 'Não foi possível extrair o vídeo direto do X/Twitter.', videoUrl });
+  res.json({ error: 'Não foi possível extrair o vídeo direto do X/Twitter.', videoUrl: cleanUrl });
 });
 
 // Proxy direct streaming media to bypass local browser CORS & security headers
