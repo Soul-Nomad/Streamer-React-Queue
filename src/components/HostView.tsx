@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { socket, getBackendUrl } from '../socket';
-import { SessionState } from '../types';
+import { SessionState, User } from '../types';
 import ReactPlayer from 'react-player';
 import { LinkedInEmbed } from 'react-social-media-embed';
-import { Tweet } from 'react-tweet';
 import { 
   MonitorPlay, ZoomIn, ZoomOut, Expand, Maximize, AlertCircle, SkipForward, SkipBack, 
   Check, X, ShieldCheck, Cast, Play, Pause, History, Crop, Video, VideoOff, 
-  ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart
+  ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,7 +14,9 @@ import { supabase } from '../lib/supabase';
 
 import AdminDashboard from './AdminDashboard';
 import SettingsView from './SettingsView';
-import { Settings } from 'lucide-react';
+import HostQueuePanel from './HostQueuePanel';
+import HostUserProfile from './HostUserProfile';
+import HostAuditLogs from './HostAuditLogs';
 
 const Player = ReactPlayer as any;
 
@@ -59,30 +60,22 @@ const getYouTubeId = (url: string) => {
   return null;
 };
 
-const getPlatformLabel = (url: string) => {
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    return url.includes('/shorts') ? 'YouTube Shorts' : 'YouTube';
-  }
-  if (url.includes('tiktok.com')) return 'TikTok';
-  if (url.includes('twitch.tv')) return 'TwitchClips';
-  if (url.includes('instagram.com')) return 'Instagram';
-  if (url.includes('facebook.com')) return 'Facebook';
-  return 'Web Video';
-};
-
 const isYouTubeShort = (url: string) => {
   return url.includes('youtube.com/shorts') || url.includes('youtu.be/shorts');
 };
 
+const isInstagram = (url: string) => url.includes('instagram.com');
+const isTikTok = (url: string) => url.includes('tiktok.com');
+
 const getAvatarColor = (name: string) => {
   const colors = [
-    'bg-[#8c92ac]', // desaturated soft slate-blue
-    'bg-[#b39c82]', // desaturated soft peach-brown
-    'bg-[#9c8cb3]', // desaturated soft purple
-    'bg-[#8caf9b]', // desaturated soft sage green
-    'bg-[#b28282]', // desaturated soft dusty rose
-    'bg-[#aba682]', // desaturated soft olive
-    'bg-[#8b9cb3]', // desaturated soft ocean
+    'bg-[#8c92ac]',
+    'bg-[#b39c82]',
+    'bg-[#9c8cb3]',
+    'bg-[#8caf9b]',
+    'bg-[#b28282]',
+    'bg-[#aba682]',
+    'bg-[#8b9cb3]',
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -127,7 +120,7 @@ const renderTwitchBadgesHost = (user: any) => {
       {badges.map((b: string) => {
         if (b === 'broadcaster') {
           return (
-            <span key={b} className="bg-[#FF3B30] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30" title="Broadcaster (Streamer)">
+            <span key={b} className="bg-[#FF3B30] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse" title="Broadcaster (Streamer)">
               👑 STR
             </span>
           );
@@ -244,14 +237,14 @@ function CustomInstagramPlayer({ url, getRatioClass, webcamStream, WebcamPreview
          <WebcamPreview />
          <AlertCircle className="w-10 h-10 text-[#e0a670] mb-3" />
          <span className="text-[#EFEFEF] font-bold text-sm">Restrição do Instagram Ativa</span>
-         <p className="text-[#B0B0B0] text-xs mt-2 leading-relaxed">
+         <p className="text-[#B0B0B0] text-xs mt-2 leading-relaxed font-sans">
             Este conteúdo requer autenticação ou possui restrição de compartilhamento externa.
          </p>
          <a 
             href={url} 
             target="_blank" 
             rel="noreferrer noopener" 
-            className="mt-6 flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm bg-[#222222] border border-[#2d2d2d] hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold text-xs transition-all text-center cursor-pointer"
+            className="mt-6 flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm bg-[#222222] border border-[#2d2d2d] hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold text-xs transition-all text-center cursor-pointer font-mono"
          >
             <ExternalLink className="w-3.5 h-3.5" />
             Visualizar no Instagram
@@ -344,7 +337,7 @@ function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview
             href={url} 
             target="_blank" 
             rel="noreferrer noopener" 
-            className="mt-6 flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm bg-[#222222] border border-[#2d2d2d] hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold text-xs transition-all text-center cursor-pointer"
+            className="mt-6 flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm bg-[#222222] border border-[#2d2d2d] hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold text-xs transition-all text-center cursor-pointer font-mono"
          >
             <ExternalLink className="w-3.5 h-3.5" />
             Visualizar no {platformName}
@@ -375,7 +368,7 @@ function CustomYouTubeShortsPlayer({ url, getRatioClass, webcamStream, WebcamPre
 
   if (!ytId) {
      return (
-       <div className="flex flex-col items-center justify-center p-8 bg-[#151515] border border-[#222222] rounded-sm h-96 w-full max-w-xs text-center">
+       <div className="flex flex-col items-center justify-center p-8 bg-[#151515] border border-[#222222] rounded-sm h-96 w-full max-w-xs text-center font-sans">
           <AlertCircle className="w-8 h-8 text-[#e0a670] mb-2" />
           <span className="text-[#B0B0B0] font-semibold text-sm">Link do YouTube Shorts inválido</span>
        </div>
@@ -404,7 +397,7 @@ function CustomYouTubePlayer({ url, getRatioClass, webcamStream, WebcamPreview }
 
   if (!ytId) {
      return (
-       <div className="flex flex-col items-center justify-center p-8 bg-[#151515] border border-[#222222] rounded-sm h-96 w-full max-w-xs text-center">
+       <div className="flex flex-col items-center justify-center p-8 bg-[#151515] border border-[#222222] rounded-sm h-96 w-full max-w-xs text-center font-sans">
           <AlertCircle className="w-8 h-8 text-[#e0a670] mb-2" />
           <span className="text-[#B0B0B0] font-semibold text-sm">Link do YouTube inválido</span>
        </div>
@@ -433,7 +426,7 @@ function CustomTikTokPlayer({ url, getRatioClass, webcamStream, WebcamPreview }:
 
   if (!tiktokId) {
      return (
-       <div className="flex flex-col items-center justify-center p-8 bg-[#151515] border border-[#222222] rounded-sm h-96 w-full max-w-xs text-center">
+       <div className="flex flex-col items-center justify-center p-8 bg-[#151515] border border-[#222222] rounded-sm h-96 w-full max-w-xs text-center font-sans">
           <AlertCircle className="w-8 h-8 text-[#e0a670] mb-2" />
           <span className="text-[#B0B0B0] font-semibold text-sm">Link do TikTok inválido</span>
           <span className="text-[#888888] text-xs mt-1">Certifique-se de que é um link público de vídeo.</span>
@@ -460,18 +453,24 @@ function CustomTikTokPlayer({ url, getRatioClass, webcamStream, WebcamPreview }:
 
 export default function HostView({ session }: { session: SessionState }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // App Navigation and Main tab
+  const [activeTab, setActiveTab] = useState<'player' | 'submit' | 'participants' | 'moderation' | 'settings'>('player');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Stats and visual indicators
   const [feedbackMsg, setFeedbackMsg] = useState<{title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info'} | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '4:5' | '1:1' | '16:9' | 'auto'>('auto');
   const [cropOverlay, setCropOverlay] = useState<boolean>(true);
   const [aspectMenuOpen, setAspectMenuOpen] = useState<boolean>(false);
-  const [modMenuOpen, setModMenuOpen] = useState<boolean>(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
   const [resolving, setResolving] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [optimisticLoading, setOptimisticLoading] = useState<boolean>(false);
+  const [directUrl, setDirectUrl] = useState('');
 
   useEffect(() => {
     const fetchAndSyncSettings = async () => {
@@ -524,29 +523,28 @@ export default function HostView({ session }: { session: SessionState }) {
 
     fetchAndSyncSettings();
   }, []);
-  
-  // Collapse sidebar controllers
-  const [activeTab, setActiveTab] = useState<'queue' | 'submit' | 'participants' | 'history' | 'moderation' | 'settings'>('queue');
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
-  const feedbackTimeoutId = useRef<NodeJS.Timeout | null>(null);
 
-  const showFeedback = (title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info' = 'success') => {
+  const showFeedback = (title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info' = 'info') => {
     setFeedbackMsg({ title, desc, type });
-    if (feedbackTimeoutId.current) clearTimeout(feedbackTimeoutId.current);
-    feedbackTimeoutId.current = setTimeout(() => setFeedbackMsg(null), 3500);
   };
 
-  // Directly submit video URL on host
-  const [directUrl, setDirectUrl] = useState<string>('');
+  useEffect(() => {
+    if (feedbackMsg) {
+      const t = setTimeout(() => setFeedbackMsg(null), 4500);
+      return () => clearTimeout(t);
+    }
+  }, [feedbackMsg]);
 
   const toggleWebcam = async () => {
     if (webcamStream) {
       webcamStream.getTracks().forEach(track => track.stop());
       setWebcamStream(null);
+      showFeedback("Câmera Desativada", "A transmissão da webcam de reação foi encerrada.", 'info');
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         setWebcamStream(stream);
+        showFeedback("Reação Ativada", "Webcam integrada com sucesso sobre o player.", 'success');
       } catch (err) {
         console.error("Erro ao acessar a webcam:", err);
         alert("Não foi possível acessar a câmera do dispositivo. Certifique-se de dar permissão ao navegador.");
@@ -569,12 +567,11 @@ export default function HostView({ session }: { session: SessionState }) {
   };
   
   const currentVideo = session.queue.find(v => v.id === session.currentVideoId) || session.history.find(v => v.id === session.currentVideoId);
-  const pendingVideos = session.queue.filter(v => v.status === 'pending');
-  const approvedVideos = session.queue.filter(v => v.status === 'approved');
+  const activeSender = currentVideo ? (session.users.find(u => u.name === currentVideo.submitter || u.userId === currentVideo.submitterId) || null) : null;
+  const focusUser = selectedUser || activeSender || null;
 
   // URL resolution effect to handle shortened links
   useEffect(() => {
-    // Clear optimistic loading when video changes
     if (optimisticLoading) {
       setOptimisticLoading(false);
     }
@@ -599,7 +596,7 @@ export default function HostView({ session }: { session: SessionState }) {
             }
           })
           .catch(err => {
-            console.error("Erro ao resolver URL mais curta:", err);
+            console.error("Erro ao resolver URL:", err);
           })
           .finally(() => {
             setResolving(false);
@@ -614,13 +611,7 @@ export default function HostView({ session }: { session: SessionState }) {
   useEffect(() => {
     const videoUrl = resolvedUrl || currentVideo?.url;
     if (videoUrl) {
-      if (isInstagram(videoUrl)) {
-        setAspectRatio('9:16');
-        setCropOverlay(true);
-      } else if (isTikTok(videoUrl)) {
-        setAspectRatio('9:16');
-        setCropOverlay(true);
-      } else if (isYouTubeShort(videoUrl)) {
+      if (videoUrl.includes('instagram.com') || videoUrl.includes('tiktok.com') || isYouTubeShort(videoUrl)) {
         setAspectRatio('9:16');
         setCropOverlay(true);
       } else {
@@ -636,9 +627,9 @@ export default function HostView({ session }: { session: SessionState }) {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
         
         if (e.key === 'ArrowRight' || e.key === 'n') {
-           socket.emit('end_video');
+           playNext();
         } else if (e.key === 'ArrowLeft' || e.key === 'p') {
-           socket.emit('play_previous');
+           playPrevious();
         } else if (e.key === '=' || e.key === '+') {
            setZoom(z => Math.min(z + 0.1, 2));
         } else if (e.key === '-') {
@@ -651,56 +642,57 @@ export default function HostView({ session }: { session: SessionState }) {
      };
      window.addEventListener('keydown', handleKeyDown);
      return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [session.currentVideoId]);
+  }, [session.currentVideoId, resolvedUrl]);
 
   const toggleFullscreen = () => {
-     if (!document.fullscreenElement) {
-        containerRef.current?.requestFullscreen().catch(err => {
-           console.error("Error attempting to enable fullscreen:", err);
-        });
-     } else {
-        document.exitFullscreen();
-     }
+      if (!document.fullscreenElement) {
+         containerRef.current?.requestFullscreen().catch(err => {
+            console.error("Error attempting to enable fullscreen:", err);
+         });
+      } else {
+         document.exitFullscreen();
+      }
   };
 
   useEffect(() => {
-     const handleFullscreenChange = () => {
-        setIsFullscreen(!!document.fullscreenElement);
-     };
-     document.addEventListener('fullscreenchange', handleFullscreenChange);
-     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      const handleFullscreenChange = () => {
+         setIsFullscreen(!!document.fullscreenElement);
+      };
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const approve = (id: string) => socket.emit('approve_video', id);
-  const reject = (id: string) => socket.emit('reject_video', id);
+  const approve = (id: string) => {
+    socket.emit('approve_video', id);
+    showFeedback('Vídeo Aprovado', 'Vídeo movido para a fila ativa de reprodução.', 'success');
+  };
+  
+  const reject = (id: string) => {
+    socket.emit('reject_video', id);
+    showFeedback('Vídeo Removido', 'Vídeo descartado do sistema.', 'info');
+  };
+  
   const playNext = () => {
     setOptimisticLoading(true);
     socket.emit('end_video');
   };
+  
   const playPrevious = () => {
     setOptimisticLoading(true);
     socket.emit('play_previous');
   };
+  
   const playVideo = (id: string) => {
     setOptimisticLoading(true);
     socket.emit('play_video', id);
   };
 
-  const isInstagram = (url: string) => url.includes('instagram.com');
-  const isTikTok = (url: string) => url.includes('tiktok.com');
-  const isX = (url: string) => url.includes('x.com') || url.includes('twitter.com');
-  const getTweetId = (url: string) => url.match(/(?:twitter\.com|x\.com)\/(?:#!\/)?(?:\w+)\/status(?:es)?\/(\d+)/)?.[1];
-  const isLinkedIn = (url: string) => url.includes('linkedin.com');
-  const isReddit = (url: string) => url.includes('reddit.com') || url.includes('redditmedia.com') || url.includes('v.redd.it') || url.includes('redd.it');
-  const isFacebook = (url: string) => url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.gg');
-  const isVimeo = (url: string) => url.includes('vimeo.com');
-
   const handleDirectSubmit = () => {
     if (!directUrl.trim().startsWith('http')) return;
     socket.emit('submit_video', { url: directUrl.trim() });
     setDirectUrl('');
-    // Automatically switch back to Queue tab to see it
-    setActiveTab('queue');
+    setActiveTab('player');
+    showFeedback('Injetando Mídia', 'Vídeo enviado com prioridade de Host.', 'success');
   };
 
   const copyInvite = () => {
@@ -708,25 +700,23 @@ export default function HostView({ session }: { session: SessionState }) {
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    showFeedback('Link Copiado!', 'Compartilhe com seus espectadores para receber mídias.', 'success');
   };
 
-  const selectTab = (tab: 'queue' | 'submit' | 'participants' | 'history' | 'moderation' | 'settings') => {
-    if (activeTab === tab && sidebarOpen) {
-      setSidebarOpen(false);
-    } else {
-      setActiveTab(tab);
-      setSidebarOpen(true);
+  const handleEndSession = () => {
+    if (confirm("Deseja realmente fechar a transmissão e encerrar esta sessão de fila?")) {
+      socket.emit('end_session');
     }
   };
 
   const WebcamPreview = () => {
     if (!webcamStream) return null;
     
-    const isVertical = currentVideo && (isInstagram(currentVideo.url) || isTikTok(currentVideo.url) || isYouTubeShort(currentVideo.url));
+    const isVertical = currentVideo && (currentVideo.url.includes('instagram.com') || currentVideo.url.includes('tiktok.com') || isYouTubeShort(currentVideo.url));
     
     if (isVertical) {
       return (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[92%] h-24 md:h-28 bg-[#0D0D0D]/90 border border-[#222222] rounded-sm overflow-hidden z-30 shadow-none pointer-events-none transition-all duration-300">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[92%] h-24 md:h-28 bg-[#0D0D0D]/90 border border-zinc-800 rounded-sm overflow-hidden z-30 shadow-none pointer-events-none transition-all duration-300">
            <video
               ref={webcamRefCallback}
               autoPlay
@@ -734,8 +724,8 @@ export default function HostView({ session }: { session: SessionState }) {
               muted
               className="w-full h-full object-cover scale-x-[-1]"
            />
-           <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/80 border border-[#b28282]/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-[#b28282] flex items-center gap-1 backdrop-blur-sm">
-              <span className="w-1 h-1 rounded-full bg-[#b28282] animate-pulse"></span>
+           <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/80 border border-purple-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-purple-400 flex items-center gap-1 backdrop-blur-sm">
+              <span className="w-1 h-1 rounded-full bg-purple-500 animate-pulse"></span>
               REACTION
            </div>
         </div>
@@ -743,7 +733,7 @@ export default function HostView({ session }: { session: SessionState }) {
     }
     
     return (
-      <div className="absolute top-4 left-4 w-24 h-24 md:w-28 md:h-28 bg-[#000000]/90 border border-[#2d2d2d] rounded-sm overflow-hidden z-30 shadow-none pointer-events-none transition-all duration-300">
+      <div className="absolute top-4 left-4 w-24 h-24 md:w-28 md:h-28 bg-[#000000]/90 border border-zinc-800 rounded-sm overflow-hidden z-30 shadow-none pointer-events-none transition-all duration-300">
          <video
             ref={webcamRefCallback}
             autoPlay
@@ -751,8 +741,8 @@ export default function HostView({ session }: { session: SessionState }) {
             muted
             className="w-full h-full object-cover scale-x-[-1]"
          />
-         <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/85 border border-[#8c92ac]/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-[#EFEFEF] flex items-center gap-1 backdrop-blur-sm">
-            <span className="w-1 h-1 rounded-full bg-[#8c92ac] animate-ping"></span>
+         <div className="absolute bottom-1.5 right-1.5 bg-[#0D0D0D]/85 border border-purple-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold text-zinc-100 flex items-center gap-1 backdrop-blur-sm">
+            <span className="w-1 h-1 rounded-full bg-purple-500 animate-ping"></span>
             HOST
          </div>
       </div>
@@ -772,915 +762,526 @@ export default function HostView({ session }: { session: SessionState }) {
       case 'auto':
       default:
         if (currentVideo) {
-          if (isInstagram(currentVideo.url)) return 'aspect-[9/16] h-full h-screen max-h-screen !max-h-screen w-auto !w-auto shadow-2xl transition-all duration-300';
-          if (isTikTok(currentVideo.url)) return 'aspect-[9/16] h-full h-screen max-h-screen !max-h-screen w-auto !w-auto shadow-2xl transition-all duration-300';
-          if (isYouTubeShort(currentVideo.url)) return 'aspect-[9/16] h-full h-screen max-h-screen !max-h-screen w-auto !w-auto shadow-2xl transition-all duration-300';
+          if (currentVideo.url.includes('instagram.com') || currentVideo.url.includes('tiktok.com') || isYouTubeShort(currentVideo.url)) {
+            return 'aspect-[9/16] h-full h-screen max-h-screen !max-h-screen w-auto !w-auto shadow-2xl transition-all duration-300';
+          }
         }
         return 'aspect-video w-full max-w-[98%] xl:max-w-[98%] max-h-[86vh] md:max-h-[88vh] xl:max-h-[90vh]';
     }
   };
 
   return (
-    <div className="flex h-screen bg-[#121212] text-white font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen bg-[#0d0d12] text-[#efefef] font-sans overflow-hidden select-none" id="streamer_host_view">
+      {/* 1. Global Gradient Header Bar */}
+      <header className="h-14 bg-zinc-950 border-b border-[#1f1f2e] px-4 flex items-center justify-between relative shrink-0">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-400" />
+        
+        {/* Brand & Room Info */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border border-red-400/40" />
+            <h1 className="text-sm font-black uppercase tracking-wider font-mono bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Live Console</h1>
+          </div>
+          <span className="h-4 w-px bg-zinc-800" />
+          <div className="flex items-center gap-1.5 font-mono text-[10.5px]">
+            <span className="text-zinc-500 uppercase">SALA:</span>
+            <span className="text-purple-400 font-extrabold tracking-widest">{session.id}</span>
+          </div>
+        </div>
+
+        {/* Central Widescreen Navigation controls */}
+        <nav className="flex items-center gap-1.5">
+          <button
+            onClick={() => setActiveTab('player')}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
+              activeTab === 'player' 
+                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+            )}
+          >
+            <MonitorPlay className="w-3.5 h-3.5" />
+            WORKSPACE
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('submit')}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
+              activeTab === 'submit' 
+                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+            )}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            MANUAL
+          </button>
+
+          <button
+            onClick={() => setActiveTab('participants')}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
+              activeTab === 'participants' 
+                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+            )}
+          >
+            <Users className="w-3.5 h-3.5" />
+            ESPECTADORES ({session.users.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('moderation')}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
+              activeTab === 'moderation' 
+                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+            )}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            MODERAÇÃO
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
+              activeTab === 'settings' 
+                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20" 
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+            )}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            CONFIGURAÇÕES
+          </button>
+        </nav>
+
+        {/* Global actions: Copy link & Log out */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={copyInvite}
+            className="px-3 py-1.5 text-xs font-bold font-mono tracking-wider hover:bg-zinc-900 border border-zinc-800 rounded transition-all cursor-pointer flex items-center gap-1.5 text-zinc-300 hover:text-white"
+          >
+            <Copy className="w-3.5 h-3.5 text-purple-400" />
+            {copied ? "COPIADO!" : "CONVITE"}
+          </button>
+          
+          <button
+            onClick={handleEndSession}
+            className="p-1 px-2 hover:bg-red-600/10 text-zinc-400 hover:text-red-500 border border-transparent hover:border-red-500/20 rounded transition-all cursor-pointer"
+            title="Encerrar Sessão"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* 2. Responsive Multi-Column Layout Grid */}
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+        
+        {/* COLUMN 1: Persistent Queue (Visible across all tabs for instant tracking!) */}
+        <aside className="w-80 shrink-0 h-full overflow-hidden flex flex-col border-r border-[#1f1f2e]">
+          <HostQueuePanel 
+            session={session} 
+            playVideo={playVideo} 
+            reject={reject} 
+            approve={approve} 
+          />
+        </aside>
+
+        {/* WORKSPACE AREA: Center & Right sections loaded conditionally */}
+        <main className="flex-1 flex min-w-0 h-full relative overflow-hidden bg-zinc-950">
+          
+          {activeTab === 'moderation' && (
+            <div className="w-full h-full overflow-y-auto">
+              <AdminDashboard session={session} />
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="w-full h-full overflow-y-auto">
+              <SettingsView session={session} />
+            </div>
+          )}
+
+          {activeTab === 'submit' && (
+            <div className="flex-1 flex items-center justify-center p-6 bg-[#0a0a0f]">
+              <div className="w-full max-w-md bg-zinc-950 border border-[#1f1f2e] p-6 space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-purple-400">Injeção Manual de Mídias</h3>
+                  <p className="text-[10.5px] text-zinc-500">Envie um link de vídeo diretamente sobrepondo cooldowns ou regras de validações normais de viewers.</p>
+                </div>
+                <div className="space-y-2">
+                  <input 
+                    type="text" 
+                    value={directUrl}
+                    onChange={e => setDirectUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500 font-mono"
+                  />
+                  <button 
+                    onClick={handleDirectSubmit}
+                    disabled={!directUrl.trim().startsWith('http')}
+                    className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-bold py-2.5 rounded text-xs transition-colors cursor-pointer font-mono"
+                  >
+                    INJETAR AGORA
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'participants' && (
+            <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-[#0a0a0f] space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-purple-400">Lista Geral de Participantes</h3>
+                  <p className="text-[10.5px] text-zinc-500">Visualização e controle de espectadores logados na sala.</p>
+                </div>
+                <span className="text-xs font-mono font-bold bg-zinc-900 border border-zinc-800 px-2 py-1 text-zinc-300">
+                  ONLINE: {session.users.length}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {session.users.map(u => (
+                  <div 
+                    key={u.id} 
+                    onClick={() => { setSelectedUser(u); setActiveTab('player'); }}
+                    className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-purple-500/50 rounded-sm cursor-pointer transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {renderUserAvatar(u, "w-8 h-8")}
+                      <div className="flex flex-col text-left min-w-0">
+                        <span className="text-xs font-bold truncate" style={{ color: u.twitchData?.color || '#FFFFFF' }}>
+                          @{u.name}
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {renderTwitchBadgesHost(u)}
+                          <span className="text-[8px] text-zinc-500 font-mono block uppercase">
+                            {u.isHost ? 'BROADCASTER' : 'VIEWER'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Tiny action overview */}
+                    <div className="flex gap-1 shrink-0">
+                      <span className="text-[9px] font-mono select-none px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded">
+                        STRIKES: {u.strikes || 0}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'player' && (
+            <div className="flex-1 flex overflow-hidden min-w-0 relative h-full">
+              
+              {/* CENTER COLUMN: Central visual Video Player Workspace */}
+              <div className="flex-1 flex flex-col min-w-0 h-full relative" ref={containerRef}>
+                
+                {/* Floating Aspect controls bar at bottom left */}
+                {currentVideo && !isFullscreen && (
+                  <div className="absolute right-5 bottom-12 z-40 flex flex-col items-center gap-3 bg-zinc-950/60 p-2 border border-zinc-800 rounded">
+                    
+                    {/* Prev & Next Controls */}
+                    <button 
+                      onClick={playPrevious} 
+                      disabled={optimisticLoading}
+                      className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer shadow disabled:opacity-30"
+                      title="Mídia Anterior (ArrowLeft / P)"
+                    >
+                      <SkipBack className="w-4 h-4" />
+                    </button>
+
+                    <button 
+                      onClick={playNext} 
+                      disabled={optimisticLoading}
+                      className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer shadow disabled:opacity-30"
+                      title="Próxima Mídia (ArrowRight / N)"
+                    >
+                      <SkipForward className="w-4 h-4 text-purple-400" />
+                    </button>
+
+                    <div className="h-px w-6 bg-zinc-800" />
+
+                    {/* Quick Link Opener */}
+                    <button 
+                      onClick={() => {
+                        const videoUrl = resolvedUrl || currentVideo?.url;
+                        if (videoUrl) window.open(videoUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer shadow"
+                      title="Acessar Canal Original"
+                    >
+                      <ExternalLink className="w-4 h-4 text-[#efefef] hover:text-purple-400" />
+                    </button>
+
+                    {/* Hardware integrations */}
+                    <button 
+                      onClick={toggleWebcam} 
+                      className={clsx(
+                        "w-10 h-10 rounded border flex items-center justify-center transition-all cursor-pointer shadow",
+                        webcamStream 
+                          ? "bg-purple-950/45 border-purple-500 text-purple-400 animate-pulse" 
+                          : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
+                      )}
+                      title="Ativar Webcam de Reação"
+                    >
+                      {webcamStream ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                    </button>
+
+                    <button
+                      onClick={() => setAspectMenuOpen(!aspectMenuOpen)}
+                      className={clsx(
+                        "w-10 h-10 rounded border flex items-center justify-center transition-all cursor-pointer shadow",
+                        aspectMenuOpen
+                          ? "bg-purple-950/45 border-purple-500 text-purple-400"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-300"
+                      )}
+                      title="Modo Crop e Proporção"
+                    >
+                      <Layers className="w-4 h-4" />
+                    </button>
+
+                    <div className="h-px w-6 bg-zinc-800" />
+
+                    <button 
+                      onClick={toggleFullscreen} 
+                      className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer shadow"
+                      title="Modo Tela Inteira (F)"
+                    >
+                      <Maximize className="w-4 h-4" />
+                    </button>
+                    
+                    {/* Zoom details */}
+                    <div className="text-[9px] font-mono font-bold text-zinc-500 pt-1">
+                      Z: {Math.round(zoom * 100)}%
+                    </div>
+                  </div>
+                )}
+
+                {/* Aspect ratio pop-up overlay */}
+                <AnimatePresence>
+                  {aspectMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.92 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.92 }}
+                      className="absolute right-18 bottom-28 z-50 p-3 bg-zinc-950 border border-zinc-800 rounded-sm shadow-2xl flex flex-col gap-2 font-mono text-xs text-left"
+                    >
+                      <span className="text-zinc-500 font-bold block mb-1">PROPORÇÃO TELA:</span>
+                      {(['auto', '9:16', '4:5', '1:1', '16:9'] as const).map(ratio => (
+                        <button
+                          key={ratio}
+                          onClick={() => setAspectRatio(ratio)}
+                          className={clsx(
+                            "px-2.5 py-1 text-left rounded-sm font-bold uppercase transition-all cursor-pointer",
+                            aspectRatio === ratio
+                              ? "bg-purple-600 text-white"
+                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                          )}
+                        >
+                          PROPORÇÃO {ratio}
+                        </button>
+                      ))}
+                      <div className="h-px bg-zinc-800 my-1" />
+                      <button
+                        onClick={() => setCropOverlay(!cropOverlay)}
+                        className={clsx(
+                          "px-2 py-1 text-center rounded-sm font-bold uppercase transition-all border border-zinc-800 cursor-pointer",
+                          cropOverlay ? "bg-purple-950/45 text-purple-400 border-purple-500/20" : "bg-zinc-900 text-zinc-500"
+                        )}
+                      >
+                        SUPORTE SMART CROP
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Main scale canvas viewport */}
+                <div 
+                  className="flex-1 relative w-full h-full flex flex-col items-center justify-center transition-transform duration-300 ease-out z-10"
+                  style={{ transform: `scale(${zoom})` }}
+                >
+                  {optimisticLoading && (
+                    <div className="w-[90%] max-w-4xl aspect-video bg-zinc-950 rounded-sm border border-zinc-800 flex flex-col items-center justify-center animate-pulse shadow-2xl">
+                      <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+                      <span className="text-zinc-300 font-extrabold text-xs font-mono uppercase tracking-widest">Sintonizando canais...</span>
+                      <span className="text-zinc-600 text-[10px] mt-1 font-sans">Preparando a próxima reprodução</span>
+                    </div>
+                  )}
+
+                  {!optimisticLoading && currentVideo ? (
+                    <div className={clsx("relative w-full max-h-full h-full bg-[#040406] flex items-center justify-center select-none", isFullscreen ? 'w-screen h-screen' : 'px-4 py-8')}>
+                      {resolving && (
+                        <div className="absolute inset-0 bg-zinc-950/90 backdrop-blur-md z-45 flex flex-col items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-purple-400 animate-spin mb-3" />
+                          <p className="text-xs font-black tracking-widest text-[#efefef] font-mono uppercase">Limpando frames de redirecionamento...</p>
+                        </div>
+                      )}
+
+                      {/* Video extraction renderer mapping */}
+                      {isInstagram(resolvedUrl) ? (
+                         <CustomInstagramPlayer 
+                            url={resolvedUrl} 
+                            getRatioClass={getRatioClass} 
+                            webcamStream={webcamStream} 
+                            WebcamPreview={WebcamPreview} 
+                         />
+                      ) : isTikTok(resolvedUrl) ? (
+                         <CustomTikTokPlayer 
+                            url={resolvedUrl} 
+                            getRatioClass={getRatioClass} 
+                            webcamStream={webcamStream} 
+                            WebcamPreview={WebcamPreview} 
+                         />
+                      ) : isYouTubeShort(resolvedUrl) ? (
+                          <CustomYouTubeShortsPlayer 
+                             url={resolvedUrl} 
+                             getRatioClass={getRatioClass} 
+                             webcamStream={webcamStream} 
+                             WebcamPreview={WebcamPreview} 
+                          />
+                       ) : getYouTubeId(resolvedUrl) ? (
+                          <CustomYouTubePlayer 
+                             url={resolvedUrl} 
+                             getRatioClass={getRatioClass} 
+                             webcamStream={webcamStream} 
+                             WebcamPreview={WebcamPreview} 
+                          />
+                       ) : (
+                          <div className={clsx("relative bg-black rounded-sm overflow-hidden pointer-events-auto flex flex-col items-center justify-center border border-zinc-800 shadow-2xl", getRatioClass())}>
+                              <WebcamPreview />
+                              <div className={clsx("w-full h-full flex items-center justify-center p-0 transition-all duration-300", webcamStream ? "pt-[150px]" : "pt-0")}>
+                                 <Player
+                                    url={resolvedUrl || currentVideo.url}
+                                    playing={session.isPlaying}
+                                    controls
+                                    width="100%"
+                                    height="100%"
+                                    onEnded={() => playNext()}
+                                 />
+                              </div>
+                           </div>
+                      )}
+                    </div>
+                  ) : !optimisticLoading ? (
+                    <div className="flex flex-col items-stretch text-center p-8 bg-[#13131a] border border-[#1f1f2e] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 via-pink-400 to-emerald-400" />
+                      
+                      <div className="flex flex-col items-center mb-6">
+                        <div className="p-3 bg-purple-500/10 border border-purple-500/20 mb-4 rounded">
+                          <Cast className="w-8 h-8 text-purple-400" />
+                        </div>
+                        <h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-100 font-mono">Sala em Standby</h2>
+                        <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-sans">Compartilhe o link e aguarde os espectadores enviarem novos vídeos.</p>
+                      </div>
+
+                      <div className="space-y-3.5 mb-6 text-left border-y border-zinc-800/80 py-4 font-sans text-xs">
+                        <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono">Próximos Passos:</h3>
+                        
+                        <div className="flex gap-3">
+                          <span className="w-5 h-5 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">1</span>
+                          <div className="leading-tight">
+                            <h4 className="font-bold text-zinc-300">Compartilhar Convite</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique no botão "Convite" no cabeçalho e cole para o seu chat.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-5 h-5 bg-pink-500/10 text-pink-400 border border-pink-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">2</span>
+                          <div className="leading-tight">
+                            <h4 className="font-bold text-zinc-300 font-sans">Aprovar Mídias</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">As submissões do chat aparecem na coluna da esquerda para aprovação.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Fixed Video Metadata Panel Card (Below/Under the video player area) */}
+                {currentVideo && (
+                  <div className="p-3 bg-zinc-950 border-t border-[#1f1f2e] shrink-0 flex items-center justify-between text-left">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {renderUserAvatar(activeSender, "w-10 h-10 border border-zinc-800")}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 text-[9px] font-black tracking-wider uppercase font-mono text-zinc-500">
+                          <span>Espectador:</span>
+                          <span className="text-purple-400">@{currentVideo.submitter}</span>
+                          {renderTwitchBadgesHost(activeSender)}
+                        </div>
+                        <h4 className="text-xs font-black text-zinc-200 truncate pr-4 mt-0.5" title={currentVideo.title || "Sem título informado"}>
+                          {currentVideo.title || "Mídia Sincronizada Ativa"}
+                        </h4>
+                        <span className="text-[10px] text-zinc-500 font-mono truncate block mt-0.5 max-w-[450px]" title={currentVideo.url}>
+                          {currentVideo.url}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Date/Time detail labels */}
+                    {activeSender && (
+                      <div className="flex flex-col items-end gap-1 shrink-0 text-right text-[10px] font-mono">
+                        <span className="text-zinc-500 uppercase">Enviado em:</span>
+                        <span className="text-zinc-300 font-extrabold flex items-center gap-1 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded leading-none">
+                          <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                          {(activeSender as any).horaEnvio || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* COLUMN 3: Right side detailed Participant profiling desk and Audit logs footer */}
+              <aside className="w-80 shrink-0 h-full overflow-hidden flex flex-col border-l border-[#1f1f2e] bg-[#111116]">
+                <div className="flex-1 min-h-0">
+                  <HostUserProfile 
+                    session={session} 
+                    currentUser={focusUser} 
+                    onShowFeedback={showFeedback} 
+                  />
+                </div>
+                <div className="h-[210px] border-t border-[#1f1f2e] shrink-0">
+                  <HostAuditLogs 
+                    session={session} 
+                    onShowFeedback={showFeedback} 
+                  />
+                </div>
+              </aside>
+
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Global alert feedback overlay bar */}
       <AnimatePresence>
         {feedbackMsg && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className={clsx(
-              "fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 border rounded-sm shadow-2xl flex items-center gap-3 backdrop-blur-md max-w-sm w-full mx-4",
-              feedbackMsg.type === 'success' && "bg-[#151515]/95 border-[#8caf9b]/40 text-[#8caf9b]",
-              feedbackMsg.type === 'warning' && "bg-[#151515]/95 border-[#fcd34d]/45 text-[#fcd34d]",
-              feedbackMsg.type === 'error' && "bg-[#151515]/95 border-[#F44336]/40 text-[#F44336]",
-              feedbackMsg.type === 'info' && "bg-[#151515]/95 border-[#FF6B35]/40 text-[#FF6B35]"
+              "fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 border rounded-sm shadow-2xl flex flex-col gap-1.5 backdrop-blur-md max-w-sm w-full mx-4 text-left font-sans select-none",
+              feedbackMsg.type === 'success' && "bg-[#111116]/95 border-green-500/40 text-green-400",
+              feedbackMsg.type === 'warning' && "bg-[#111116]/95 border-amber-500/40 text-amber-400",
+              feedbackMsg.type === 'error' && "bg-[#111116]/95 border-red-500/40 text-red-500",
+              feedbackMsg.type === 'info' && "bg-[#111116]/95 border-purple-500/40 text-purple-400"
             )}
           >
-            <div className="flex-1 text-left">
-              <h5 className="text-[10px] uppercase font-black tracking-wider leading-none font-mono opacity-80">{feedbackMsg.title}</h5>
-              <p className="text-xs text-white mt-1 font-sans">{feedbackMsg.desc}</p>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-current" />
+              <h5 className="text-[10px] uppercase font-black tracking-widest font-mono shrink-0 leading-none">{feedbackMsg.title}</h5>
             </div>
-            <button 
-              onClick={() => setFeedbackMsg(null)}
-              className="p-1 hover:bg-white/10 rounded-sm text-white/60 hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <p className="text-[11px] leading-relaxed text-zinc-300 font-sans border-t border-zinc-800/60 pt-1.5">{feedbackMsg.desc}</p>
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* LEFT SIDEBAR DECK: Highly layout optimized & minimalist */}
-      <div className="flex h-full flex-shrink-0 z-20 border-r border-[#222222] bg-[#1A1A1A]">
-        {/* Nav Rail / Toolbar Icons: Always visible, only 64px (w-16) wide */}
-        <div className="w-16 flex flex-col items-center py-4 justify-between bg-[#1A1A1A] h-full border-r border-[#222222]">
-          <div className="flex flex-col items-center gap-6 w-full">
-            <div className="w-10 h-10 rounded bg-[#FF6B35]/15 border border-[#FF6B35]/30 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-[#FF6B35]" />
-            </div>
-
-            <div className="h-px w-8 bg-[#2d2d2d]"></div>
-
-            {/* Main Tabs */}
-            <nav className="flex flex-col items-center gap-3 w-full px-2">
-              <button 
-                onClick={() => selectTab('queue')}
-                className={clsx(
-                  "w-11 h-11 rounded flex items-center justify-center relative transition-all cursor-pointer group",
-                  activeTab === 'queue' && sidebarOpen 
-                    ? "bg-[#FF6B35] text-white" 
-                    : "text-[#B0B0B0] hover:text-white hover:bg-[#222222]"
-                )}
-                title="Página de Fila"
-              >
-                <Compass className="w-5 h-5" />
-                {pendingVideos.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#FF8C42] rounded-full ring-2 ring-[#1A1A1A]"></span>
-                )}
-              </button>
-
-              <button 
-                onClick={() => selectTab('submit')}
-                className={clsx(
-                  "w-11 h-11 rounded flex items-center justify-center transition-all cursor-pointer group",
-                  activeTab === 'submit' && sidebarOpen 
-                    ? "bg-[#FF6B35] text-white" 
-                    : "text-[#B0B0B0] hover:text-white hover:bg-[#222222]"
-                )}
-                title="Adicionar Vídeo"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-
-              <button 
-                onClick={() => selectTab('participants')}
-                className={clsx(
-                  "w-11 h-11 rounded flex items-center justify-center transition-all cursor-pointer group",
-                  activeTab === 'participants' && sidebarOpen 
-                    ? "bg-[#FF6B35] text-white" 
-                    : "text-[#B0B0B0] hover:text-white hover:bg-[#222222]"
-                )}
-                title="Participantes"
-              >
-                <Users className="w-5 h-5" />
-              </button>
-
-              <button 
-                onClick={() => selectTab('history')}
-                className={clsx(
-                  "w-11 h-11 rounded flex items-center justify-center transition-all cursor-pointer group",
-                  activeTab === 'history' && sidebarOpen 
-                    ? "bg-[#FF6B35] text-white" 
-                    : "text-[#B0B0B0] hover:text-white hover:bg-[#222222]"
-                )}
-                title="Histórico"
-              >
-                <History className="w-5 h-5" />
-              </button>
-
-              <button 
-                onClick={() => selectTab('moderation')}
-                className={clsx(
-                  "w-11 h-11 rounded flex items-center justify-center transition-all cursor-pointer relative group",
-                  activeTab === 'moderation' && sidebarOpen 
-                    ? "bg-[#FF6B35] text-white" 
-                    : "text-[#B0B0B0] hover:text-white hover:bg-[#222222]"
-                )}
-                title="Moderação e Segurança"
-              >
-                <ShieldCheck className="w-5 h-5 text-[#FF8C42]" />
-                {session.auditLogs?.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-[#F44336] rounded-full ring-2 ring-[#1A1A1A]"></span>
-                )}
-              </button>
-
-              <button 
-                onClick={() => selectTab('settings')}
-                className={clsx(
-                  "w-11 h-11 rounded flex items-center justify-center transition-all cursor-pointer group",
-                  activeTab === 'settings' && sidebarOpen 
-                    ? "bg-[#FF6B35] text-white" 
-                    : "text-[#B0B0B0] hover:text-white hover:bg-[#222222]"
-                )}
-                title="Configurações"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            </nav>
-          </div>
-
-          <div className="flex flex-col items-center gap-3 w-full">
-            {/* End session or Invite Info */}
-            <button 
-              onClick={copyInvite}
-              className={clsx(
-                "w-11 h-11 rounded flex items-center justify-center transition-all cursor-pointer relative border",
-                copied 
-                  ? "bg-[#4CAF50]/20 text-[#4CAF50] border-[#4CAF50]/30" 
-                  : "text-[#B0B0B0] border-[#222222] hover:text-white hover:bg-[#222222]"
-              )}
-              title="Copiar Link de Convite"
-            >
-              {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-            </button>
-
-            <button 
-              onClick={async () => {
-                const activeRoomId = localStorage.getItem('active_room_id');
-                if (activeRoomId) {
-                  try {
-                    await fetch(`${getBackendUrl()}/api/sessions/${activeRoomId}/end_session`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ roomId: activeRoomId })
-                    });
-                  } catch (e) {
-                    console.error('Error ending session directly:', e);
-                  }
-                }
-                localStorage.removeItem('active_room_id');
-                localStorage.removeItem('active_supabase_room_id');
-                localStorage.removeItem('active_role');
-                localStorage.removeItem('active_session_payload');
-                if (socket && typeof socket.disconnect === 'function') {
-                  socket.disconnect();
-                }
-                window.location.href = '/';
-              }} 
-              className="w-11 h-11 rounded-sm flex items-center justify-center text-[#F44336] bg-[#F44336]/10 hover:text-white hover:bg-[#F44336] transition-all cursor-pointer animate-fade-in"
-              title="Encerrar Sessão"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Collapsible Panel Container: 256px layout (w-64) */}
-        <AnimatePresence initial={false}>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 256, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="h-full overflow-hidden flex flex-col bg-[#1A1A1A] border-r border-[#222222]"
-            >
-              <div className="w-64 flex flex-col h-full">
-                
-                {/* Panel Header */}
-                <div className="p-4 border-b border-[#222222] flex items-center justify-between bg-[#1D1D1D]">
-                  {activeTab === 'queue' && <span className="text-xs font-black uppercase tracking-wider text-white font-mono">Fila de Vídeos</span>}
-                  {activeTab === 'submit' && <span className="text-xs font-black uppercase tracking-wider text-white font-mono">Adicionar Vídeo</span>}
-                  {activeTab === 'participants' && <span className="text-xs font-black uppercase tracking-wider text-white font-mono">Participantes</span>}
-                  {activeTab === 'history' && <span className="text-xs font-black uppercase tracking-wider text-white font-mono">Histórico</span>}
-                  {activeTab === 'moderation' && <span className="text-xs font-black uppercase tracking-wider text-[#FF6B35] font-mono">Painel de Moderação</span>}
-                  {activeTab === 'settings' && <span className="text-xs font-black uppercase tracking-wider text-[#FF6B35] font-mono">Configurações</span>}
-                  
-                  <button 
-                    onClick={() => setSidebarOpen(false)}
-                    className="p-1 px-2 text-[#B0B0B0] hover:text-white hover:bg-[#222222] rounded transition-all cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Panel Body */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-5">
-
-                  {/* ACTIVE TAB: QUEUE (Approved / Pending) */}
-                  {activeTab === 'queue' && (
-                    <div className="space-y-4">
-                      {/* Room Code Badge */}
-                      <div className="bg-[#222222] p-3 rounded border border-[#2d2d2d] flex items-center justify-between font-mono">
-                        <span className="text-[10px] uppercase font-bold text-[#B0B0B0]">CÓDIGO SALA:</span>
-                        <span className="text-sm font-extrabold tracking-widest text-[#FF6B35]">{session.id}</span>
-                      </div>
-
-                      {/* Pending approvals */}
-                      <div className="space-y-2">
-                        <h4 className="text-[10px] font-bold text-[#FF8C42] uppercase tracking-wider flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 bg-[#FF8C42] animate-pulse rounded-sm"></span>
-                          Pendentes de aprovação ({pendingVideos.length})
-                        </h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {pendingVideos.map(video => {
-                            const sender = session.users.find(u => u.name === video.submitter || u.userId === video.submitterId);
-                            return (
-                              <div key={video.id} className="bg-[#222222] border border-[#2c2c2c] p-2.5 rounded text-left">
-                                <p className="text-xs text-[#FFFFFF] truncate font-mono mb-2">{video.url}</p>
-                                <div className="flex items-center justify-between gap-2 border-t border-[#2c2c2c]/50 pt-2">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    {renderUserAvatar(sender, "w-4 h-4")}
-                                    <span 
-                                      className="text-[10.5px] font-bold truncate"
-                                      style={{ color: sender?.twitchData?.color || '#FF8C42' }}
-                                    >
-                                      @{video.submitter}
-                                    </span>
-                                    {renderTwitchBadgesHost(sender)}
-                                  </div>
-                                  <div className="flex gap-1 shrink-0">
-                                    <button onClick={() => approve(video.id)} className="p-1 bg-[#4CAF50]/10 hover:bg-[#4CAF50]/30 text-[#4CAF50] rounded cursor-pointer border border-[#4CAF50]/20" title="Aprovar">
-                                      <Check className="w-3 h-3" />
-                                    </button>
-                                    <button onClick={() => reject(video.id)} className="p-1 bg-[#F44336]/10 hover:bg-[#F44336]/30 text-[#F44336] rounded cursor-pointer border border-[#F44336]/20" title="Rejeitar">
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {pendingVideos.length === 0 && (
-                            <p className="text-[11px] text-[#505050] italic py-2">Nenhum vídeo pendente</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Approved items */}
-                      <div className="space-y-2">
-                        <h4 className="text-[10px] font-bold text-[#B0B0B0] uppercase tracking-wider">
-                          Fila Ativa ({approvedVideos.length})
-                        </h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                          {approvedVideos.map((vid, idx) => {
-                            const isCurrent = session.currentVideoId === vid.id;
-                            const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
-                            return (
-                              <div 
-                                key={vid.id} 
-                                className={clsx(
-                                  "border p-2.5 rounded group transition-all text-left relative overflow-hidden",
-                                  isCurrent 
-                                    ? "bg-[#1A1A1A] border-[#FF6B35]/40" 
-                                    : "bg-[#222222] border-[#2c2c2c] hover:border-[#FF8C42]/30"
-                                )}
-                              >
-                                {isCurrent && (
-                                  <div className="absolute top-0 left-0 w-1 h-full bg-[#FF6B35]"></div>
-                                )}
-                                <div className="flex justify-between items-center gap-2 mb-1.5 min-w-0">
-                                  <span className="text-[9px] font-bold font-mono text-[#FF8C42]">Nº {idx + 1}</span>
-                                  <span className="text-[9px] bg-[#121212]/80 px-1 py-0.5 rounded text-[#B0B0B0] font-mono leading-none">{getPlatformLabel(vid.url)}</span>
-                                </div>
-                                <p className={clsx("text-xs truncate font-mono mb-1.5", isCurrent ? "text-white font-bold" : "text-[#B0B0B0]")}>{vid.url}</p>
-                                <div className="flex justify-between items-center gap-2 border-t border-[#2c2c2c]/40 pt-1.5 mt-2">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    {renderUserAvatar(sender, "w-4 h-4")}
-                                    <span 
-                                      className="text-[10.5px] font-bold truncate"
-                                      style={{ color: sender?.twitchData?.color || '#FFFFFF' }}
-                                    >
-                                      @{vid.submitter}
-                                    </span>
-                                    {renderTwitchBadgesHost(sender)}
-                                  </div>
-                                  <div className="flex gap-1 shrink-0">
-                                    {!isCurrent && (
-                                      <button onClick={() => playVideo(vid.id)} className="p-1 hover:bg-[#1A1A1A] text-[#4CAF50] rounded cursor-pointer border border-[#2c2c2c]" title="Tocar Agora">
-                                        <Play className="w-3 h-3 fill-current" />
-                                      </button>
-                                    )}
-                                    <button onClick={() => reject(vid.id)} className="p-1 hover:bg-[#1A1A1A] text-[#F44336] rounded cursor-pointer border border-[#2c2c2c]" title="Remover">
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {approvedVideos.length === 0 && (
-                            <p className="text-[11px] text-[#505050] italic py-3">Nenhum vídeo aprovado na fila</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ACTIVE TAB: DIRECT SUBMISSION FOR HOST */}
-                  {activeTab === 'submit' && (
-                    <div className="space-y-3.5 text-left">
-                      <div className="text-[11px] text-[#B0B0B0]">
-                        Envie links de vídeo do YouTube, Reels do Instagram, TikTok ou links diretos.
-                      </div>
-                      <div className="space-y-3">
-                        <input 
-                          type="text" 
-                          value={directUrl}
-                          onChange={e => setDirectUrl(e.target.value)}
-                          placeholder="https://youtube.com/watch?..."
-                          className="w-full bg-[#121212] border border-[#2c2c2c] rounded px-3 py-2.5 text-xs text-white placeholder-[#505050] focus:outline-none focus:border-[#FF6B35] font-medium"
-                        />
-                        <button 
-                          onClick={handleDirectSubmit}
-                          disabled={!directUrl.trim().startsWith('http')}
-                          className="w-full bg-[#FF6B35] hover:bg-[#e2531b] disabled:bg-[#222222] disabled:text-[#505050] text-white font-bold py-2.5 rounded text-xs transition-colors cursor-pointer"
-                        >
-                          Adicionar à Fila
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ACTIVE TAB: PARTICIPANTS */}
-                  {activeTab === 'participants' && (
-                    <div className="space-y-3 text-left">
-                      <h4 className="text-[10px] font-bold text-[#B0B0B0] uppercase tracking-wider block">
-                        Usuários conectados ({session.users.length})
-                      </h4>
-                      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                        {session.users.map(u => {
-                          return (
-                            <div key={u.id} className="flex items-center gap-2.5 bg-[#222222] p-2 rounded border border-[#2c2c2c] text-left">
-                              {renderUserAvatar(u, "w-7 h-7")}
-                              <div className="flex-1 min-w-0">
-                                <span 
-                                  className="text-xs font-bold block truncate"
-                                  style={{ color: u.twitchData?.color || '#FFFFFF' }}
-                                >
-                                  @{u.name}
-                                </span>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  {renderTwitchBadgesHost(u)}
-                                  <span className="text-[8px] text-[#B0B0B0] font-mono leading-none block uppercase">
-                                    {u.isHost ? 'BROADCASTER' : 'ESPECTADOR'}
-                                  </span>
-                                </div>
-                              </div>
-                              {u.isHost && (
-                                <div className="w-1.5 h-1.5 rounded-sm bg-[#4CAF50] shrink-0"></div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ACTIVE TAB: HISTORIC WATCHED */}
-                  {activeTab === 'history' && (
-                    <div className="space-y-3 text-left">
-                      <h4 className="text-[10px] font-bold text-[#B0B0B0] uppercase tracking-wider block">
-                        Histórico de reprodução ({session.history.length})
-                      </h4>
-                      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                        {session.history.map(vid => {
-                          const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
-                          return (
-                            <div key={vid.id} onClick={() => playVideo(vid.id)} className="bg-[#222222] border border-[#2c2c2c] p-2.5 rounded cursor-pointer hover:bg-[#2c2c2c] transition-colors text-left group">
-                              <p className="text-xs text-[#B0B0B0] truncate font-mono line-through decoration-[#505050] group-hover:no-underline">{vid.url}</p>
-                              <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-[#2c2c2c]/40">
-                                {renderUserAvatar(sender, "w-4 h-4")}
-                                <span className="text-[9.5px] text-[#B0B0B0] font-mono truncate">@{vid.submitter}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {session.history.length === 0 && (
-                          <p className="text-[11px] text-[#505050] italic py-2">Nenhum histórico disponível</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ACTIVE TAB: LOGS, SETTINGS & AUDIT MODERATION */}
-                  {activeTab === 'settings' && (
-                    <div className="space-y-4 text-center">
-                       <p className="text-sm text-[#B0B0B0] max-w-sm mt-8">O painel de configurações principais está aberto no centro da tela.</p>
-                    </div>
-                  )}
-
-                  {activeTab === 'moderation' && (
-                    <div className="space-y-4">
-                      {/* Section 2: Active User Control */}
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-[#B0B0B0] uppercase tracking-wider block font-mono">Controle de Público</span>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                          {session.users.filter(u => u.id !== socket.id).map(user => (
-                            <div key={user.id} className="bg-[#151515] border border-[#222222] p-2.5 rounded-sm text-left space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#EFEFEF] truncate">@{user.name}</span>
-                                <span className="text-[9px] font-bold font-mono text-[#b28282] uppercase">
-                                  {user.strikes || 0}/5 strikes
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-1 mt-1">
-                                <button 
-                                  onClick={() => { socket.emit('toggle_whitelist', user.id); showFeedback('VIP Atualizado', `Status VIP de @${user.name} alterado.`, 'success'); }}
-                                  className={clsx(
-                                    "px-1.5 py-1 rounded-sm text-[9px] font-mono font-bold border transition-colors cursor-pointer",
-                                    user.isWhitelisted 
-                                      ? "bg-[#8caf9b]/15 text-[#8caf9b] border-[#8caf9b]/35" 
-                                      : "bg-[#1f1f1f] text-[#B0B0B0] border-[#222222]/80 hover:text-[#EFEFEF]"
-                                  )}
-                                >
-                                  {user.isWhitelisted ? 'VIP ON' : 'VIP OFF'}
-                                </button>
-                                <button 
-                                  onClick={() => { socket.emit('give_strike', { userId: user.id }); showFeedback('Strike Aplicado', `Adicionado 1 strike para @${user.name}`); }}
-                                  className="px-1.5 py-1 bg-[#fcd34d]/10 hover:bg-[#fcd34d]/20 border border-[#fcd34d]/30 text-[#fcd34d] rounded-sm text-[9px] font-mono font-bold cursor-pointer transition-colors"
-                                >
-                                  +1 Strike
-                                </button>
-                                <button 
-                                  onClick={() => { socket.emit('ban_user', { userId: user.id }); showFeedback('Usuário Banido', `@${user.name} foi removido.`); }}
-                                  className="px-1.5 py-1 bg-[#F44336]/10 hover:bg-[#F44336]/20 border border-[#F44336]/30 text-[#F44336] rounded-sm text-[9px] font-mono font-bold cursor-pointer transition-colors"
-                                >
-                                  Banir
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                          {session.users.filter(u => u.id !== socket.id).length === 0 && (
-                            <p className="text-[11px] text-[#505050] italic text-left">Nenhum espectador na sala</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Section 3: Audit System Terminal */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center px-0.5">
-                          <span className="text-[10px] font-bold text-[#b28282] uppercase tracking-wider font-mono">Eventos Compartilhados</span>
-                          <button 
-                            onClick={() => socket.emit('clear_audit_logs')}
-                            className="text-[9px] text-[#B0B0B0] hover:text-[#FFFFFF] underline cursor-pointer"
-                          >
-                            Limpar
-                          </button>
-                        </div>
-                        <div className="bg-[#0D0D0D] border border-[#222222] p-2 rounded-sm text-left font-mono text-[8.5px] overflow-y-auto max-h-40 space-y-1.5">
-                          {session.auditLogs?.slice().reverse().map(log => {
-                            const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                            const severityCol = log.severity === 'high' ? 'text-[#b28282] font-bold' : log.severity === 'medium' ? 'text-[#e0a670]' : 'text-[#8caf9b]';
-                            return (
-                              <div key={log.id} className="border-b border-[#222222]/40 pb-1 last:border-0 leading-relaxed">
-                                <span className="text-[#505050] mr-1">{timeStr}</span>
-                                <span className={clsx("uppercase", severityCol)}>[{log.type}]</span>{' '}
-                                <span className="text-[#EFEFEF]">{log.message}</span>
-                              </div>
-                            );
-                          })}
-                          {(!session.auditLogs || session.auditLogs.length === 0) && (
-                            <p className="text-[#505050] italic font-mono">Sem logs cadastrados.</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* CENTER WORKSPACE: Extremely spacious visual video area */}
-      <main className="flex-1 relative bg-[#0A0A0A] flex flex-col items-center justify-center overflow-hidden z-10" ref={containerRef}>
-        
-        {activeTab === 'moderation' ? (
-          <AdminDashboard session={session} />
-        ) : activeTab === 'settings' ? (
-          <SettingsView session={session} />
-        ) : (
-          <>
-            {/* Dynamic Citation / Title Banner Overlay (Bottom-left of central video canvas) */}
-            {(() => {
-              if (!currentVideo) return null;
-              const sender = session.users.find(u => u.name === currentVideo.submitter || u.userId === currentVideo.submitterId);
-              return (
-                <div 
-                  className={clsx(
-                    "absolute bottom-5 left-5 z-40 hidden md:flex items-stretch gap-0 bg-[#1A1A1A]/95 rounded border border-[#222222] shadow-2xl transition-all duration-300",
-                    modMenuOpen ? "max-w-md" : "max-w-sm"
-                  )}
-                  onMouseEnter={() => setModMenuOpen(true)}
-                  onMouseLeave={() => setModMenuOpen(false)}
-                >
-                  <div className="flex items-center gap-3 px-4 py-3 min-w-0">
-                    {renderUserAvatar(sender, "w-10 h-10")}
-                    <div className="flex-1 min-w-0 text-left">
-                      <span className="text-[9px] font-bold text-[#FF8C42] uppercase tracking-wider font-mono block">Enviado por:</span>
-                      <div className="flex items-center gap-1.5 truncate mt-0.5">
-                        <span 
-                          className="text-sm font-black block truncate"
-                          style={{ color: sender?.twitchData?.color || '#FFFFFF' }}
-                        >
-                          @{currentVideo.submitter}
-                        </span>
-                        {renderTwitchBadgesHost(sender)}
-                      </div>
-                      <span className="text-[9px] text-[#B0B0B0] truncate block font-mono mt-0.5">{currentVideo.url}</span>
-                    </div>
-                  </div>
-
-                  <AnimatePresence>
-                    {modMenuOpen && sender && !sender.isHost && (
-                      <motion.div 
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: 'auto' }}
-                        exit={{ opacity: 0, width: 0 }}
-                        className="flex items-center border-l border-[#2c2c2c] bg-[#151515] overflow-hidden rounded-r"
-                      >
-                        <div className="flex flex-col h-full w-20">
-                          <button 
-                            title="10 Min Timeout"
-                            onClick={(e) => { e.stopPropagation(); socket.emit('timeout_user', { userId: sender.id, minutes: 10 }); showFeedback('Timeout Aplicado', `@${sender.name} silenciado por 10 min`, 'warning'); }}
-                            className="flex-1 px-1 text-[9px] font-bold font-mono text-[#fcd34d] hover:bg-[#fcd34d]/20 hover:text-white transition-colors border-b border-[#2c2c2c] cursor-pointer"
-                          >
-                            TIMEOUT
-                          </button>
-                          <button 
-                            title="+1 Strike"
-                            onClick={(e) => { e.stopPropagation(); socket.emit('give_strike', { userId: sender.id }); showFeedback('Strike Aplicado', `@${sender.name} recebeu +1 strike`, 'warning'); }}
-                            className="flex-1 px-1 text-[9px] font-bold font-mono text-[#FF8C42] hover:bg-[#FF8C42]/20 hover:text-white transition-colors border-b border-[#2c2c2c] cursor-pointer"
-                          >
-                            STRIKE
-                          </button>
-                          <button 
-                            title="Banir"
-                            onClick={(e) => { e.stopPropagation(); socket.emit('ban_user', { userId: sender.id }); showFeedback('Usuário Banido', `@${sender.name} banido da sala`, 'error'); }}
-                            className="flex-1 px-1 text-[9px] font-bold font-mono text-[#F44336] hover:bg-[#F44336]/20 hover:text-white transition-colors cursor-pointer"
-                          >
-                            BANIR
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })()}
-
-        {/* REELS STYLE RIGHT DOCK: Floating vertical widget control actions */}
-        {currentVideo && (
-          <div className="absolute right-5 bottom-12 z-40 flex flex-col items-center gap-3.5 bg-[#0D0D0D]/40 p-2 rounded-sm border border-[#222222]/40">
-            {/* Previous */}
-            <button 
-              onClick={() => playPrevious()} 
-              disabled={optimisticLoading}
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] disabled:opacity-50 disabled:cursor-wait flex items-center justify-center transition-all cursor-pointer shadow-sm group"
-              title="Anterior"
-            >
-              <SkipBack className="w-4 h-4 text-[#EFEFEF]" />
-            </button>
-
-            {/* Next / skip */}
-            <button 
-              onClick={() => playNext()} 
-              disabled={optimisticLoading}
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] disabled:opacity-50 disabled:cursor-wait flex items-center justify-center transition-all cursor-pointer shadow-sm group"
-              title="Próximo"
-            >
-              <SkipForward className="w-4 h-4 text-[#EFEFEF]" />
-            </button>
-
-            {/* Quick access shortcut to open actual video url */}
-            <button 
-              onClick={() => {
-                const videoUrl = resolvedUrl || currentVideo?.url;
-                if (videoUrl) {
-                  window.open(videoUrl, '_blank', 'noopener,noreferrer');
-                }
-              }}
-              disabled={!(resolvedUrl || currentVideo?.url)}
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all cursor-pointer shadow-sm group"
-              title="Acessar Link do Vídeo (Abre em outra aba)"
-            >
-              <ExternalLink className="w-4 h-4 text-[#EFEFEF] group-hover:text-[#FF6B35]" />
-            </button>
-
-            <div className="h-px w-6 bg-[#1f1f1f]"></div>
-
-            {/* Zoom controls */}
-            <button 
-              onClick={() => setZoom(z => Math.min(z + 0.1, 2))} 
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] flex items-center justify-center transition-all cursor-pointer shadow-sm"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-4 h-4 text-[#EFEFEF]" />
-            </button>
-
-            <span className="text-[10px] font-semibold text-[#B0B0B0] font-mono select-none">
-              {Math.round(zoom * 100)}%
-            </span>
-
-            <button 
-              onClick={() => setZoom(z => Math.max(z - 0.1, 0.5))} 
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] flex items-center justify-center transition-all cursor-pointer shadow-sm"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-4 h-4 text-[#EFEFEF]" />
-            </button>
-
-            <button 
-              onClick={() => setZoom(1)} 
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] flex items-center justify-center transition-all cursor-pointer shadow-sm"
-              title="Ajustar"
-            >
-              <Expand className="w-4 h-4 text-[#EFEFEF]" />
-            </button>
-
-            <div className="h-px w-6 bg-[#1f1f1f]"></div>
-
-            {/* Hardware Web connection / Webcam and fullscreen */}
-            <button 
-              onClick={toggleWebcam} 
-              className={clsx(
-                "w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-sm",
-                webcamStream 
-                  ? "bg-[#b28282]/20 border-[#b28282] text-[#b28282] animate-pulse" 
-                  : "bg-[#1A1A1A]/90 border-[#222222] text-[#EFEFEF] hover:bg-[#222222]"
-              )}
-              title="Ativar Webcam"
-            >
-              {webcamStream ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-            </button>
-
-            
-            {/* Proporção Button (Expandable overlay) */}
-            
-            {/* Controles de Proporção expansíveis de alta qualidade */}
-            <div className="relative flex items-center">
-              <AnimatePresence>
-                {aspectMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: 20, scale: 0.95 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    style={{ originX: 1, originY: 0.5 }}
-                    className="absolute right-12 z-55 flex items-center gap-2 px-3.5 py-2 bg-[#0D0D0D]/95 backdrop-blur-md border border-[#222222] rounded-sm shadow-2xl whitespace-nowrap"
-                  >
-                    <span className="text-[#B0B0B0] font-bold text-[9px] uppercase tracking-wider font-mono mr-1 select-none">Aspecto:</span>
-                    {(['auto', '9:16', '4:5', '1:1', '16:9'] as const).map(ratio => (
-                      <button
-                        key={ratio}
-                        onClick={() => {
-                          setAspectRatio(ratio);
-                        }}
-                        className={clsx(
-                          "px-2 py-0.5 rounded-sm text-[9px] uppercase tracking-widest font-mono font-semibold transition-all cursor-pointer",
-                          aspectRatio === ratio
-                            ? "bg-[#FF6B35] text-[#FFFFFF]"
-                            : "bg-[#151515] text-[#B0B0B0] hover:text-[#FFFFFF] hover:bg-[#222222]"
-                        )}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
-                    <span className="h-3 w-px bg-[#2d2d2d] mx-1"></span>
-                    <button
-                      onClick={() => setCropOverlay(!cropOverlay)}
-                      className={clsx(
-                        "flex items-center gap-1 px-2.5 py-0.5 rounded-sm text-[9px] tracking-wider uppercase font-mono transition-all cursor-pointer border border-[#222222]",
-                        cropOverlay
-                          ? "bg-[#8caf9b]/15 text-[#8caf9b] border-[#8caf9b]/35"
-                          : "bg-[#151515] text-[#B0B0B0] hover:text-[#FFFFFF]"
-                      )}
-                    >
-                      <Crop className="w-3 h-3" />
-                      <span>{cropOverlay ? "Limpo" : "Suporte"}</span>
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <button
-                onClick={() => setAspectMenuOpen(prev => !prev)}
-                className={clsx(
-                  "w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-sm",
-                  aspectMenuOpen
-                    ? "bg-[#FF6B35]/25 border-[#FF6B35]/80 text-[#918bf2] shadow-[0_0_12px_rgba(124,115,230,0.15)]"
-                    : "bg-[#1A1A1A]/90 border-[#222222] text-[#EFEFEF] hover:bg-[#222222]"
-                )}
-                title="Proporção e Crop (Suporte)"
-              >
-                <Layers className="w-4 h-4" />
-              </button>
-            </div>
-
-
-            <button 
-              onClick={toggleFullscreen} 
-              className="w-10 h-10 rounded-full bg-[#1A1A1A]/90 border border-[#222222] text-[#EFEFEF] hover:bg-[#222222] flex items-center justify-center transition-all cursor-pointer shadow-sm"
-              title="Tela Inteira"
-            >
-              <Maximize className="w-4 h-4 text-[#EFEFEF]" />
-            </button>
-          </div>
-        )}
-
-        
-
-        {/* CANVAS: Scalable Active Frame */}
-        <div 
-          className="relative w-full h-full flex flex-col items-center justify-center transition-transform duration-300 ease-out"
-          style={{ transform: `scale(${zoom})` }}
-        >
-          {optimisticLoading && (
-            <div className={clsx("relative w-full max-h-[80vh] h-full bg-[#0A0A0A] overflow-hidden flex flex-col items-center justify-center border border-[#1f1f1f]/80 shadow-2xl animate-pulse aspect-video max-w-4xl rounded-sm")}>
-                <Loader2 className="w-10 h-10 text-[#FF6B35] animate-spin mb-4" />
-                <span className="text-[#EFEFEF] font-bold text-sm tracking-wide font-sans">Afinando transmissores...</span>
-                <span className="text-[#505050] text-[10px] mt-2 block">Preparando o próximo vídeo da fila</span>
-            </div>
-          )}
-
-          {!optimisticLoading && currentVideo ? (
-             <div className={clsx("relative w-full max-h-screen bg-[#0A0A0A] overflow-hidden flex flex-col items-center justify-center", isFullscreen ? 'h-screen w-screen' : 'w-full px-2 md:px-3 lg:px-4')}>
-                {/* Loader when resolving links */}
-                {resolving && (
-                   <div className="absolute inset-0 bg-[#0A0A0A]/90 backdrop-blur-md z-45 flex flex-col items-center justify-center">
-                      <Loader2 className="w-8 h-8 text-[#FF6B35] animate-spin mb-3" />
-                      <p className="text-xs font-semibold tracking-wider text-[#EFEFEF] font-mono uppercase">Decodificando player em 9:16...</p>
-                   </div>
-                )}
-
-                {/* Selective Video Engines */}
-                {isInstagram(resolvedUrl) ? (
-                   <CustomInstagramPlayer 
-                      url={resolvedUrl} 
-                      getRatioClass={getRatioClass} 
-                      webcamStream={webcamStream} 
-                      WebcamPreview={WebcamPreview} 
-                   />
-                ) : isTikTok(resolvedUrl) ? (
-                   <CustomTikTokPlayer 
-                      url={resolvedUrl} 
-                      getRatioClass={getRatioClass} 
-                      webcamStream={webcamStream} 
-                      WebcamPreview={WebcamPreview} 
-                   />
-                ) : isYouTubeShort(resolvedUrl) ? (
-                    <CustomYouTubeShortsPlayer 
-                       url={resolvedUrl} 
-                       getRatioClass={getRatioClass} 
-                       webcamStream={webcamStream} 
-                       WebcamPreview={WebcamPreview} 
-                    />
-                 ) : getYouTubeId(resolvedUrl) ? (
-                    <CustomYouTubePlayer 
-                       url={resolvedUrl} 
-                       getRatioClass={getRatioClass} 
-                       webcamStream={webcamStream} 
-                       WebcamPreview={WebcamPreview} 
-                    />
-                 ) : isX(resolvedUrl) ? (
-                    <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="X/Twitter"
-                     />
-                  ) : isReddit(resolvedUrl) ? (
-                     <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="Reddit"
-                     />
-                  ) : isFacebook(resolvedUrl) ? (
-                     <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="Facebook"
-                     />
-                  ) : isVimeo(resolvedUrl) ? (
-                     <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="Vimeo"
-                     />
-                ) : isLinkedIn(resolvedUrl) ? (
-                   <div className="relative w-full max-w-[540px] h-full max-h-[82vh] bg-[#151515] rounded-sm overflow-hidden border border-[#222222]/80 pointer-events-auto flex items-center justify-center p-4 shadow-2xl">
-                      <WebcamPreview />
-                      <div className="w-full h-full overflow-y-auto overflow-x-hidden">
-                         <LinkedInEmbed url={resolvedUrl} width="100%" />
-                      </div>
-                   </div>
-                ) : (
-                    <div className={clsx("relative bg-black rounded-sm overflow-hidden pointer-events-auto flex flex-col items-center justify-center border border-[#1f1f1f]/80 shadow-2xl", getRatioClass())}>
-                        <WebcamPreview />
-                        <div className={clsx("w-full h-full flex items-center justify-center p-0 transition-all duration-300", webcamStream ? "pt-[150px]" : "pt-0")}>
-                           <Player
-                              url={resolvedUrl || currentVideo.url}
-                              playing={session.isPlaying}
-                              controls
-                              width="100%"
-                              height="100%"
-                              onEnded={() => playNext()}
-                           />
-                        </div>
-                     </div>
-                )}
-             </div>
-          ) : !optimisticLoading ? (
-             <div className="flex flex-col items-stretch text-center p-8 bg-[#16161c] border border-[#22222d] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#FF6B35] via-[#9146FF] to-[#10B981]" />
-                
-                <div className="flex flex-col items-center mb-6">
-                  <div className="p-3 bg-[#FF6B35]/10 border border-[#FF6B35]/25 mb-4 rounded-none">
-                    <Cast className="w-8 h-8 text-[#FF6B35]" />
-                  </div>
-                  <h2 className="text-md font-extrabold uppercase tracking-widest text-[#FFFFFF] font-sans">Sala ociosa</h2>
-                  <p className="text-[11px] text-[#B0B0B0] mt-1.5 leading-relaxed max-w-xs font-sans">Sua sala de mídia está ativa e pronta para reproduzir transmissões.</p>
-                </div>
-
-                {/* Paso a paso onboarding visual */}
-                <div className="space-y-4 mb-6 text-left border-y border-[#20202b]/70 py-4">
-                  <h3 className="text-[9px] font-black text-[#8c92ac] uppercase tracking-widest font-mono">Guia de Uso Rápido:</h3>
-                  
-                  <div className="flex gap-3">
-                    <span className="w-5 h-5 bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">1</span>
-                    <div className="leading-tight">
-                      <h4 className="text-[11px] font-extrabold text-slate-200 font-sans">Envie o Link de Convite</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Copie o link abaixo e compartilhe com seu chat ou moderadores.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <span className="w-5 h-5 bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/30 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">2</span>
-                    <div className="leading-tight">
-                      <h4 className="text-[11px] font-extrabold text-slate-200 font-sans font-sans">Público Envia Vídeos</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Seus viewers escolhem vídeos do YouTube, Instagram, TikTok e Twitch.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <span className="w-5 h-5 bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/30 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">3</span>
-                    <div className="leading-tight">
-                      <h4 className="text-[11px] font-extrabold text-slate-200 font-sans font-sans">Gerencie na Esquerda</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Use a barra lateral esquerda para aceitar mídias e controlar a fila.</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-2.5 bg-[#0D0D12] p-3 border border-[#20202d] text-xs">
-                  <div className="flex items-center justify-between text-left">
-                    <div className="min-w-0 pr-3">
-                      <span className="text-[#8c92ac] uppercase font-bold tracking-widest text-[8px] font-mono block">CÓDIGO DE ACESSO</span>
-                      <span className="text-[#10B981] font-black text-sm tracking-wider font-mono mt-0.5 block">{session.id}</span>
-                    </div>
-                    <button 
-                      onClick={copyInvite} 
-                      className="px-3 py-1.5 bg-[#1F1F2A] hover:bg-[#282836] hover:text-white border border-[#2d2d3e] text-slate-300 font-bold font-mono text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
-                    >
-                      {copied ? "COPIADO!" : "COPIAR LINK"}
-                    </button>
-                  </div>
-                </div>
-             </div>
-          ) : null}
-        </div>
-        </>
-        )}
-      </main>
     </div>
   );
 }

@@ -1349,6 +1349,10 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     else if (userRecord?.twitchData?.isSubscriber) priority_score += 10;
     else if (userRecord?.twitchData?.isFollower) priority_score += 2;
 
+    const nowD = new Date();
+    const dataEnvio = nowD.toLocaleDateString('pt-BR');
+    const horaEnvio = nowD.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
     const newVideo = {
       id: 'vid_' + Date.now().toString() + Math.random().toString(36).substring(7),
       submitter: username,
@@ -1358,7 +1362,9 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
       platform,
       status: (state.settings?.isManualApprovalRequired && state.hostId !== userId) ? 'pending' : 'approved',
       timestamp: Date.now(),
-      priority_score
+      priority_score,
+      dataEnvio,
+      horaEnvio
     };
 
     const updatedQueue = [...(state.queue || [])];
@@ -1495,11 +1501,18 @@ app.post(['/sessions/:id/play_video', '/api/sessions/:id/play_video'], async (re
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
+    // Mark as played/watched in the universal queue
+    const updatedQueue = (state.queue || []).map((v: any) => 
+      v.id === videoId ? { ...v, status: 'watched' } : v
+    );
+
     const updatedState = {
       ...state,
+      queue: updatedQueue,
       currentVideoId: videoId,
       isPlaying: true,
-      currentTime: 0
+      currentTime: 0,
+      history: updatedQueue.filter((v: any) => v.status === 'watched')
     };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -1530,35 +1543,44 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
     const queue = state.queue || [];
     let currentVideoId = state.currentVideoId;
     let isPlaying = state.isPlaying;
-    let history = state.history || [];
 
-    const activeIndex = queue.findIndex((v: any) => v.id === currentVideoId);
-    if (activeIndex !== -1) {
-      const played = queue.splice(activeIndex, 1)[0];
-      played.status = 'watched';
-      history = [played, ...history].slice(0, 50);
-    }
+    // Mark current video as 'watched' in the queue (if it isn't already)
+    const updatedQueue = queue.map((v: any) => {
+      if (v.id === currentVideoId) {
+        return { ...v, status: 'watched' };
+      }
+      return v;
+    });
 
-    if (queue.length > 0) {
-      // Sort and select next
-      queue.sort((a: any, b: any) => {
-        if (b.priority_score !== a.priority_score) return b.priority_score - a.priority_score;
-        return a.timestamp - b.timestamp;
-      });
-      currentVideoId = queue[0].id;
+    // Find the next unplayed video in chronological order (timestamp ASC)
+    // Unwatched/unplayed videos are those with status === 'pending' or status === 'approved'
+    const unwatched = updatedQueue.filter((v: any) => v.status === 'pending' || v.status === 'approved');
+
+    if (unwatched.length > 0) {
+      // Sort chronologically by timestamp
+      unwatched.sort((a: any, b: any) => a.timestamp - b.timestamp);
+      currentVideoId = unwatched[0].id;
       isPlaying = true;
     } else {
       currentVideoId = null;
       isPlaying = false;
     }
 
+    // Now, let's also update the video status of the new current video in updatedQueue to 'watched' as well
+    const finalQueue = updatedQueue.map((v: any) => {
+      if (v.id === currentVideoId) {
+        return { ...v, status: 'watched' };
+      }
+      return v;
+    });
+
     const updatedState = {
       ...state,
-      queue,
+      queue: finalQueue,
       currentVideoId,
       isPlaying,
       currentTime: 0,
-      history
+      history: finalQueue.filter((v: any) => v.status === 'watched')
     };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -1569,7 +1591,7 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
 
     await supabaseAdmin
       .from('rooms')
-      .update({ video_queue_count: queue.length })
+      .update({ video_queue_count: finalQueue.filter((v: any) => v.status !== 'watched').length })
       .eq('id', roomId);
 
     if (ablyRest) {
@@ -1591,40 +1613,60 @@ app.post(['/sessions/:id/play_previous', '/api/sessions/:id/play_previous'], asy
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    const history = state.history || [];
-    if (history.length === 0) return res.json({ success: true, session: state });
+    const queue = state.queue || [];
+    const currentVideoId = state.currentVideoId;
+    const currentVid = queue.find((v: any) => v.id === currentVideoId);
 
-    const previous = history.shift();
-    previous.status = 'playing';
-
-    const queue = [previous, ...(state.queue || [])];
-
-    const updatedState = {
-      ...state,
-      queue,
-      currentVideoId: previous.id,
-      isPlaying: true,
-      currentTime: 0,
-      history
-    };
-
-    const supabaseAdmin = getSupabaseAdmin();
-    await supabaseAdmin
-      .from('room_settings')
-      .update({ settings_json: updatedState })
-      .eq('room_id', roomId);
-
-    if (ablyRest) {
-      const channel = ablyRest.channels.get(`session:${roomId}`);
-      await channel.publish('session_state', updatedState);
+    // Filter for watched videos
+    const watchedVids = queue.filter((v: any) => v.status === 'watched' && v.id !== currentVideoId);
+    
+    let prevVideoId = null;
+    if (watchedVids.length > 0) {
+      if (currentVid) {
+        // Find watched video with nearest smaller timestamp as current
+        const smallerTimes = watchedVids.filter((v: any) => v.timestamp < currentVid.timestamp);
+        if (smallerTimes.length > 0) {
+          smallerTimes.sort((a: any, b: any) => b.timestamp - a.timestamp);
+          prevVideoId = smallerTimes[0].id;
+        } else {
+          // Fallback: just play the watched one with the largest timestamp
+          watchedVids.sort((a: any, b: any) => b.timestamp - a.timestamp);
+          prevVideoId = watchedVids[0].id;
+        }
+      } else {
+        // Just take the last watched video chronologically
+        watchedVids.sort((a: any, b: any) => b.timestamp - a.timestamp);
+        prevVideoId = watchedVids[0].id;
+      }
     }
 
-    res.json({ success: true, session: updatedState });
+    if (prevVideoId) {
+      const updatedState = {
+        ...state,
+        currentVideoId: prevVideoId,
+        isPlaying: true,
+        currentTime: 0
+      };
+
+      const supabaseAdmin = getSupabaseAdmin();
+      await supabaseAdmin
+        .from('room_settings')
+        .update({ settings_json: updatedState })
+        .eq('room_id', roomId);
+
+      if (ablyRest) {
+        const channel = ablyRest.channels.get(`session:${roomId}`);
+        await channel.publish('session_state', updatedState);
+      }
+
+      return res.json({ success: true, session: updatedState });
+    }
+
+    res.json({ success: true, session: state });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
-
 // POST /sessions/:id/update_settings - Update Moderator Rules
 app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'], async (req, res) => {
   try {
