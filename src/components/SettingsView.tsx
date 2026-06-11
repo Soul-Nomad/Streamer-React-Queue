@@ -54,6 +54,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
         if (settingsData) {
           const merged = {
              ...settingsData,
+             ...(settingsData.settings_json?.settings || {}),
              ...(settingsData.settings_json || {})
           };
           
@@ -101,12 +102,8 @@ export default function SettingsView({ session }: { session: SessionState }) {
       if (key === 'room_id' || key === 'id' || key === 'created_at' || key === 'updated_at' || key === 'settings_json') return;
       if (validKeys.includes(key)) {
          updatePayload[key] = roomSettings[key];
-      } else {
-         settingsJson[key] = roomSettings[key];
       }
     });
-
-    updatePayload.settings_json = settingsJson;
 
     const { error } = await supabase
       .from('room_settings')

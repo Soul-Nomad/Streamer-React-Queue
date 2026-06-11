@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { socket, getBackendUrl } from '../socket';
 import { SessionState } from '../types';
 import ReactPlayer from 'react-player';
-import { XEmbed, LinkedInEmbed } from 'react-social-media-embed';
+import { LinkedInEmbed } from 'react-social-media-embed';
+import { Tweet } from 'react-tweet';
 import { 
   MonitorPlay, ZoomIn, ZoomOut, Expand, Maximize, AlertCircle, SkipForward, SkipBack, 
   Check, X, ShieldCheck, Cast, Play, Pause, History, Crop, Video, VideoOff, 
@@ -595,6 +596,7 @@ export default function HostView({ session }: { session: SessionState }) {
   const isInstagram = (url: string) => url.includes('instagram.com');
   const isTikTok = (url: string) => url.includes('tiktok.com');
   const isX = (url: string) => url.includes('x.com') || url.includes('twitter.com');
+  const getTweetId = (url: string) => url.match(/(?:twitter\.com|x\.com)\/(?:#!\/)?(?:\w+)\/status(?:es)?\/(\d+)/)?.[1];
   const isLinkedIn = (url: string) => url.includes('linkedin.com');
 
   const handleDirectSubmit = () => {
@@ -1455,8 +1457,8 @@ export default function HostView({ session }: { session: SessionState }) {
                  ) : isX(resolvedUrl) ? (
                    <div className="relative w-full max-w-[540px] h-full max-h-[82vh] bg-[#151515] rounded-sm overflow-hidden border border-[#222222]/80 pointer-events-auto flex items-center justify-center p-4 shadow-2xl">
                       <WebcamPreview />
-                      <div className="w-full h-full overflow-y-auto overflow-x-hidden">
-                         <XEmbed url={resolvedUrl} width="100%" />
+                      <div className="w-full h-full overflow-y-auto overflow-x-hidden flex justify-center light">
+                         {getTweetId(resolvedUrl) ? <Tweet id={getTweetId(resolvedUrl)!} /> : <div className="text-white">Tweet não encontrado.</div>}
                       </div>
                    </div>
                 ) : isLinkedIn(resolvedUrl) ? (
