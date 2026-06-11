@@ -1175,8 +1175,9 @@ export default function HostView({ session }: { session: SessionState }) {
                       )}
                     </div>
                   ) : !optimisticLoading ? (
-                    <div className="flex flex-col items-stretch text-center p-8 bg-[#13131a] border border-[#1f1f2e] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-purple-400 to-emerald-400" />
+                    <div className="flex flex-col items-stretch text-center p-8 bg-[#13131a] border border-[#1f1f2e] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden pb-16">
+                      {/* Animated Top Gradient Strip */}
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-purple-400 to-emerald-400 animate-gradient-x" />
                       
                       <div className="flex flex-col items-center mb-6">
                         <div className="p-3 bg-orange-500/10 border border-orange-500/20 mb-4 rounded">
@@ -1195,7 +1196,7 @@ export default function HostView({ session }: { session: SessionState }) {
                           <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">1</span>
                           <div className="leading-tight">
                             <h4 className="font-bold text-zinc-300">Convite aos Espectadores</h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique em <strong className="text-zinc-400">"CONVITE"</strong> lá no topo para copiar o link e envie para o chat da sua live.</p>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique no botão abaixo para copiar o link e envie para o chat da sua live.</p>
                           </div>
                         </div>
 
@@ -1206,24 +1207,29 @@ export default function HostView({ session }: { session: SessionState }) {
                             <p className="text-[10.5px] text-zinc-500 mt-0.5">As mídias enviadas aparecerão na <strong className="text-zinc-400">coluna à esquerda</strong>. Você pode aprovar, recusar ou pular vídeos.</p>
                           </div>
                         </div>
-
-                        <div className="flex gap-3">
-                          <span className="w-6 h-6 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">3</span>
-                          <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300 font-sans">Configurações</h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Acesse a aba <strong className="text-zinc-400">"CONFIGURAÇÕES"</strong> para definir limites de cooldown, domínios permitidos e regras de seguidores.</p>
-                          </div>
-                        </div>
                       </div>
 
-                      {/* Requested Badge */}
-                      <div className="flex items-center justify-center pt-2">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-sm">
-                          <MessageSquare className="w-3 h-3 text-orange-500" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-mono">
-                            BOT PARA LINK DIRETO NO CHAT EM BREVE
-                          </span>
-                        </div>
+                      <button 
+                        onClick={copyInvite}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase tracking-widest transition-all rounded-sm shadow-lg shadow-orange-900/20 mb-6"
+                      >
+                        <Link2 className="w-4 h-4" />
+                        Copiar Link de Convite
+                      </button>
+
+                      <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-zinc-900/50 border border-zinc-800/50 rounded-sm">
+                        <MessageSquare className="w-3 h-3 text-orange-500" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-mono">
+                          BOT PARA LINK DIRETO NO CHAT EM BREVE
+                        </span>
+                      </div>
+
+                      {/* Development Banner Strip */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-orange-500/10 border-t border-orange-500/20 py-2.5 px-4 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]">
+                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#e2531b] flex items-center justify-center gap-2">
+                          <AlertTriangle className="w-3 h-3 animate-pulse" />
+                          Ambiente de Desenvolvimento • Instabilidade Possível
+                        </p>
                       </div>
                     </div>
                   ) : null}
