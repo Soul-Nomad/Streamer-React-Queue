@@ -1,33 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { socket } from '../socket';
-import { SessionState } from '../types';
+import { SessionState, Video } from '../types';
 import { 
-  Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon
+  Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon, Loader2, PlayCircle, Eye, ThumbsUp, Activity, Tv
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 // --- Helper Functions ---
-const renderUserAvatar = (user: any, sizeClass = "w-8 h-8") => {
+const getInitials = (name: string) => name ? name.trim().substring(0, 2).toUpperCase() : '?';
+
+const renderUserAvatarDesktop = (user: any, sizeClass = "w-8 h-8") => {
   if (user?.twitchData?.avatarUrl) {
     return (
       <img 
         src={user.twitchData.avatarUrl} 
         alt={user.name} 
         referrerPolicy="no-referrer"
-        className={`${sizeClass} rounded-full object-cover ring-2 ring-[#1F1F23] bg-[#18181B] flex-shrink-0`}
+        className={`${sizeClass} rounded-sm object-cover border border-zinc-800 bg-[#121212] shrink-0`}
       />
     );
   }
-  const initials = user?.name ? user.name.trim().substring(0, 2).toUpperCase() : '?';
-  const color = user?.twitchData?.color || '#9146FF';
+  const color = user?.twitchData?.color || '#3f3f46';
   return (
     <div 
-      className={`${sizeClass} rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0 ring-2 ring-[#1F1F23]`}
+      className={`${sizeClass} rounded-sm flex items-center justify-center font-bold text-xs text-white shrink-0 border border-zinc-800`}
       style={{ backgroundColor: color }}
     >
-      {initials}
+      {getInitials(user?.name)}
     </div>
   );
 };
@@ -38,10 +39,10 @@ const renderTwitchBadges = (user: any) => {
   return (
     <div className="flex items-center gap-1 shrink-0">
       {badges.map((b: string) => {
-        if (b === 'broadcaster') return <span key={b} className="bg-[#E91E63] text-white text-[9px] font-black uppercase px-1 rounded-sm">👑 STREAMER</span>;
-        if (b === 'moderator') return <span key={b} className="bg-[#00AD03] text-white text-[9px] font-black uppercase px-1 rounded-sm">🛡️ MOD</span>;
-        if (b === 'vip') return <span key={b} className="bg-[#E25CFF] text-white text-[9px] font-black uppercase px-1 rounded-sm">💎 VIP</span>;
-        if (b === 'subscriber') return <span key={b} className="bg-[#8205B3] text-white text-[9px] font-black uppercase px-1 rounded-sm">⭐ SUB</span>;
+        if (b === 'broadcaster') return <span key={b} className="bg-[#FF3B30] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse">👑 STR</span>;
+        if (b === 'moderator') return <span key={b} className="bg-[#4CAF50] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#4CAF50]/30">🛡️ MOD</span>;
+        if (b === 'vip') return <span key={b} className="bg-[#E25CFF] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#E25CFF]/30">💎 VIP</span>;
+        if (b === 'subscriber') return <span key={b} className="bg-[#FFD700] text-black text-[9px] font-black uppercase px-1 rounded-sm border border-[#FFB300]/30">⭐ SUB</span>;
         return null;
       })}
     </div>
@@ -55,15 +56,30 @@ const getPlatformIcon = (url: string) => {
   return '🔗 Link Externo';
 };
 
+const StatusBadge = ({ status }: { status: Video['status'] | 'playing' }) => {
+  switch (status) {
+    case 'pending':
+      return <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded-sm uppercase flex items-center gap-1"><Clock className="w-3 h-3"/> Review</span>;
+    case 'approved':
+      return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded-sm uppercase flex items-center gap-1"><Check className="w-3 h-3"/> Fila</span>;
+    case 'playing':
+      return <span className="bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded-sm uppercase flex items-center gap-1 animate-pulse"><Radio className="w-3 h-3"/> Ao Vivo</span>;
+    case 'rejected':
+      return <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded-sm uppercase flex items-center gap-1"><X className="w-3 h-3"/> Recusado</span>;
+    default:
+      return null;
+  }
+};
+
 // --- Main Component ---
 export default function ParticipantView({ session }: { session: SessionState }) {
   const [url, setUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState<{type: 'success' | 'info', msg: string, position?: number, estimate?: number} | null>(null);
   
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'home' | 'users' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'queue' | 'users' | 'profile'>('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Captcha & Submission constraints
@@ -76,11 +92,15 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const me = session.users.find(u => u.userId === userId || u.id === socket.id);
   const isBanned = me?.isBanned || session.blacklistUsernames?.some(u => u.toLowerCase() === (me?.twitchData?.login || '').toLowerCase());
   
+  const queueEndRef = useRef<HTMLDivElement>(null);
+  const hostUser = session.users.find(u => u.isHost);
+  const hostTwitchLogin = hostUser?.twitchData?.login || 'twitch';
+  const parentHostname = window.location.hostname;
+
   // Auto-redirect if banned
   useEffect(() => {
     if (isBanned) {
       const timer = setTimeout(() => {
-        // Only redirect if still banned after the delay
         localStorage.removeItem('active_room_id');
         localStorage.removeItem('active_role');
         localStorage.removeItem('active_session_payload');
@@ -89,11 +109,6 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       return () => clearTimeout(timer);
     }
   }, [isBanned]);
-
-  const queueEndRef = useRef<HTMLDivElement>(null);
-  const hostUser = session.users.find(u => u.isHost);
-  const hostTwitchLogin = hostUser?.twitchData?.login || 'twitch';
-  const parentHostname = window.location.hostname;
 
   // Sync cooldown tracking
   useEffect(() => {
@@ -112,7 +127,6 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       
       setRemainingCooldown(Math.max(userRemaining, globalRemaining));
 
-      // Timeout tracking
       if (myself.timeoutUntil && myself.timeoutUntil > now) {
         setTimeoutSeconds(Math.ceil((myself.timeoutUntil - now) / 1000));
       } else {
@@ -150,21 +164,28 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       }
     }
 
-    // Instantly notify Server
     socket.emit('submit_video', localPayload);
     
-    // UI Feedback
-    setSubmitSuccess(true);
+    const isManualApprovalRequired = session.settings?.isManualApprovalRequired ?? true;
+    const itemsBeforeMe = session.queue.filter(v => v.status === 'approved').length;
+    
+    setSubmitFeedback({
+      type: 'success',
+      msg: isManualApprovalRequired ? 'Vídeo enviado para aprovação!' : 'Vídeo adicionado à fila!',
+      position: isManualApprovalRequired ? undefined : itemsBeforeMe + 1,
+      estimate: isManualApprovalRequired ? undefined : (itemsBeforeMe + 1) * 3
+    });
+
     setUrl('');
     setCaptchaAnswer('');
     setCaptchaChallenge({ num1: Math.floor(Math.random() * 9) + 1, num2: Math.floor(Math.random() * 9) + 1 });
     
     setTimeout(() => {
-      setSubmitSuccess(false);
+      setSubmitFeedback(null);
       setIsSubmitting(false);
-      // Scroll to bottom of queue if possible
+      setActiveTab('queue');
       queueEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 1500);
+    }, 4000);
   };
 
   const copyInvite = () => {
@@ -177,447 +198,529 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const currentVideo = session.queue.find(v => v.id === session.currentVideoId) || session.history.find(v => v.id === session.currentVideoId);
   const myPendingVideos = session.queue.filter(v => v.submitterId === me?.userId && v.status === 'pending');
   const approvedVideos = session.queue.filter(v => v.status === 'approved');
-  const historyVideos = session.history.slice(-10).reverse(); // Last 10 watched
+  const historyVideos = session.history.slice(-10).reverse();
 
   const isCaptchaRequired = !me?.isWhitelisted;
   const isInputValid = url.trim().startsWith('http');
   const canSubmit = isInputValid && remainingCooldown === 0 && timeoutSeconds === 0 && (!isCaptchaRequired || captchaAnswer.trim() !== '');
 
+  // Calculate user position
+  const getMyPositionInfo = () => {
+    const myNextApprovedIndex = approvedVideos.findIndex(v => v.submitterId === me?.userId);
+    if (myNextApprovedIndex !== -1) {
+      return { position: myNextApprovedIndex + 1, type: 'approved' };
+    }
+    if (myPendingVideos.length > 0) {
+      return { count: myPendingVideos.length, type: 'pending' };
+    }
+    return null;
+  };
+
+  const positionInfo = getMyPositionInfo();
+
   if (isBanned) {
     return (
-      <div className="h-screen w-full bg-[#0E0E10] flex flex-col items-center justify-center p-6 text-center">
+      <div className="h-screen w-full bg-[#0d0d12] flex flex-col items-center justify-center p-6 text-center">
         <XOctagon className="w-16 h-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-white mb-2">Acesso Bloqueado</h1>
-        <p className="text-[#ADADB8] max-w-md">
-          Você foi permanentemente banido desta sessão pelo moderador. 
-          Sua conta da Twitch está na lista de restrições.
+        <h1 className="text-2xl font-bold font-mono tracking-tight text-white mb-2 uppercase">Acesso Bloqueado</h1>
+        <p className="text-zinc-500 text-sm max-w-sm">
+          Sua conta foi permanentemente banida desta sessão.
         </p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="mt-8 px-6 py-2 bg-[#1F1F23] text-white rounded-lg hover:bg-[#26262C] transition-colors"
-        >
-          Voltar para o Início
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-[100dvh] bg-[#0E0E10] text-[#EFEFF1] font-sans selection:bg-[#9146FF] selection:text-white w-full overflow-hidden relative">
+    <div className="flex flex-col md:flex-row h-[100dvh] bg-[#0d0d12] text-[#efefef] font-sans selection:bg-orange-500 selection:text-white w-full overflow-hidden relative" id="participant_view_redesigned">
       
-      {/* Timeout Overlay for the WHOLE screen */}
+      {/* Timeout Overlay */}
       <AnimatePresence>
         {timeoutSeconds > 0 && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md"
           >
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-[#18181B] border border-[#9146FF]/30 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-4"
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              className="bg-zinc-950 border border-red-500/30 p-8 rounded-sm shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-4"
             >
-              <div className="w-16 h-16 bg-[#9146FF]/10 rounded-full flex items-center justify-center mb-2">
-                 <Clock className="w-8 h-8 text-[#9146FF] animate-pulse" />
-              </div>
+              <Clock className="w-10 h-10 text-red-500 animate-pulse" />
               <div>
-                <h2 className="text-xl font-black text-white uppercase tracking-tight">Sessão Suspensa</h2>
-                <p className="text-sm text-[#ADADB8] mt-1">Você recebeu um timeout temporário e não pode interagir no momento.</p>
+                <h2 className="text-xl font-black text-red-500 uppercase font-mono tracking-wider">Timeout Ativo</h2>
+                <p className="text-xs text-zinc-400 mt-1">Interações bloqueadas temporariamente.</p>
               </div>
-              
-              <div className="bg-[#0E0E10] px-6 py-4 rounded-xl border border-[#1F1F23] w-full">
-                <span className="text-4xl font-black text-white tabular-nums">
+              <div className="bg-[#0a0a0f] px-6 py-4 rounded border border-zinc-800 w-full">
+                <span className="text-4xl font-black text-white tabular-nums font-mono">
                   {Math.floor(timeoutSeconds/60)}:{String(timeoutSeconds%60).padStart(2, '0')}
                 </span>
-                <span className="block text-[10px] uppercase font-bold text-[#606060] tracking-widest mt-1">Tempo Restante</span>
               </div>
-
-              <p className="text-[10px] text-[#606060] uppercase leading-tight">
-                O acesso será restaurado automaticamente assim que o cronômetro zerar.
-              </p>
-              
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-2 text-[10px] text-[#9146FF] hover:underline uppercase font-bold"
-              >
-                Atualizar Status
-              </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar / Mobile Hidden Drawer */}
+      {/* Sidebar Navigation (Desktop) */}
       <nav className={clsx(
-        "fixed md:relative z-50 w-[260px] h-full bg-[#18181B] border-r border-[#1F1F23] flex flex-col transition-transform duration-300",
+        "fixed md:relative z-50 w-[260px] md:w-[72px] lg:w-[240px] h-full bg-zinc-950 border-r border-[#1f1f2e] flex flex-col transition-transform duration-300",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
-        <div className="p-4 flex items-center justify-between border-b border-[#1F1F23]">
-          <div className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-[#9146FF]" />
-            <span className="font-bold tracking-tight">Sala {session.id}</span>
-          </div>
-          <button className="md:hidden p-1 text-[#ADADB8]" onClick={() => setMobileMenuOpen(false)}>
-            <X className="w-5 h-5" />
-          </button>
+        <div className="h-14 flex items-center justify-between lg:justify-start gap-3 px-4 border-b border-[#1f1f2e] shrink-0 overflow-hidden relative">
+           <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-orange-500 to-transparent" />
+           <Radio className="w-5 h-5 text-orange-500 shrink-0" />
+           <div className="flex flex-col md:hidden lg:flex">
+             <span className="font-extrabold font-mono text-xs uppercase tracking-wider text-orange-400 truncate max-w-[150px]">{session.id}</span>
+             <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Sessão Ativa</span>
+           </div>
+           <button className="md:hidden p-1 text-zinc-400 ml-auto" onClick={() => setMobileMenuOpen(false)}>
+             <X className="w-5 h-5" />
+           </button>
         </div>
 
-        <div className="flex flex-col gap-1 p-3">
-          <button onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} className={clsx("flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors", activeTab === 'home' ? "bg-[#1F1F23] text-white" : "text-[#ADADB8] hover:bg-[#1F1F23] hover:text-white")}>
-            <MonitorPlay className="w-4 h-4" /> Principal & Fila
-          </button>
-          <button onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} className={clsx("flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors", activeTab === 'users' ? "bg-[#1F1F23] text-white" : "text-[#ADADB8] hover:bg-[#1F1F23] hover:text-white")}>
-            <Users className="w-4 h-4" /> Audiência ({session.users.length})
-          </button>
-          <button onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }} className={clsx("flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors", activeTab === 'profile' ? "bg-[#1F1F23] text-white" : "text-[#ADADB8] hover:bg-[#1F1F23] hover:text-white")}>
-            <Crown className="w-4 h-4" /> Meu Perfil
-          </button>
+        <div className="flex flex-col gap-1 p-2 pt-4 flex-1">
+          <NavItem active={activeTab === 'home'} onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} icon={<Tv className="w-4 h-4"/>} label="Transmissão" />
+          <NavItem active={activeTab === 'queue'} onClick={() => { setActiveTab('queue'); setMobileMenuOpen(false); }} icon={<ListIcon className="w-4 h-4"/>} label="Fila de Vídeos" badge={approvedVideos.length} />
+          <NavItem active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} icon={<Users className="w-4 h-4"/>} label="Participantes" badge={session.users.length} />
+          <NavItem active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }} icon={<Crown className="w-4 h-4"/>} label="Meu Perfil" />
         </div>
 
-        <div className="mt-auto p-4 space-y-2 border-t border-[#1F1F23]">
-          <button onClick={copyInvite} className={clsx("w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors border", copied ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-[#1F1F23] text-white border-[#26262C] hover:bg-[#26262C]")}>
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} Copiar Convite
+        <div className="p-3 border-t border-[#1f1f2e] space-y-2 shrink-0 bg-zinc-950">
+          <button onClick={copyInvite} className={clsx("w-full flex items-center md:justify-center lg:justify-start gap-3 p-2 rounded-sm text-xs font-bold font-mono tracking-wider uppercase transition-all border", copied ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800")}>
+            {copied ? <Check className="w-4 h-4 shrink-0" /> : <Copy className="w-4 h-4 shrink-0" />} <span className="md:hidden lg:inline">{copied ? 'COPIADO' : 'CONVITE'}</span>
           </button>
           <button onClick={() => { 
             localStorage.removeItem('active_room_id');
-            localStorage.removeItem('active_role');
-            localStorage.removeItem('active_session_payload');
-            localStorage.removeItem('pending_room_id');
             window.location.reload(); 
-          }} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors">
-            <LogOut className="w-4 h-4" /> Sair da Sala
+          }} className="w-full flex items-center md:justify-center lg:justify-start gap-3 p-2 rounded-sm text-xs font-bold font-mono tracking-wider uppercase text-red-500 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20">
+            <LogOut className="w-4 h-4 shrink-0" /> <span className="md:hidden lg:inline">SAIR</span>
           </button>
         </div>
       </nav>
 
-      {/* Main App Canvas */}
-      <main className="flex-1 flex flex-col h-[100dvh] relative min-w-0 bg-[#0E0E10]">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col h-[100dvh] relative min-w-0 bg-[#0a0a0f]">
         
         {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-3 border-b border-[#1F1F23] bg-[#0E0E10] shrink-0">
-          <button onClick={() => setMobileMenuOpen(true)} className="p-1.5 text-[#ADADB8] hover:text-white rounded-lg">
-            <Menu className="w-6 h-6" />
+        <header className="md:hidden h-14 flex items-center justify-between px-3 border-b border-[#1f1f2e] bg-zinc-950 shrink-0 relative">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-purple-500 to-emerald-400" />
+          <button onClick={() => setMobileMenuOpen(true)} className="p-1.5 text-zinc-400 hover:text-white rounded-sm border border-transparent hover:border-zinc-800">
+            <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-            <Radio className="w-4 h-4 text-[#9146FF]" /> {session.id}
-          </span>
-          <button onClick={copyInvite} className="p-1.5 text-[#ADADB8] hover:text-white rounded-lg">
-            {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+          <div className="flex flex-col items-center">
+            <span className="font-extrabold font-mono text-[11px] tracking-wider text-orange-400">{session.id}</span>
+            <span className="text-[9px] text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"/>Ao Vivo</span>
+          </div>
+          <button onClick={copyInvite} className="p-1.5 text-zinc-400 hover:text-white rounded-sm">
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
           </button>
         </header>
 
-        {/* Tab Mapping */}
-        {activeTab === 'home' && (
-          <div className="flex-1 flex flex-col min-h-0 relative">
-            
-            {/* 0. Twitch Player & Chat Area */}
-            {hostUser?.twitchData?.login && (
-              <div className="w-full shrink-0 flex flex-col md:flex-row bg-[#000] border-b border-[#1F1F23]">
-                <div className="w-full md:w-[70%] aspect-video md:h-[400px]">
-                  <iframe
-                    src={`https://player.twitch.tv/?channel=${hostTwitchLogin}&parent=${parentHostname}&autoplay=true&muted=false`}
-                    height="100%"
-                    width="100%"
-                    allowFullScreen
-                    className="border-r border-[#1F1F23]"
-                  ></iframe>
-                </div>
-                <div className="w-full md:w-[30%] h-[300px] md:h-[400px]">
-                  <iframe
-                    src={`https://www.twitch.tv/embed/${hostTwitchLogin}/chat?parent=${parentHostname}&darkpopout`}
-                    height="100%"
-                    width="100%"
-                  ></iframe>
-                </div>
-              </div>
-            )}
-
-            {/* 1. Playing Now Sticky Header */}
-            {currentVideo && (
-              <div className="shrink-0 bg-[#18181B] border-b border-[#1F1F23] shadow-md z-10 px-4 py-3 md:px-6 md:py-4 flex flex-col gap-2 relative overflow-hidden">
-                {/* Visualizer animation overlay */}
-                <div className="absolute top-0 right-0 w-32 h-full opacity-5 pointer-events-none bg-gradient-to-l from-[#9146FF] to-transparent"></div>
-                
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                    <span className="uppercase text-[10px] font-black tracking-widest text-[#ADADB8]">No ar agora</span>
-                  </div>
-                  <div className="text-[10px] font-medium bg-[#1F1F23] px-2 py-0.5 rounded-full text-[#ADADB8]">
-                    {getPlatformIcon(currentVideo.url)}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-[#1F1F23] rounded-lg">
-                    <MonitorPlay className="w-6 h-6 text-[#9146FF]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate max-w-full block">
-                      {currentVideo.url}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-xs text-[#ADADB8]">Enviado por</span>
-                      <span className="text-xs font-bold text-white max-w-[100px] truncate">@{currentVideo.submitter}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {!currentVideo && (
-              <div className="shrink-0 bg-[#18181B] border-b border-[#1F1F23] shadow-md z-10 px-4 py-3 pb-8 md:px-6 md:py-6 flex flex-col items-center justify-center text-center">
-                <Radio className="w-8 h-8 text-[#9146FF]/30 mb-2 animate-pulse" />
-                <span className="text-sm font-semibold text-[#EFEFF1]">Stream Aguardando</span>
-                <span className="text-xs text-[#ADADB8]">Nenhum vídeo em reprodução no momento.</span>
-              </div>
-            )}
-
-            {/* 2. Scrollable Queue & History Timeline */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-40 space-y-6 transition-all duration-500 relative">
+        {/* Dynamic View Logic */}
+        <div className="flex-1 overflow-y-auto flex flex-col relative min-h-0">
+          
+          {/* TAB: HOME (Transmission & Player) */}
+          {activeTab === 'home' && (
+            <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 space-y-6">
               
-              {/* Info Banner for New Users (Friction reduction) */}
-              {(me?.totalSubmitted === 0 && historyVideos.length === 0) && (
-                <div className="bg-[#1F1F23] p-4 rounded-xl border border-[#9146FF]/30 flex gap-3 text-sm text-[#EFEFF1]">
-                  <Info className="w-5 h-5 text-[#9146FF] shrink-0" />
-                  <div>
-                    <span className="font-bold block mb-1">Como participar da Queue?</span>
-                    Cole qualquer link (TikTok, Reels, Shorts) na barra abaixo. O moderador irá aprovar e soltar na live para todo mundo assistir junto!
+              {/* Twitch Embed Area */}
+              {hostUser?.twitchData?.login && (
+                <div className="w-full bg-[#0d0d12] border border-[#1f1f2e] rounded-sm overflow-hidden flex flex-col lg:flex-row shadow-xl">
+                  <div className="w-full lg:w-[70%] aspect-video bg-black relative">
+                    <iframe
+                      src={`https://player.twitch.tv/?channel=${hostTwitchLogin}&parent=${parentHostname}&autoplay=true&muted=false`}
+                      height="100%"
+                      width="100%"
+                      allowFullScreen
+                      className="absolute inset-0"
+                    ></iframe>
+                  </div>
+                  <div className="w-full lg:w-[30%] h-[250px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#1f1f2e] bg-zinc-950 p-0 m-0">
+                    <iframe
+                      src={`https://www.twitch.tv/embed/${hostTwitchLogin}/chat?parent=${parentHostname}&darkpopout`}
+                      height="100%"
+                      width="100%"
+                      className="h-full block m-0 p-0 border-0"
+                    ></iframe>
                   </div>
                 </div>
               )}
 
-              {/* Moderation Pending List */}
-              {myPendingVideos.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-orange-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#ADADB8]">Meus Vídeos em Análise ({myPendingVideos.length})</h3>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {myPendingVideos.map(v => (
-                      <div key={v.id} className="bg-[#18181B] rounded-lg p-3 border border-[#26262C] flex items-center justify-between">
-                        <span className="text-sm truncate pr-4 text-[#ADADB8]">{v.url}</span>
-                        <span className="text-[10px] font-bold bg-orange-500/10 text-orange-400 px-2 py-1 rounded shrink-0 uppercase tracking-widest">Aguardando</span>
+              {/* Current Playing Stats Bar */}
+              <div className="bg-zinc-950 border border-zinc-800 rounded-sm p-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-full opacity-10 pointer-events-none bg-gradient-to-l from-orange-500 to-transparent"></div>
+                <div className="flex items-center justify-between mb-3 border-b border-zinc-800/50 pb-2">
+                  <h3 className="text-[10px] font-mono tracking-widest uppercase text-zinc-500 flex items-center gap-1.5">
+                    <MonitorPlay className="w-3.5 h-3.5 text-orange-500" /> Mídia Sincronizada
+                  </h3>
+                  {currentVideo && <StatusBadge status="playing" />}
+                </div>
+
+                {currentVideo ? (
+                  <div className="flex lg:items-center gap-4 flex-col lg:flex-row justify-between">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded shrink-0 flex items-center justify-center">
+                         <PlayCircle className="w-5 h-5 text-orange-400" />
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Up Next List */}
-              {approvedVideos.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Play className="w-4 h-4 text-white" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">Na Fila de Espera ({approvedVideos.length})</h3>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {approvedVideos.map((v, i) => (
-                      <div key={v.id} className="bg-[#18181B] rounded-lg p-3 border border-[#26262C] flex justify-between items-center group">
-                        <div className="flex-1 min-w-0 pr-3">
-                          <div className="flex items-center gap-1.5 text-xs text-[#ADADB8] mb-0.5">
-                            <span className="font-bold text-white w-4">#{i+1}</span>
-                            <span>•</span>
-                            <span className="truncate">@{v.submitter}</span>
-                          </div>
-                          <p className="text-sm text-[#EFEFF1] truncate">{v.url}</p>
-                        </div>
-                        <a href={v.url} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-[#1F1F23] flex items-center justify-center text-[#ADADB8] hover:text-white transition-colors shrink-0">
-                          <ExternalLink className="w-3.5 h-3.5" />
+                      <div className="min-w-0">
+                        <a href={currentVideo.url} target="_blank" rel="noreferrer" className="text-sm font-bold text-white hover:text-orange-400 transition-colors truncate block max-w-sm">
+                          {currentVideo.url}
                         </a>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Enviado por:</span>
+                          <span className="text-[11px] font-bold text-zinc-300">@{currentVideo.submitter}</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* History List */}
-              {historyVideos.length > 0 && (
-                <div className="space-y-3 opacity-60 hover:opacity-100 transition-opacity">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#ADADB8]" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#ADADB8]">Histórico Geral (Últimos 10)</h3>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {historyVideos.map(v => (
-                      <div key={v.id} className="text-xs flex items-center justify-between text-[#ADADB8] bg-transparent p-2 border-b border-[#18181B]">
-                        <span className="truncate max-w-[60%] line-through">{v.url}</span>
-                        <span className="shrink-0 pl-2">@{v.submitter}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <div ref={queueEndRef} />
-            </div>
-
-            {/* 3. Sticky Bottom Submission Bar Component */}
-            <div className="absolute bottom-0 left-0 w-full bg-[#18181B] border-t border-[#1F1F23] p-3 md:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom z-20 transition-all duration-500">
-              
-              {!me?.twitchData?.login && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#18181B]/95 backdrop-blur-lg rounded-t-xl overflow-hidden border-t border-[#9146FF]/30">
-                   <div className="flex flex-col items-center text-center p-4">
-                      <Shield className="w-6 h-6 text-[#9146FF] mb-2" />
-                      <span className="text-sm font-bold text-white mb-3">Identificação Obrigatória</span>
-                      <p className="text-xs text-[#ADADB8] mb-4 max-w-[280px]">Para enviar vídeos é necessário vincular sua conta da Twitch.</p>
-                      <button 
-                        onClick={() => window.location.reload()}
-                        className="bg-[#9146FF] hover:bg-[#A970FF] text-white px-6 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
-                      >
-                        Vincular Twitch
-                      </button>
-                   </div>
-                </div>
-              )}
-
-              {/* Warnings & Captcha Section (only expands if needed) */}
-              <AnimatePresence>
-                {me?.strikes && me.strikes > 0 ? (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="text-xs font-bold text-red-500 block">Aviso de Má Conduta</span>
-                      <span className="text-xs text-red-400">Você possui {me.strikes} aviso(s). Mais violações podem resultar em banimento.</span>
                     </div>
-                  </motion.div>
-                ) : null}
-
-                {/* Inline Captcha Challenge when typing URL */}
-                {(isCaptchaRequired && url.length > 5) && (
-                  <motion.div initial={{ height: 0, opacity: 0, y: 10 }} animate={{ height: 'auto', opacity: 1, y: 0 }} exit={{ height: 0, opacity: 0 }} className="mb-3 bg-[#1F1F23] border border-[#26262C] rounded-lg p-3 text-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-[#ADADB8]">
-                      <Shield className="w-4 h-4 text-[#9146FF]" />
-                      <span>Verificação: <strong className="text-white">Quanto é {captchaChallenge.num1} + {captchaChallenge.num2}?</strong></span>
-                    </div>
-                    <input 
-                      type="number" 
-                      value={captchaAnswer}
-                      onChange={e => setCaptchaAnswer(e.target.value)}
-                      placeholder="Resultado..."
-                      className="w-full md:w-24 bg-[#0E0E10] border border-[#303032] py-1.5 px-3 rounded text-white text-center focus:outline-none focus:border-[#9146FF]"
-                    />
-                  </motion.div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <Tv className="w-8 h-8 text-zinc-800 mb-2" />
+                    <span className="text-sm font-bold text-zinc-500">Transmissão Sincronizada Inativa</span>
+                    <span className="text-xs text-zinc-600 mt-1">Aguardando o streamer iniciar um vídeo da fila.</span>
+                  </div>
                 )}
-              </AnimatePresence>
+              </div>
 
-              <form onSubmit={submitVideo} className="flex gap-2 relative items-end">
-                <div className="flex-1 bg-[#1F1F23] border border-[#303032] rounded-xl overflow-hidden focus-within:border-[#9146FF] focus-within:ring-1 focus-within:ring-[#9146FF]/50 transition-all flex flex-col">
-                  {/* URL Input */}
-                  <div className="flex items-center relative">
-                    <div className="pl-3.5 pt-0.5 shrink-0">
-                      <Link2 className="w-5 h-5 text-[#ADADB8]" />
-                    </div>
-                    <input 
-                      type="url"
-                      value={url}
-                      onChange={e => setUrl(e.target.value)}
-                      placeholder="Cole o link (TikTok, Youtube, Shorts, Reels)..."
-                      className="w-full bg-transparent text-sm text-white py-3.5 px-3 focus:outline-none placeholder:text-[#606060]"
-                      autoComplete="off"
-                    />
-                  </div>
-                  {/* Hints */}
-                  <div className="px-3 pb-2 pt-0 flex justify-between items-center text-[10px] text-[#606060] font-medium font-sans uppercase tracking-widest hidden md:flex">
-                    <span>Sem restrições de plataforma</span>
-                    <span>Max: {session.settings?.maxVideoDuration ? `${session.settings.maxVideoDuration}s` : 'Ilimitado'}</span>
+              {/* Status & Position Dashboard */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-zinc-950 border border-zinc-800 rounded-sm p-3">
+                  <span className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase block mb-1">Status da Fila</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-black">{approvedVideos.length}</span>
+                    <span className="text-[10px] text-zinc-400 uppercase">Na Espera</span>
                   </div>
                 </div>
-
-                <div className="shrink-0 h-[52px]">
-                  <button 
-                    type="submit"
-                    disabled={!canSubmit || isSubmitting}
-                    className={clsx(
-                      "h-full px-5 rounded-xl flex items-center justify-center font-bold text-sm transition-all shadow-lg select-none",
-                      submitSuccess ? "bg-green-500 text-white shadow-green-500/20" :
-                      canSubmit && !remainingCooldown ? "bg-[#9146FF] hover:bg-[#A970FF] text-white shadow-[#9146FF]/20" : 
-                      "bg-[#1F1F23] text-[#606060] cursor-not-allowed border border-[#303032] shadow-none"
-                    )}
-                  >
-                    {submitSuccess ? (
-                      <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }}><CheckCircle2 className="w-5 h-5" /></motion.div>
-                    ) : remainingCooldown > 0 ? (
-                      <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {remainingCooldown}s</span>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-sm p-3">
+                  <span className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase block mb-1">Sua Posição</span>
+                  <div className="flex items-center gap-2">
+                    {positionInfo?.type === 'approved' ? (
+                       <span className="text-lg font-black text-orange-400">#{positionInfo.position}</span>
+                    ) : positionInfo?.type === 'pending' ? (
+                       <span className="text-sm font-bold text-yellow-500">{positionInfo.count} em Análise</span>
                     ) : (
-                      <Send className="w-5 h-5" />
+                       <span className="text-sm font-bold text-zinc-600">Nenhum</span>
                     )}
-                  </button>
-                </div>
-              </form>
-
-            </div>
-          </div>
-        )}
-
-        {/* Tab Mapping: Users */}
-        {activeTab === 'users' && (
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-[#9146FF]" /> Audiência da Live
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {session.users.map(u => (
-                <div key={u.id} className="bg-[#18181B] p-3 rounded-xl border border-[#26262C] flex items-center gap-3">
-                  {renderUserAvatar(u)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="font-bold text-sm text-white truncate w-full block">@{u.name}</span>
-                    </div>
-                    {renderTwitchBadges(u)}
-                    {(!u.twitchData?.badges?.length || !u.twitchData) && <span className="text-[10px] text-[#ADADB8]">Espectador</span>}
                   </div>
-                  {u.id === socket.id && <div className="text-[10px] font-bold px-2 py-1 bg-[#1F1F23] rounded uppercase tracking-wider text-[#9146FF]">Você</div>}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+                <div className="bg-zinc-950 border border-zinc-800 rounded-sm p-3">
+                  <span className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase block mb-1">Total Assistidos</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-black">{session.history.length}</span>
+                    <History className="w-4 h-4 text-zinc-700" />
+                  </div>
+                </div>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-sm p-3">
+                  <span className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase block mb-1">Espectadores</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-black text-emerald-400">{session.users.length}</span>
+                    <Users className="w-4 h-4 text-emerald-900" />
+                  </div>
+                </div>
+              </div>
 
-        {/* Tab Mapping: Profile */}
-        {activeTab === 'profile' && me && (
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 flex justify-center items-start">
-            <div className="w-full max-w-md bg-[#18181B] rounded-2xl border border-[#26262C] overflow-hidden">
-              <div className="h-24 bg-gradient-to-r from-[#9146FF] to-[#3f1976]"></div>
-              <div className="px-6 pb-6 relative">
-                <div className="absolute -top-10 left-6 ring-4 ring-[#18181B] rounded-full overflow-hidden w-20 h-20 bg-black">
-                  {renderUserAvatar(me, "w-full h-full")}
-                </div>
+            </div>
+          )}
+
+          {/* TAB: QUEUE */}
+          {activeTab === 'queue' && (
+            <div className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-40">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h2 className="text-sm font-extrabold uppercase font-mono tracking-widest text-white flex items-center gap-2">
+                  <ListIcon className="w-4 h-4 text-orange-500" /> Fila de Reprodução
+                </h2>
+              </div>
+              
+              <div className="space-y-6 relative border-l-2 border-zinc-900 pl-4 ml-2">
                 
-                <div className="mt-12">
-                  <h2 className="text-xl font-bold font-white">@{me.name}</h2>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {renderTwitchBadges(me)}
-                    {me.isWhitelisted && <span className="bg-[#1F1F23] text-white px-2 py-0.5 rounded textxs font-bold ring-1 ring-[#303032]">Whitelist Ativa</span>}
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-[#26262C] space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-[#1F1F23] p-3 rounded-lg">
-                      <span className="text-[10px] uppercase text-[#ADADB8] tracking-widest font-bold block mb-1">Total Enviados</span>
-                      <span className="text-xl font-black">{me.totalSubmitted || 0}</span>
+                {myPendingVideos.length > 0 && (
+                  <div className="space-y-3 relative">
+                    <div className="absolute -left-[23px] top-1 w-2 h-2 rounded-full bg-yellow-500 ring-4 ring-zinc-950"></div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">Meus Envios Pendentes</h3>
                     </div>
-                    <div className="bg-[#1F1F23] p-3 rounded-lg">
-                      <span className="text-[10px] uppercase text-[#ADADB8] tracking-widest font-bold block mb-1">Confiabilidade</span>
-                      <span className={clsx("text-xl font-black", me.reputation && me.reputation >= 80 ? "text-green-400" : "text-orange-400")}>{me.reputation || 100}%</span>
+                    <div className="grid gap-2">
+                      {myPendingVideos.map(v => (
+                        <QueueCard key={v.id} video={v} type="pending" />
+                      ))}
                     </div>
                   </div>
+                )}
 
-                  <div className="bg-red-500/5 p-3 rounded-lg border border-red-500/10 flex justify-between items-center">
-                    <span className="text-sm font-semibold text-red-100">Advertências Ativas (Strikes)</span>
-                    <span className="font-mono font-bold text-red-500">{me.strikes || 0}/5</span>
+                <div className="space-y-3 relative">
+                  <div className="absolute -left-[23px] top-1 w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-zinc-950"></div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 font-mono">Próximos Vídeos</h3>
                   </div>
+                  {approvedVideos.length === 0 ? (
+                    <div className="bg-zinc-950 border border-zinc-800/50 border-dashed rounded-sm p-6 text-center flex flex-col items-center">
+                      <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center mb-2">
+                        <Send className="w-4 h-4 text-zinc-600" />
+                      </div>
+                      <span className="text-xs text-zinc-500 uppercase tracking-widest font-mono">A Fila está vazia.</span>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      {approvedVideos.map((v, i) => (
+                        <QueueCard key={v.id} video={v} type="queued" index={i + 1} />
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {historyVideos.length > 0 && (
+                  <div className="space-y-3 relative opacity-50 mt-8">
+                    <div className="absolute -left-[23px] top-1 w-2 h-2 rounded-full bg-zinc-700 ring-4 ring-zinc-950"></div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 font-mono">Últimos Reproduzidos</h3>
+                    </div>
+                    <div className="grid gap-2">
+                      {historyVideos.slice(0, 5).map(v => (
+                        <QueueCard key={v.id} video={v} type="history" />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
               </div>
+              <div ref={queueEndRef} className="h-20" />
             </div>
+          )}
+
+          {/* TAB: USERS */}
+          {activeTab === 'users' && (
+             <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 pb-24">
+               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
+                  <h2 className="text-sm font-extrabold uppercase font-mono tracking-widest text-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-orange-500" /> Espectadores Online
+                  </h2>
+                  <span className="text-xs font-mono bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-sm text-zinc-400">Total: {session.users.length}</span>
+               </div>
+               
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                 {session.users.map(u => (
+                   <div key={u.id} className="bg-zinc-950 p-3 rounded-sm border border-zinc-800 flex items-center gap-3">
+                     {renderUserAvatarDesktop(u)}
+                     <div className="flex-1 min-w-0">
+                       <span className="font-bold text-sm text-white truncate block">@{u.name}</span>
+                       <div className="flex items-center gap-1.5 mt-0.5">
+                         {renderTwitchBadges(u)}
+                         {(!u.twitchData?.badges?.length || !u.twitchData) && <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">Espectador</span>}
+                       </div>
+                     </div>
+                     {u.id === socket.id && <div className="text-[8px] font-black px-1.5 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-sm uppercase tracking-wider text-orange-400 shrink-0">Você</div>}
+                   </div>
+                 ))}
+               </div>
+             </div>
+          )}
+
+          {/* TAB: PROFILE */}
+          {activeTab === 'profile' && me && (
+             <div className="flex-1 w-full p-4 md:p-6 flex justify-center items-start">
+                <div className="w-full max-w-md bg-zinc-950 rounded-sm border border-zinc-800 overflow-hidden relative">
+                  <div className="h-24 bg-zinc-900 border-b border-zinc-800 relative">
+                     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#3f3f46 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                  </div>
+                  <div className="px-6 pb-6 relative">
+                    <div className="absolute -top-10 left-6 w-20 h-20 bg-zinc-950 rounded-sm border border-zinc-800 flex items-center justify-center overflow-hidden">
+                      {renderUserAvatarDesktop(me, "w-full h-full rounded-none")}
+                    </div>
+                    
+                    <div className="mt-12">
+                      <h2 className="text-xl font-black text-white font-mono uppercase tracking-widest flex items-center gap-2">
+                        {me.name}
+                        <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded-sm border border-zinc-700">YOU</span>
+                      </h2>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {renderTwitchBadges(me)}
+                        {me.isWhitelisted && <span className="bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-sm text-[9px] uppercase font-mono tracking-widest border border-orange-500/20">Whitelist</span>}
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-zinc-800/50 space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-[#0a0a0f] p-4 rounded-sm border border-zinc-800/50">
+                          <span className="text-[9px] uppercase text-zinc-500 tracking-widest font-mono block mb-1">Mídias Enviadas</span>
+                          <span className="text-2xl font-black text-zinc-200">{me.totalSubmitted || 0}</span>
+                        </div>
+                        <div className="bg-[#0a0a0f] p-4 rounded-sm border border-zinc-800/50">
+                          <span className="text-[9px] uppercase text-zinc-500 tracking-widest font-mono block mb-1">Reputação</span>
+                          <span className={clsx("text-2xl font-black", me.reputation && me.reputation >= 80 ? "text-emerald-400" : "text-yellow-500")}>{me.reputation || 100}%</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-red-500/5 p-3 rounded-sm border border-red-500/10 flex justify-between items-center">
+                        <span className="text-xs font-bold text-red-500 font-mono tracking-widest uppercase">Strikes de Moderação</span>
+                        <span className="font-mono font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded-sm">{me.strikes || 0}/5</span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+             </div>
+          )}
+        </div>
+
+        {/* Global Submission Bar (Fixed at bottom) */}
+        <div className="bg-zinc-950 border-t border-[#1f1f2e] p-3 md:p-4 z-20 shrink-0 relative">
+          
+          <div className="max-w-5xl mx-auto">
+            {/* Feedback Toast Overlay */}
+            <AnimatePresence>
+              {submitFeedback && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }} 
+                  animate={{ opacity: 1, y: 0, scale: 1 }} 
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute bottom-full left-0 right-0 mx-4 mb-4 md:mx-auto md:max-w-md bg-emerald-950/90 backdrop-blur border border-emerald-500/30 p-3 rounded-sm shadow-2xl flex items-start gap-3"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-400 font-mono tracking-tight uppercase">{submitFeedback.msg}</h4>
+                    {submitFeedback.position && (
+                      <div className="flex items-center gap-4 mt-1.5 text-xs text-emerald-200/70 font-mono">
+                        <span>POSIÇÃO: <strong className="text-emerald-300">#{submitFeedback.position}</strong></span>
+                        <span>ESTIMATIVA: <strong className="text-emerald-300">~{submitFeedback.estimate} min</strong></span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {!me?.twitchData?.login && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-zinc-950/95 backdrop-blur-sm border-t border-orange-500/20">
+                 <div className="flex items-center gap-4">
+                    <Shield className="w-5 h-5 text-orange-500" />
+                    <div>
+                      <span className="text-xs font-bold text-white uppercase font-mono tracking-widest block">Requerimento de Identidade</span>
+                      <span className="text-[10px] text-zinc-500">Vincule sua conta da Twitch para interagir.</span>
+                    </div>
+                    <button onClick={() => window.location.reload()} className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-1.5 rounded-sm font-bold text-[10px] font-mono tracking-widest uppercase ml-4">
+                      Vincular Conta
+                    </button>
+                 </div>
+              </div>
+            )}
+
+            <AnimatePresence>
+              {me?.strikes && me.strikes > 0 ? (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mb-2 bg-red-500/10 border border-red-500/20 rounded-sm p-2 flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                  <span className="text-[10px] text-red-400 font-mono uppercase tracking-widest">Aviso: Você possui {me.strikes} strike(s) ativo(s).</span>
+                </motion.div>
+              ) : null}
+
+              {(isCaptchaRequired && url.length > 5) && (
+                <motion.div initial={{ height: 0, opacity: 0, y: 10 }} animate={{ height: 'auto', opacity: 1, y: 0 }} exit={{ height: 0, opacity: 0 }} className="mb-2 bg-zinc-900 border border-zinc-800 rounded-sm p-2 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                  <span className="text-zinc-400 font-mono uppercase tracking-widest flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-orange-500"/> Verificação Humana: <strong className="text-white ml-2">{captchaChallenge.num1} + {captchaChallenge.num2} = ?</strong></span>
+                  <input type="number" value={captchaAnswer} onChange={e => setCaptchaAnswer(e.target.value)} placeholder="0" className="w-full md:w-20 bg-zinc-950 border border-zinc-700 p-1.5 rounded-sm text-white text-center focus:outline-none focus:border-orange-500 font-mono" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <form onSubmit={submitVideo} className="flex gap-2">
+              <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-sm focus-within:border-orange-500 transition-colors flex items-center relative h-12">
+                <Link2 className="w-4 h-4 text-zinc-500 absolute left-3" />
+                <input 
+                  type="url"
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  placeholder="Cole o link do vídeo aqui (TikTok, YT Shorts, Insta Reels)..."
+                  className="w-full h-full bg-transparent text-sm text-white pl-10 pr-3 focus:outline-none placeholder:text-zinc-600 font-mono"
+                  autoComplete="off"
+                />
+              </div>
+
+              <button 
+                type="submit"
+                disabled={!canSubmit || isSubmitting}
+                className={clsx(
+                  "h-12 px-6 rounded-sm flex items-center justify-center font-bold text-xs uppercase tracking-widest font-mono transition-all disabled:opacity-50 select-none shrink-0",
+                  canSubmit && !remainingCooldown ? "bg-orange-600 hover:bg-orange-500 text-white" : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                )}
+              >
+                {remainingCooldown > 0 ? (
+                  <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {remainingCooldown}s</span>
+                ) : isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span className="flex items-center gap-2"><Send className="w-4 h-4" /> <span className="hidden md:inline">Adicionar</span></span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  );
+}
+
+// --- Sub-components ---
+
+function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, badge?: number }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className={clsx(
+        "flex items-center gap-3 p-2.5 rounded-sm transition-all text-xs font-mono tracking-widest uppercase relative group border border-transparent",
+        active ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300"
+      )}
+    >
+      <div className={clsx("shrink-0", active ? "text-orange-500" : "")}>{icon}</div>
+      <span className="md:hidden lg:inline text-left flex-1 truncate">{label}</span>
+      {badge !== undefined && badge > 0 && (
+         <span className={clsx("md:hidden lg:inline ml-auto px-1.5 py-0.5 text-[9px] font-black rounded-sm border", active ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-zinc-800 text-zinc-400 border-zinc-700")}>
+           {badge}
+         </span>
+      )}
+      
+      {/* Tooltip for collapsed sidebar */}
+      <div className="hidden md:block lg:hidden absolute left-full ml-3 px-2 py-1 bg-zinc-800 text-white text-[10px] rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap border border-zinc-700 z-50">
+        {label} {badge !== undefined && badge > 0 ? `(${badge})` : ''}
+      </div>
+    </button>
+  );
+}
+
+function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number }) {
+  return (
+    <div className={clsx("bg-zinc-950 border p-3 rounded-sm flex items-center justify-between group transition-colors", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50" : "border-zinc-800/50 opacity-80")}>
+      <div className="flex items-center gap-3 overflow-hidden flex-1">
+        {index !== undefined && (
+          <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+             <span className="text-[10px] font-mono font-black text-orange-400">#{index}</span>
           </div>
         )}
-      </main>
-
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">DE: @{video.submitter}</span>
+            {type === 'pending' && <StatusBadge status="pending" />}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0 ml-3">
+        <div className="text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-sm border border-zinc-800">
+           {getPlatformIcon(video.url).split(' ')[1] || 'Web'}
+        </div>
+        <a href={video.url} target="_blank" rel="noreferrer" className="w-7 h-7 rounded border border-zinc-800 bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
     </div>
+  );
+}
+
+function ListIcon(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"></line>
+      <line x1="8" y1="12" x2="21" y2="12"></line>
+      <line x1="8" y1="18" x2="21" y2="18"></line>
+      <line x1="3" y1="6" x2="3.01" y2="6"></line>
+      <line x1="3" y1="12" x2="3.01" y2="12"></line>
+      <line x1="3" y1="18" x2="3.01" y2="18"></line>
+    </svg>
   );
 }
