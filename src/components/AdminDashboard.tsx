@@ -100,8 +100,8 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
   const history = session.allHistoryLogs || [];
   const alerts = session.suspiciousAlerts || [];
 
-  const handleUnban = (userId: string) => {
-    socket.emit('unban_user', userId);
+  const handleForgiveByUserId = (userId: string) => {
+    socket.emit('forgive_user', userId);
   };
 
   const handlePunish = (userId: string, banType: string) => {

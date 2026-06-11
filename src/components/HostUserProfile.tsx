@@ -63,6 +63,11 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
   };
 
   // Safe checks & values
+  const handleForgive = () => {
+    socket.emit('admin_action', { userId: currentUser.id, action: 'forgive' });
+    onShowFeedback('Perdoado', `@${currentUser.name} teve todas as restrições removidas.`, 'success');
+  };
+
   const strikes = currentUser.strikes || 0;
   const reputation = currentUser.reputation ?? 100;
   const isSubscriber = currentUser.twitchData?.isSubscriber || currentUser.twitchData?.badges?.includes('subscriber');
@@ -224,6 +229,13 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
             >
               <Clock className="w-3 h-3" />
               TIMEOUT 30'
+            </button>
+            <button
+              onClick={handleForgive}
+              className="py-1.5 px-2 border border-green-500/20 bg-green-500/0 hover:bg-[#1a5c1a] hover:text-white text-green-500/90 font-bold text-[10px] rounded font-mono transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <UserCheck className="w-3 h-3" />
+              PERDOAR
             </button>
           </div>
 

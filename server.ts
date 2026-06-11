@@ -147,7 +147,7 @@ setTimeout(() => {
           if (!isHost) {
             if (state.blacklistUsernames?.includes(username.toLowerCase())) continue;
             const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
-            const maxVideos = state.settings?.maxVideosPerUser ?? state.settings?.max_videos_per_user ?? 2;
+            const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
             if (maxVideos > 0 && userActive >= maxVideos) continue;
           }
 
@@ -1370,13 +1370,13 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
 
     if (!isStreamerOrHost) {
       // 1. Queue Limits and Max active videos per user check
-      const maxVideosPerUser = state.settings?.maxVideosPerUser ?? state.settings?.max_videos_per_user ?? 2;
+      const maxVideosPerUser = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
       const userActiveVideos = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
       if (maxVideosPerUser > 0 && userActiveVideos >= maxVideosPerUser) {
         return res.status(403).json({ error: `Você atingiu o limite de ${maxVideosPerUser} vídeos ativos na fila simultaneamente.` });
       }
 
-      const maxQueueSize = state.settings?.maxQueueSize ?? state.settings?.max_queue_size ?? 50;
+      const maxQueueSize = state.settings?.maxQueueSize !== undefined ? state.settings.maxQueueSize : (state.settings?.max_queue_size ?? 0);
       if (maxQueueSize > 0 && (state.queue || []).length >= maxQueueSize) {
         return res.status(403).json({ error: `A fila está cheia com o limite de ${maxQueueSize} vídeos.` });
       }
@@ -2044,33 +2044,56 @@ app.post(['/sessions/:id/admin_action', '/api/sessions/:id/admin_action'], async
   }
 });
 
-// POST /sessions/:id/unban_user - Lift ban
-app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user'], async (req, res) => {
+// POST /sessions/:id/forgive_user - Full forgiveness (Lift ban, clear strikes/timeouts)
+app.post(['/sessions/:id/unban_user', '/api/sessions/:id/unban_user', '/sessions/:id/forgive_user', '/api/sessions/:id/forgive_user'], async (req, res) => {
   try {
     const roomId = req.params.id;
     const { data } = req.body;
-    const targetUserId = typeof data === 'string' ? data : data?.userId;
+    const targetUserId = typeof data === 'string' ? data : (data?.userId || data);
 
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    const allBans = (state.allBans || []).map((b: any) => {
-      if (b.userId === targetUserId) return { ...b, active: false };
-      return b;
+    // Logical redirection to Admin Action "forgive" logic
+    let updatedUsers = [...(state.users || [])];
+    let updatedAllBans = [...(state.allBans || [])];
+    let updatedBlacklist = [...(state.blacklistUsernames || [])];
+
+    updatedUsers = updatedUsers.map((u: any) => {
+      if (u.userId === targetUserId) {
+        return { 
+          ...u, 
+          isBanned: false, 
+          timeoutUntil: 0, 
+          strikes: 0, 
+          shadowBanned: false, 
+          restrictedUntil: 0 
+        };
+      }
+      return u;
     });
 
+    updatedAllBans = updatedAllBans.map((b: any) => 
+      b.userId === targetUserId ? { ...b, active: false } : b
+    );
+
+    const targetUser = updatedUsers.find((u: any) => u.userId === targetUserId);
+    if (targetUser?.twitchData?.login) {
+      const login = targetUser.twitchData.login.toLowerCase();
+      updatedBlacklist = updatedBlacklist.filter(u => u.toLowerCase() !== login);
+    }
+    
+    // Attempt second backup check if username is explicitly known from ban record
     const banRecord = (state.allBans || []).find((b: any) => b.userId === targetUserId);
-    const targetUsername = banRecord?.username?.toLowerCase();
+    if (banRecord?.username) {
+        const bl = banRecord.username.toLowerCase();
+        updatedBlacklist = updatedBlacklist.filter(u => u.toLowerCase() !== bl);
+    }
 
-    const blacklistUsernames = (state.blacklistUsernames || []).filter((u: string) => u.toLowerCase() !== targetUsername);
-
-    const updatedState = { ...state, allBans, blacklistUsernames };
+    const updatedState = { ...state, users: updatedUsers, allBans: updatedAllBans, blacklistUsernames: updatedBlacklist };
 
     const supabaseAdmin = getSupabaseAdmin();
-    await supabaseAdmin
-      .from('room_settings')
-      .update({ settings_json: updatedState })
-      .eq('room_id', roomId);
+    await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
 
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);

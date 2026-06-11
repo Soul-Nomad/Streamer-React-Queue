@@ -101,7 +101,7 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
   // 2. Initial state configuration
   const defaultSettings = {
     isManualApprovalRequired: false,
-    maxVideoDuration: 300,
+    maxVideoDuration: 0,
     blockLiveStreams: true,
     globalCooldownSeconds: 0,
     userCooldownSeconds: 0,
@@ -170,9 +170,9 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
       require_follower: existingSettings?.require_follower ?? false,
       min_follow_days: existingSettings?.min_follow_days ?? 0,
       min_account_age_days: existingSettings?.min_account_age_days ?? 0,
-      max_videos_per_user: existingSettings?.max_videos_per_user ?? 2,
-      max_queue_size: existingSettings?.max_queue_size ?? 50,
-      cooldown_seconds: existingSettings?.cooldown_seconds ?? 60,
+      max_videos_per_user: existingSettings?.max_videos_per_user !== undefined ? existingSettings.max_videos_per_user : 0,
+      max_queue_size: existingSettings?.max_queue_size !== undefined ? existingSettings.max_queue_size : 0,
+      cooldown_seconds: existingSettings?.cooldown_seconds !== undefined ? existingSettings.cooldown_seconds : 0,
     });
 
   if (settingsError) {

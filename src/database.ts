@@ -40,7 +40,7 @@ export interface PersistentBanRecord {
   active: boolean;
   history: Array<{
     timestamp: number;
-    action: 'ban' | 'unban' | 'edit';
+    action: 'ban' | 'forgive' | 'edit';
     reason: string;
     moderator: string;
   }>;
@@ -277,7 +277,7 @@ class PersistentDataStore {
         ban.active = false;
         ban.history.push({
           timestamp: now,
-          action: 'unban',
+          action: 'forgive',
           reason: 'Expiração automática de tempo de timeout',
           moderator: 'SISTEMA'
         });
@@ -300,7 +300,7 @@ class PersistentDataStore {
         ban.active = false;
         ban.history.push({
           timestamp: now,
-          action: 'unban',
+          action: 'forgive',
           reason: 'Expiração automática de duração',
           moderator: 'SISTEMA'
         });
@@ -312,25 +312,25 @@ class PersistentDataStore {
   }
 
   public removeBanRecord(userId: string, moderator: string, reason: string): boolean {
-    let unbanned = false;
+    let forgiven = false;
     const now = Date.now();
     this.bans.forEach(ban => {
       if (ban.userId === userId && ban.active) {
         ban.active = false;
         ban.history.push({
           timestamp: now,
-          action: 'unban',
+          action: 'forgive',
           reason,
           moderator
         });
-        unbanned = true;
+        forgiven = true;
       }
     });
 
-    if (unbanned) {
+    if (forgiven) {
       this.saveBans();
     }
-    return unbanned;
+    return forgiven;
   }
 
   // DETAILED HISTORY LOGS
