@@ -140,346 +140,370 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
   }, [allUsers, searchQuery]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12">
+    <div className="w-full h-full flex flex-col bg-zinc-950 overflow-hidden text-zinc-400 animate-in fade-in" id="admin_dashboard">
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+      {/* Header with Terminal look */}
+      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 p-6 border-b border-zinc-800">
         <div>
-          <h1 className="text-2xl font-black text-zinc-100 flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-[#FF6B35]" />
-            PRO SYSTEM TERMINAL
-          </h1>
-          <p className="text-[#B0B0B0] text-sm mt-1 font-mono">
-            Moderação unificada de espectadores, monitor de anomalias e histórico de transmissões.
+          <div className="flex items-center gap-3 mb-1">
+            <ShieldCheck className="w-5 h-5 text-orange-500" />
+            <h1 className="text-sm font-black text-orange-400 uppercase tracking-widest font-mono">
+              Pro System Terminal v2.4
+            </h1>
+          </div>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-tight font-mono">
+            Moderação unificada, monitor de anomalias e histórico global de transmissões.
           </p>
         </div>
         
-        <div className="flex bg-[#1A1A1A] p-1 rounded border border-[#222222]">
+        <div className="flex bg-zinc-900/50 p-1 rounded-sm border border-zinc-800">
           <button 
             onClick={() => setActiveView('overview')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'overview' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
+            className={clsx("px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'overview' ? 'bg-orange-600/10 text-orange-400 border border-orange-500/20' : 'text-zinc-500 hover:text-zinc-300 border border-transparent')}
           >
-            Visão Geral
+            OVERVIEW
           </button>
           <button 
             onClick={() => setActiveView('users')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'users' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
+            className={clsx("px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'users' ? 'bg-orange-600/10 text-orange-400 border border-orange-500/20' : 'text-zinc-500 hover:text-zinc-300 border border-transparent')}
           >
-            Usuários & Perfis
+            USER PROFILES
           </button>
           <button 
             onClick={() => setActiveView('history')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'history' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
+            className={clsx("px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'history' ? 'bg-orange-600/10 text-orange-400 border border-orange-500/20' : 'text-zinc-500 hover:text-zinc-300 border border-transparent')}
           >
-            Histórico Global
+            GLOBAL LOGS
           </button>
         </div>
       </div>
 
-      {activeView === 'overview' && (
-        <div className="flex-1 overflow-y-auto space-y-6 pb-6">
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
-                <Users className="w-5 h-5 text-[#FF8C42] mb-3" />
-                <h3 className="text-3xl font-black text-zinc-100">{allUsers.length}</h3>
-                <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Perfis Registrados</p>
-              </div>
-              
-              <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
-                <ShieldAlert className="w-5 h-5 text-[#F44336] mb-3" />
-                <h3 className="text-3xl font-black text-zinc-100">{bans.filter(b => b.active).length}</h3>
-                <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Banimentos Ativos</p>
-              </div>
+      <div className="flex-1 overflow-y-auto p-6">
+        {activeView === 'overview' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-sm p-5 flex flex-col items-start gap-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-zinc-500" />
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Profiles</span>
+                  </div>
+                  <h3 className="text-3xl font-black text-zinc-100 font-mono tracking-tighter">{allUsers.length}</h3>
+                  <div className="mt-2 w-full h-[2px] bg-zinc-800"><div className="h-full bg-emerald-500 w-full opacity-60"></div></div>
+                </div>
+                
+                <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-sm p-5 flex flex-col items-start gap-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldAlert className="w-4 h-4 text-zinc-500" />
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Active Bans</span>
+                  </div>
+                  <h3 className="text-3xl font-black text-zinc-100 font-mono tracking-tighter">{bans.filter(b => b.active).length}</h3>
+                  <div className="mt-2 w-full h-[2px] bg-zinc-800"><div className="h-full bg-red-600 w-1/4 opacity-60"></div></div>
+                </div>
 
-              <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
-                <CheckCircle className="w-5 h-5 text-[#4CAF50] mb-3" />
-                <h3 className="text-3xl font-black text-zinc-100">{history.filter(h => h.status === 'approved').length}</h3>
-                <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Vídeos Aprovados</p>
-              </div>
-              
-              <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
-                <XOctagon className="w-5 h-5 text-[#F44336] mb-3" />
-                <h3 className="text-3xl font-black text-zinc-100">{history.filter(h => h.status === 'rejected').length}</h3>
-                <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Vídeos Rejeitados</p>
-              </div>
-           </div>
-           
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             <div className="lg:col-span-2 bg-[#1A1A1A] border border-[#222222] rounded p-6 text-left flex flex-col h-[450px]">
-               <h3 className="text-zinc-100 font-black text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
-                 <AlertTriangle className="w-5 h-5 text-[#FF8C42]" />
-                 Alertas de Inteligência Sensível & Fraude
-               </h3>
-               <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                 {alerts.length === 0 ? (
-                   <div className="h-full flex items-center justify-center border border-dashed border-[#222222] p-4">
-                     <p className="text-[#505050] text-sm italic font-mono">Nenhum evento anômalo detectado.</p>
-                   </div>
-                 ) : (
-                   alerts.map(a => {
-                      const matchedUser = session.users?.find(u => u.name === a.username || u.userId === a.userId || u.twitchData?.login === a.username);
-                      const twitch = matchedUser?.twitchData;
-                      const displayName = twitch?.displayName || a.username;
-                      const color = twitch?.color || '#FFFFFF';
-                      return (
-                        <div key={a.id} className={clsx("p-4 rounded border flex items-start gap-4", a.severity === 'high' ? 'bg-[#F44336]/5 border-[#F44336]/20' : a.severity === 'medium' ? 'bg-[#FF8C42]/5 border-[#FF8C42]/20' : 'bg-[#222222]/40 border-[#222222]')}>
-                          {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-8 h-8 mt-0.5") : (
-                            <ShieldAlert className={clsx("w-8 h-8 mt-0.5 p-1 bg-[#222222] border border-[#333333] rounded", a.severity === 'high' ? 'text-[#F44336]' : a.severity === 'medium' ? 'text-[#FF8C42]' : 'text-[#B0B0B0]')} />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="min-w-0">
-                                <span className="font-bold text-sm block truncate" style={{ color: color }}>{displayName}</span>
-                                {twitch?.login && (
-                                  <span className="text-[10px] text-[#505050] font-mono">@{twitch.login}</span>
-                                )}
-                              </div>
-                              <span className="text-[10px] font-mono text-[#505050] shrink-0 mt-0.5">{new Date(a.timestamp).toLocaleTimeString()}</span>
-                            </div>
-                            <p className="text-xs text-[#B0B0B0] mt-1">{a.message}</p>
-                            <p className="text-[9px] text-[#505050] mt-1.5 font-mono uppercase">Tipo: {a.type}</p>
-                          </div>
-                        </div>
-                      );
-                    })
-                 )}
-               </div>
+                <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-sm p-5 flex flex-col items-start gap-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-zinc-500" />
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Approved</span>
+                  </div>
+                  <h3 className="text-3xl font-black text-zinc-100 font-mono tracking-tighter">{history.filter(h => h.status === 'approved').length}</h3>
+                  <div className="mt-2 w-full h-[2px] bg-zinc-800"><div className="h-full bg-blue-500 w-full opacity-60"></div></div>
+                </div>
+                
+                <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-sm p-5 flex flex-col items-start gap-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <XOctagon className="w-4 h-4 text-zinc-500" />
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Rejected</span>
+                  </div>
+                  <h3 className="text-3xl font-black text-zinc-100 font-mono tracking-tighter">{history.filter(h => h.status === 'rejected').length}</h3>
+                  <div className="mt-2 w-full h-[2px] bg-zinc-800"><div className="h-full bg-orange-600 w-1/3 opacity-60"></div></div>
+                </div>
              </div>
              
-             <div className="bg-[#1A1A1A] border border-[#222222] rounded p-6 text-left flex flex-col h-[450px]">
-               <h3 className="text-zinc-100 font-black text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
-                 <ShieldOff className="w-5 h-5 text-[#F44336]" />
-                 Histórico de Banimentos Ativos
-               </h3>
-               <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                 {bans.filter(b => b.active).length === 0 ? (
-                   <div className="h-full flex items-center justify-center border border-dashed border-[#222222] p-4">
-                     <p className="text-[#505050] text-sm italic font-mono">Nenhum banimento ativo na sala.</p>
-                   </div>
-                 ) : (
-                   bans.filter(b => b.active).map(b => {
-                      const matchedUser = session.users?.find(u => u.name === b.username || u.userId === b.userId || u.twitchData?.login === b.username);
-                      const twitch = matchedUser?.twitchData;
-                      const displayName = twitch?.displayName || b.username;
-                      const color = twitch?.color || '#FFFFFF';
-                      return (
-                        <div key={b.id} className="p-3 bg-[#121212] rounded border border-[#222222] flex gap-3">
-                          {matchedUser && renderUserAvatarAdmin(matchedUser, "w-8 h-8 shrink-0")}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1 gap-2">
-                              <span className="text-xs font-bold font-mono truncate" style={{ color: color }}>{displayName}</span>
-                              <button onClick={() => handleLiftRestrictions(b.userId)} className="text-[10px] bg-[#222222] hover:bg-[#333333] border border-[#404040] px-2 py-1 rounded cursor-pointer transition-colors text-[#4CAF50] font-bold font-mono shrink-0">Perdoar</button>
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+               <div className="lg:col-span-2 bg-zinc-900/40 border border-zinc-800 flex flex-col h-[480px]">
+                 <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/80">
+                   <h3 className="text-zinc-100 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 font-mono">
+                     <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
+                     SENSITIVE SECURITY ALERTS [IDS]
+                   </h3>
+                   <span className="text-[9px] font-mono font-bold text-zinc-600 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">REAL-TIME MONITOR</span>
+                 </div>
+                 <div className="flex-1 overflow-y-auto space-y-1 p-2">
+                   {alerts.length === 0 ? (
+                     <div className="h-full flex items-center justify-center border border-dashed border-zinc-900/40 m-4">
+                       <p className="text-zinc-700 text-[10px] uppercase font-mono tracking-widest">System secure. No anomalies detected.</p>
+                     </div>
+                   ) : (
+                     alerts.map(a => {
+                        const matchedUser = session.users?.find(u => u.name === a.username || u.userId === a.userId || u.twitchData?.login === a.username);
+                        const twitch = matchedUser?.twitchData;
+                        const displayName = twitch?.displayName || a.username;
+                        const color = twitch?.color || '#FFFFFF';
+                        return (
+                          <div key={a.id} className={clsx("p-3 border-l-2 flex items-start gap-4 transition-all hover:bg-zinc-900/40", a.severity === 'high' ? 'bg-red-500/5 border-red-500/30' : a.severity === 'medium' ? 'bg-orange-500/5 border-orange-500/30' : 'bg-transparent border-zinc-800')}>
+                            {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-8 h-8 mt-1") : (
+                              <ShieldAlert className={clsx("w-8 h-8 mt-1 p-1 bg-zinc-900 border border-zinc-800 rounded-sm", a.severity === 'high' ? 'text-red-500' : a.severity === 'medium' ? 'text-orange-500' : 'text-zinc-600')} />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-0.5">
+                                <span className="font-bold text-xs font-mono" style={{ color: color }}>{displayName}</span>
+                                <span className="text-[9px] font-mono text-zinc-600">{new Date(a.timestamp).toLocaleTimeString()}</span>
+                              </div>
+                              <p className="text-xs text-zinc-400 group-hover:text-zinc-200 transition-colors leading-relaxed">{a.message}</p>
+                              <div className="flex items-center gap-2 mt-1.5 opacity-60">
+                                <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 rounded-sm font-mono tracking-tighter uppercase font-bold">TYPE: {a.type}</span>
+                                <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 rounded-sm font-mono tracking-tighter uppercase font-bold">SIG: {a.severity}</span>
+                              </div>
                             </div>
-                            <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-1.5 py-0.5 rounded uppercase font-mono font-bold tracking-widest leading-none border border-[#F44336]/10">{b.banType}</span>
-                            <p className="text-[11px] text-[#B0B0B0] mt-1.5 line-clamp-2 font-mono">{b.reason}</p>
                           </div>
-                        </div>
-                      );
-                    })
-                 )}
+                        );
+                      })
+                   )}
+                 </div>
+               </div>
+               
+               <div className="bg-zinc-900/40 border border-zinc-800 flex flex-col h-[480px]">
+                 <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/80">
+                   <h3 className="text-zinc-100 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 font-mono">
+                     <ShieldOff className="w-3.5 h-3.5 text-red-500" />
+                     BANNED REPOSITORIES
+                   </h3>
+                 </div>
+                 <div className="flex-1 overflow-y-auto space-y-2 p-3">
+                   {bans.filter(b => b.active).length === 0 ? (
+                     <div className="h-full flex items-center justify-center border border-dashed border-zinc-900/40 bg-zinc-950/20">
+                       <p className="text-zinc-700 text-[10px] uppercase font-mono tracking-widest">Clean record.</p>
+                     </div>
+                   ) : (
+                     bans.filter(b => b.active).map(b => {
+                        const matchedUser = session.users?.find(u => u.name === b.username || u.userId === b.userId || u.twitchData?.login === b.username);
+                        const twitch = matchedUser?.twitchData;
+                        const displayName = twitch?.displayName || b.username;
+                        const color = twitch?.color || '#FFFFFF';
+                        return (
+                          <div key={b.id} className="p-3 bg-zinc-950/40 border border-zinc-800 flex gap-3 group transition-all hover:border-red-900/30">
+                            {matchedUser && renderUserAvatarAdmin(matchedUser, "w-7 h-7 shrink-0")}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-1 gap-2">
+                                <span className="text-[11px] font-bold font-mono truncate" style={{ color: color }}>{displayName}</span>
+                                <button onClick={() => handleLiftRestrictions(b.userId)} className="text-[8px] bg-zinc-900 hover:bg-emerald-950/40 border border-zinc-800 px-1.5 py-0.5 rounded-sm transition-all text-emerald-500 font-black font-mono cursor-pointer">LIFT</button>
+                              </div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className="text-[8px] text-red-500 bg-red-950/20 px-1 rounded-sm uppercase font-mono font-black border border-red-900/20">{b.banType}</span>
+                              </div>
+                              <p className="text-[10px] text-zinc-500 line-clamp-2 font-mono group-hover:text-zinc-400 leading-tight">{b.reason}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                   )}
+                 </div>
                </div>
              </div>
-           </div>
-         </div>
-       )}
+          </div>
+        )}
 
-       {activeView === 'users' && (
-         <div className="flex-1 flex flex-col min-h-0 text-left">
-           <div className="relative mb-6">
-              <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[#505050]" />
-              <input 
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Pesquisar por nome de usuário ou ID do perfil..."
-                className="w-full bg-[#1A1A1A] border border-[#222222] rounded pl-12 pr-4 py-3 text-sm text-zinc-100 placeholder-[#505050] focus:outline-none focus:border-[#FF6B35]"
-              />
-           </div>
-           
-           <div className="flex-1 overflow-x-auto overflow-y-auto bg-[#1A1A1A] border border-[#222222] rounded">
-             <table className="w-full text-left border-collapse min-w-max font-mono">
-               <thead className="bg-[#222222] sticky top-0 z-10 border-b border-[#222222]">
-                 <tr>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Usuário</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Reputação</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Strikes</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Envios (Apr/Rej)</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest text-right">Ações de Moderação</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {filteredUsers.map(user => {
-                    const isBanned = bans.some(b => b.userId === user.userId && b.active);
-                    const twitch = user.twitchData;
-                    const displayName = twitch?.displayName || user.username || user.name;
-                    const login = twitch?.login || (user.username !== displayName ? user.username : null);
-                    const color = twitch?.color || '#FFFFFF';
-                    return (
-                      <tr key={user.userId} className="border-b border-[#222222] hover:bg-[#222222]/40 transition-colors">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                             {renderUserAvatarAdmin(user, "w-10 h-10")}
-                             <div className="min-w-0">
-                               <div className="flex items-center gap-2">
-                                 <span className="font-bold text-sm block truncate" style={{ color: color }}>{displayName}</span>
-                                 {renderTwitchBadgesAdmin(user)}
-                               </div>
-                               
-                               <div className="flex flex-col gap-0.5 mt-0.5 opacity-90">
-                                 {login && (
-                                   <span className="text-[10px] text-[#A0A0A0] block font-mono">
-                                     @{login}
-                                   </span>
-                                 )}
-                                 <span className="text-[8px] text-[#606060] block font-mono">
-                                   ID: {user.userId}
-                                 </span>
-                                 {login && (
-                                   <a 
-                                     href={"https://twitch.tv/" + login} 
-                                     target="_blank" 
-                                     rel="noreferrer" 
-                                     className="text-[9px] text-[#9146FF] hover:underline flex items-center gap-1 mt-0.5 font-sans font-medium"
-                                   >
-                                     <ExternalLink className="w-3 h-3 text-[#A87FF4]" />
-                                     twitch.tv/{login}
-                                   </a>
-                                 )}
-                               </div>
+        {activeView === 'users' && (
+          <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-right-2 duration-300">
+            <div className="relative mb-6">
+               <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+               <input 
+                 type="text"
+                 value={searchQuery}
+                 onChange={e => setSearchQuery(e.target.value)}
+                 placeholder="SCAN USER PROFILES OR HARDWARE IDs..."
+                 className="w-full bg-zinc-900 border border-zinc-800 rounded-sm pl-11 pr-4 py-3 text-[11px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-orange-500 font-mono font-bold tracking-widest"
+               />
+            </div>
+            
+            <div className="flex-1 overflow-x-auto overflow-y-auto bg-zinc-900/30 border border-zinc-800 rounded-sm">
+              <table className="w-full text-left border-collapse min-w-max font-mono text-[11px]">
+                <thead className="bg-zinc-900/80 sticky top-0 z-10 border-b border-zinc-800">
+                  <tr>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">Entity</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">Reputation</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">Strikes</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest text-center">Traffic (A/R)</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest text-right">System Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {filteredUsers.map(user => {
+                     const isBanned = bans.some(b => b.userId === user.userId && b.active);
+                     const twitch = user.twitchData;
+                     const displayName = twitch?.displayName || user.username || user.name;
+                     const login = twitch?.login || (user.username !== displayName ? user.username : null);
+                     const color = twitch?.color || '#FFFFFF';
+                     return (
+                       <tr key={user.userId} className="hover:bg-zinc-800/20 transition-colors group">
+                         <td className="p-4">
+                           <div className="flex items-center gap-3">
+                              {renderUserAvatarAdmin(user, "w-9 h-9")}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-zinc-200 block truncate" style={{ color: color }}>{displayName}</span>
+                                  {renderTwitchBadgesAdmin(user)}
+                                </div>
+                                
+                                <div className="flex flex-col gap-0.5 mt-0.5 opacity-60">
+                                  {login && (
+                                    <span className="text-[10px] text-zinc-500 block font-mono">@{login}</span>
+                                  )}
+                                  <span className="text-[8px] text-zinc-600 block font-mono">UID: {user.userId}</span>
+                                </div>
+                              </div>
+                           </div>
+                         </td>
+                         <td className="p-4">
+                           <div className="flex items-center gap-3">
+                              <div className="w-32 h-1.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800">
+                                <div className={clsx("h-full transition-all duration-1000 ease-out", user.reputation >= 80 ? 'bg-emerald-500' : user.reputation >= 40 ? 'bg-orange-500' : 'bg-red-600')} style={{ width: user.reputation + "%" }}></div>
+                              </div>
+                              <span className="text-[10px] font-black text-zinc-400">{user.reputation}%</span>
+                           </div>
+                         </td>
+                         <td className="p-4 font-black">
+                           <span className={clsx(user.strikes === 0 ? 'text-zinc-600' : 'text-orange-500')}>{user.strikes}/5</span>
+                         </td>
+                         <td className="p-4 text-center">
+                           <span className="text-zinc-200 font-bold">{user.totalSubmitted}</span>
+                           <span className="text-zinc-700 font-bold mx-1">/</span>
+                           <span className="text-emerald-500 font-bold">{user.approvedCount}</span>
+                           <span className="text-zinc-700 font-bold mx-1">-</span>
+                           <span className="text-red-600 font-bold">{user.rejectedCount}</span>
+                         </td>
+                         <td className="p-4">
+                           <div className="flex items-center justify-end gap-2">
+                             <div className="flex items-center gap-1.5 mr-3">
+                               {isBanned && <span className="text-[8px] bg-red-950/40 text-red-500 px-1.5 py-0.5 rounded-sm font-black uppercase tracking-widest border border-red-900/20">BANNED</span>}
+                               {user.shadowBanned && <span className="text-[8px] bg-orange-950/40 text-orange-500 px-1.5 py-0.5 rounded-sm font-black uppercase tracking-widest border border-orange-900/20">SHADOW</span>}
                              </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                             <div className="w-full max-w-[100px] h-2 bg-[#222222] rounded-sm overflow-hidden border border-[#404040]">
-                               <div className={clsx("h-full", user.reputation >= 80 ? 'bg-[#4CAF50]' : user.reputation >= 40 ? 'bg-[#FF8C42]' : 'bg-[#F44336]')} style={{ width: user.reputation + "%" }}></div>
+                             
+                             <div className="flex items-center gap-1">
+                               <button 
+                                 onClick={() => handlePunish(user.userId, 'temporary')} 
+                                 className="w-16 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded-sm text-[8px] font-black border border-zinc-800 transition-all cursor-pointer uppercase"
+                               >
+                                 Timeout
+                               </button>
+                               <button 
+                                 onClick={() => handlePunish(user.userId, 'permanent')}
+                                 className="w-16 py-1 bg-zinc-900 hover:bg-red-950/40 text-red-500 rounded-sm text-[8px] font-black border border-zinc-800 hover:border-red-900/30 transition-all cursor-pointer uppercase"
+                               >
+                                 Ban
+                               </button>
+                               <button 
+                                 onClick={() => handleLiftRestrictions(user.userId)}
+                                 className="w-16 py-1 bg-zinc-900 hover:bg-emerald-950/40 text-emerald-500 rounded-sm text-[8px] font-black border border-zinc-800 hover:border-emerald-900/30 transition-all cursor-pointer uppercase ml-2"
+                               >
+                                 Forgive
+                               </button>
                              </div>
-                             <span className="text-xs font-bold text-[#B0B0B0]">{user.reputation}%</span>
-                          </div>
-                        </td>
-                        <td className="p-4 font-bold text-sm">
-                          <span className={clsx(user.strikes > 0 ? 'text-[#FF8C42]' : 'text-[#B0B0B0]')}>{user.strikes}/5</span>
-                        </td>
-                        <td className="p-4 text-xs text-[#B0B0B0]">
-                          {user.totalSubmitted} <span className="text-[#505050]">({user.approvedCount} / {user.rejectedCount})</span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="flex items-center gap-1.5 mr-2">
-                              {isBanned && <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#F44336]/10">BANIDO</span>}
-                              {user.shadowBanned && <span className="text-[9px] bg-[#FF8C42]/20 text-[#FF8C42] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#FF8C42]/10">SHADOW</span>}
-                              {user.restrictedUntil && user.restrictedUntil > Date.now() && <span className="text-[9px] bg-[#FF8C42]/20 text-[#FF8C42] px-2 py-1 rounded font-bold uppercase tracking-widest leading-none border border-[#FF8C42]/15">RESTRICT</span>}
-                            </div>
-                            
-                            <div className="flex bg-[#222222] rounded p-0.5 border border-[#404040]">
-                              <button onClick={() => handlePunish(user.userId, 'temporary')} className="px-2 py-1 hover:bg-[#333333] rounded text-[10px] text-zinc-100 cursor-pointer transition-colors font-bold font-mono" title="Timeout">TIMEOUT</button>
-                              <button onClick={() => handlePunish(user.userId, 'permanent')} className="px-2 py-1 hover:bg-[#F44336]/20 rounded text-[10px] text-[#F44336] cursor-pointer transition-colors font-bold font-mono" title="Ban Permanente">BANIR</button>
-                              <button onClick={() => handlePunish(user.userId, 'shadow')} className="px-2 py-1 hover:bg-[#FF8C42]/20 rounded text-[10px] text-[#FF8C42] cursor-pointer transition-colors font-bold font-mono" title="Shadow Ban">SHADOW</button>
-                              <button onClick={() => handleLiftRestrictions(user.userId)} className="px-2 py-1 hover:bg-[#4CAF50]/15 rounded text-[10px] text-[#4CAF50] cursor-pointer transition-colors border-l border-[#404040] ml-1 pl-3 font-bold font-mono" title="Remover Restrições">PERDOAR</button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-               </tbody>
-             </table>
-           </div>
-         </div>
-       )}
+                           </div>
+                         </td>
+                       </tr>
+                     )
+                   })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-       {activeView === 'history' && (
-         <div className="flex-1 flex flex-col min-h-0 text-left">
-           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[#505050]" />
-                <input 
-                  type="text"
-                  value={historySearchQuery}
-                  onChange={e => setHistorySearchQuery(e.target.value)}
-                  placeholder="Pesquisar por usuário, palavra-chave, plataforma, ou link..."
-                  className="w-full bg-[#1A1A1A] border border-[#222222] rounded pl-12 pr-4 py-3 text-sm text-zinc-100 placeholder-[#505050] focus:outline-none focus:border-[#FF6B35] font-mono"
-                />
-              </div>
-              <select 
-                 value={historyFilterStatus}
-                 onChange={e => setHistoryFilterStatus(e.target.value)}
-                 className="bg-[#1A1A1A] border border-[#222222] rounded px-4 py-3 text-sm text-zinc-100 focus:outline-none focus:border-[#FF6B35] cursor-pointer font-mono"
-              >
-                 <option value="all">Status: Todos</option>
-                 <option value="approved">Status: Aprovados</option>
-                 <option value="rejected">Status: Rejeitados</option>
-                 <option value="pending">Status: Pendentes</option>
-              </select>
-           </div>
-           
-           <div className="flex-1 overflow-x-auto overflow-y-auto bg-[#1A1A1A] border border-[#222222] rounded relative">
-             <table className="w-full text-left border-collapse min-w-max font-mono">
-               <thead className="bg-[#222222] sticky top-0 z-10 border-b border-[#222222]">
-                 <tr>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Data</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Usuário</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">URL Enviada</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Status</th>
-                   <th className="p-4 text-[10px] font-black text-[#B0B0B0] uppercase tracking-widest">Detalhes / Motivo</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {filteredHistory.map(log => (
-                   <tr key={log.id} className="border-b border-[#222222] hover:bg-[#222222]/40 transition-colors">
-                     <td className="p-4 text-xs text-[#B0B0B0]">
-                        {format(new Date(log.timestamp), 'dd/MM HH:mm')}
-                     </td>
-                     <td className="p-4">
-                         {(() => {
-                           const matchedUser = session.users?.find(u => u.name === log.submitterName || u.userId === log.submitterId || u.twitchData?.login === log.submitterName);
-                           const twitch = matchedUser?.twitchData;
-                           const displayName = twitch?.displayName || log.submitterName;
-                           const color = twitch?.color || '#FFFFFF';
-                           return (
-                             <div className="flex items-center gap-2">
-                               {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-6 h-6") : (
-                                 <div className="w-6 h-6 rounded bg-[#222222] flex items-center justify-center text-[10px] font-bold border border-[#444] text-zinc-100">
-                                   ?
-                                 </div>
-                               )}
-                               <div className="min-w-0">
-                                 <span className="font-bold text-sm text-zinc-100 truncate block" style={{ color: color }}>
-                                   {displayName}
-                                 </span>
-                                 {twitch?.login && (
-                                   <span className="text-[9px] text-[#505050] block font-mono">@{twitch.login}</span>
-                                 )}
-                               </div>
-                             </div>
-                           );
-                         })()}
+        {activeView === 'history' && (
+          <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-left-2 duration-300">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 mb-6">
+               <div className="relative flex-1">
+                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+                 <input 
+                   type="text"
+                   value={historySearchQuery}
+                   onChange={e => setHistorySearchQuery(e.target.value)}
+                   placeholder="SEARCH GLOBAL HISTORY LOGS (URL, USER, PLATFORM)..."
+                   className="w-full bg-zinc-900 border border-zinc-800 rounded-sm pl-11 pr-4 py-3 text-[11px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-orange-500 font-mono font-bold tracking-widest"
+                 />
+               </div>
+               <select 
+                  value={historyFilterStatus}
+                  onChange={e => setHistoryFilterStatus(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-sm px-4 py-3 text-[11px] text-zinc-400 focus:outline-none focus:border-orange-500 cursor-pointer font-mono font-bold appearance-none transition-all h-10 min-w-[160px]"
+               >
+                  <option value="all">STATUS: ALL EVENTS</option>
+                  <option value="approved">STATUS: APPROVED ONLY</option>
+                  <option value="rejected">STATUS: REJECTED ONLY</option>
+                  <option value="pending">STATUS: PENDING QUEUE</option>
+               </select>
+            </div>
+            
+            <div className="flex-1 overflow-x-auto overflow-y-auto bg-zinc-900/30 border border-zinc-800 rounded-sm">
+              <table className="w-full text-left border-collapse min-w-max font-mono text-[11px]">
+                <thead className="bg-zinc-900/80 sticky top-0 z-10 border-b border-zinc-800">
+                  <tr>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">Timestamp</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">Submitter</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">Media Source</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">State</th>
+                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest text-right">Moderation Context</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {filteredHistory.map(log => (
+                    <tr key={log.id} className="hover:bg-zinc-800/20 transition-colors">
+                      <td className="p-4 text-zinc-500 font-mono tabular-nums">
+                         {format(new Date(log.timestamp), 'dd/MM HH:mm:ss')}
                       </td>
-                     <td className="p-4 max-w-sm">
-                        <p className="text-xs text-zinc-100 truncate font-medium">{log.url}</p>
-                        <span className="text-[9px] text-[#505050] font-mono">{log.platform}</span>
-                     </td>
-                     <td className="p-4">
-                        {log.status === 'approved' && <span className="text-[10px] text-[#4CAF50] bg-[#4CAF50]/10 border border-[#4CAF50]/15 px-2.5 py-1 rounded font-mono font-black uppercase tracking-wider animate-pulse">Aprovado</span>}
-                        {log.status === 'rejected' && <span className="text-[10px] text-[#F44336] bg-[#F44336]/10 border border-[#F44336]/15 px-2.5 py-1 rounded font-mono font-black uppercase tracking-wider">Rejeitado</span>}
-                        {log.status === 'pending' && <span className="text-[10px] text-[#FF8C42] bg-[#FF8C42]/10 border border-[#FF8C42]/15 px-2.5 py-1 rounded font-mono font-black uppercase tracking-wider animate-pulse">Pendente</span>}
-                     </td>
-                     <td className="p-4 max-w-xs text-xs text-[#B0B0B0]">
-                        {log.rejectionReason || log.actionDetails || '-'}
-                     </td>
-                   </tr>
-                 ))}
-                 {filteredHistory.length === 0 && (
-                   <tr>
-                      <td colSpan={5} className="p-6 text-center text-[#505050] text-sm italic">Nenhum evento registrado.</td>
-                   </tr>
-                 )}
-               </tbody>
-             </table>
-           </div>
-         </div>
-       )}
-
+                      <td className="p-4">
+                          {(() => {
+                            const matchedUser = session.users?.find(u => u.name === log.submitterName || u.userId === log.submitterId || u.twitchData?.login === log.submitterName);
+                            const twitch = matchedUser?.twitchData;
+                            const displayName = twitch?.displayName || log.submitterName;
+                            const color = twitch?.color || '#FFFFFF';
+                            return (
+                              <div className="flex items-center gap-2">
+                                {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-7 h-7") : (
+                                  <div className="w-7 h-7 rounded-sm bg-zinc-950 flex items-center justify-center text-[8px] font-black border border-zinc-800 text-zinc-700">
+                                    NULL
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <span className="font-bold text-zinc-200 truncate block" style={{ color: color }}>
+                                    {displayName}
+                                  </span>
+                                  {twitch?.login && (
+                                    <span className="text-[9px] text-zinc-600 block">@{twitch.login}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                       </td>
+                      <td className="p-4 max-w-sm">
+                         <div className="flex flex-col gap-0.5">
+                            <span className="text-zinc-300 truncate font-bold text-[10px]">{log.url}</span>
+                            <span className="text-[9px] text-[#FF6B35] font-black uppercase tracking-widest">{log.platform}</span>
+                         </div>
+                      </td>
+                      <td className="p-4">
+                         {log.status === 'approved' && <span className="text-[9px] text-emerald-500 font-black uppercase tracking-tighter">Approved</span>}
+                         {log.status === 'rejected' && <span className="text-[9px] text-red-600 font-black uppercase tracking-tighter">Rejected</span>}
+                         {log.status === 'pending' && <span className="text-[9px] text-orange-500 font-black uppercase tracking-tighter animate-pulse">Pending</span>}
+                      </td>
+                      <td className="p-4 max-w-xs text-right italic font-mono text-[10px] text-zinc-600 group">
+                         {log.rejectionReason || log.actionDetails || 'No additional context.'}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredHistory.length === 0 && (
+                    <tr>
+                       <td colSpan={5} className="p-20 text-center text-zinc-700 text-[10px] uppercase font-mono tracking-[0.3em]">Buffer empty. No records available.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
