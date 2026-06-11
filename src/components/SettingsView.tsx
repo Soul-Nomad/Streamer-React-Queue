@@ -121,9 +121,11 @@ export default function SettingsView({ session }: { session: SessionState }) {
          isManualApprovalRequired: roomSettings.isManualApprovalRequired,
          blockLiveStreams: roomSettings.blockLiveStreams,
          videoRetentionHours: roomSettings.video_retention_hours ?? 48,
-         globalCooldownSeconds: roomSettings.globalCooldownSeconds ?? 5,
-         userCooldownSeconds: roomSettings.cooldown_seconds ?? 30,
-         maxSubmissionsPerHour: roomSettings.maxSubmissionsPerHour ?? 60
+         globalCooldownSeconds: roomSettings.globalCooldownSeconds ?? 0,
+         userCooldownSeconds: roomSettings.cooldown_seconds ?? 0,
+         maxSubmissionsPerHour: roomSettings.maxSubmissionsPerHour ?? 0, // 0 = unlimited
+         maxVideosPerUser: roomSettings.max_videos_per_user ?? 0,
+         maxQueueSize: roomSettings.max_queue_size ?? 0
        });
        alert("Configurações salvas e aplicadas com sucesso!");
     } else {
@@ -138,7 +140,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
         <div className="flex-1 flex flex-col min-h-0 text-left bg-[#1A1A1A] border border-[#222222] rounded p-6 overflow-y-auto w-full max-w-5xl mx-auto">
           <div className="mb-6 border-b border-[#222222] pb-4 flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-black text-white flex items-center gap-2">
+              <h2 className="text-xl font-black text-zinc-100 flex items-center gap-2">
                 <Settings className="w-6 h-6 text-[#FF6B35]" />
                 Configurações & Políticas de Segurança
               </h2>
@@ -147,7 +149,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
             <button 
               onClick={handleSaveSettings}
               disabled={settingsSaving || !roomSettings}
-              className="bg-[#2a8738] hover:bg-[#34a345] text-white px-5 py-2 rounded font-bold uppercase tracking-wider text-xs flex items-center gap-2 transition-colors disabled:opacity-50"
+              className="bg-[#2a8738] hover:bg-[#34a345] text-zinc-100 px-5 py-2 rounded font-bold uppercase tracking-wider text-xs flex items-center gap-2 transition-colors disabled:opacity-50"
             >
               {settingsSaving ? 'Salvando...' : <><Save className="w-4 h-4"/> Salvar Regras</>}
             </button>
@@ -162,7 +164,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
               <div className="space-y-6">
                 
                 <div className="bg-[#121212] p-4 rounded border border-[#2A2A2A]">
-                  <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Políticas de Segurança da Sala</h3>
+                  <h3 className="text-zinc-100 font-bold mb-4 uppercase tracking-wider text-xs">Políticas de Segurança da Sala</h3>
                   <label className="flex items-center space-x-3 text-[#B0B0B0] mb-3">
                     <input type="checkbox" checked={!!roomSettings.isManualApprovalRequired} onChange={e => setRoomSettings({...roomSettings, isManualApprovalRequired: e.target.checked})} className="rounded bg-[#222222] border-[#404040] text-[#FF6B35] focus:ring-[#FF6B35] w-4 h-4" />
                     <span>Exigir Aprovação Prévia (Moderação Manual)</span>
@@ -179,7 +181,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="1" max="48"
                         value={roomSettings.video_retention_hours ?? 48} 
                         onChange={e => setRoomSettings({...roomSettings, video_retention_hours: Math.min(48, Math.max(1, parseInt(e.target.value) || 48))})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                   </div>
@@ -191,7 +193,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="1" 
                         value={roomSettings.maxSubmissionsPerHour || 60} 
                         onChange={e => setRoomSettings({...roomSettings, maxSubmissionsPerHour: Math.max(1, parseInt(e.target.value) || 1)})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                     <div>
@@ -200,7 +202,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="0" 
                         value={roomSettings.globalCooldownSeconds ?? 5} 
                         onChange={e => setRoomSettings({...roomSettings, globalCooldownSeconds: Math.max(0, parseInt(e.target.value) || 0)})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                   </div>
@@ -212,7 +214,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="0" 
                         value={roomSettings.cooldown_seconds ?? 30} 
                         onChange={e => setRoomSettings({...roomSettings, cooldown_seconds: Math.max(0, parseInt(e.target.value) || 0)})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                     <div>
@@ -221,7 +223,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="1" 
                         value={roomSettings.max_queue_size || 50} 
                         onChange={e => setRoomSettings({...roomSettings, max_queue_size: Math.max(1, parseInt(e.target.value) || 50)})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                   </div>
@@ -233,7 +235,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="1" 
                         value={roomSettings.max_videos_per_user || 2} 
                         onChange={e => setRoomSettings({...roomSettings, max_videos_per_user: Math.max(1, parseInt(e.target.value) || 2)})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                     <div>
@@ -242,14 +244,14 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" min="0" 
                         value={roomSettings.min_account_age_days || 0} 
                         onChange={e => setRoomSettings({...roomSettings, min_account_age_days: Math.max(0, parseInt(e.target.value) || 0)})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-[#121212] p-4 rounded border border-[#2A2A2A]">
-                  <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Restrições Twitch & Moderação Direta</h3>
+                  <h3 className="text-zinc-100 font-bold mb-4 uppercase tracking-wider text-xs">Restrições Twitch & Moderação Direta</h3>
                   <label className="flex items-center space-x-3 text-[#B0B0B0] mb-3">
                     <input type="checkbox" checked={!!roomSettings.require_follower} onChange={e => setRoomSettings({...roomSettings, require_follower: e.target.checked})} className="rounded bg-[#222222] border-[#404040] text-[#FF6B35] focus:ring-[#FF6B35] w-4 h-4" />
                     <span>Somente Seguidores (Followers) podem enviar links</span>
@@ -289,7 +291,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                               });
                             }
                           }}
-                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none text-xs font-bold"
+                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none text-xs font-bold"
                         >
                           <option value="0">Já conta (Seguidor imediato conta)</option>
                           <option value="10">Seguidor há pelo menos 10 minutos</option>
@@ -316,7 +318,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                                   min_follow_days: Math.floor(min / 1440)
                                 });
                               }}
-                              className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-1.5 text-white focus:border-[#FF6B35] outline-none text-xs font-mono"
+                              className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-1.5 text-zinc-100 focus:border-[#FF6B35] outline-none text-xs font-mono"
                             />
                           </div>
                           <div>
@@ -351,7 +353,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
               
               <div className="space-y-6">
                 <div className="bg-[#121212] p-4 rounded border border-[#2A2A2A]">
-                  <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Resgatar por Pontos de Canal (Twitch EventSub)</h3>
+                  <h3 className="text-zinc-100 font-bold mb-4 uppercase tracking-wider text-xs">Resgatar por Pontos de Canal (Twitch EventSub)</h3>
                   <label className="flex items-center space-x-3 text-[#B0B0B0] mb-3">
                     <input type="checkbox" checked={!!roomSettings.require_channel_points} onChange={e => setRoomSettings({...roomSettings, require_channel_points: e.target.checked})} className="rounded bg-[#222222] border-[#404040] text-[#FF6B35] focus:ring-[#FF6B35] w-4 h-4" />
                     <span>Exigir Resgate de Pontos do Canal (Pula Fila)</span>
@@ -365,7 +367,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         value={roomSettings.channel_point_reward_id || ''} 
                         onChange={e => setRoomSettings({...roomSettings, channel_point_reward_id: e.target.value.trim()})}
                         placeholder="ex: a1b2c3d4-e5f6-7890-..."
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white focus:border-[#FF6B35] outline-none text-xs font-mono font-bold"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 focus:border-[#FF6B35] outline-none text-xs font-mono font-bold"
                       />
                       <span className="text-[10px] text-[#606060] block">
                         Insira o UUID exato da Recompensa Customizada criada na Twitch para que as Edge Functions possam aprovar instantaneamente.
@@ -375,7 +377,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                 </div>
 
                 <div className="bg-[#121212] p-4 rounded border border-[#2A2A2A]">
-                  <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Priorização & Pesos da Fila</h3>
+                  <h3 className="text-zinc-100 font-bold mb-4 uppercase tracking-wider text-xs">Priorização & Pesos da Fila</h3>
                   <label className="flex items-center space-x-3 text-[#B0B0B0] mb-3">
                     <input type="checkbox" checked={!!roomSettings.priority_subs} onChange={e => setRoomSettings({...roomSettings, priority_subs: e.target.checked})} className="rounded bg-[#222222] border-[#404040] text-[#FF6B35] focus:ring-[#FF6B35] w-4 h-4" />
                     <span>Priorizar Subscribers (Subs)</span>
@@ -390,7 +392,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                   </label>
 
                   <div className="h-px bg-[#262626] my-4"></div>
-                  <h4 className="text-white font-bold mb-3 uppercase text-[10px] tracking-wider text-[#606060]">Pesos de Score Adicionais</h4>
+                  <h4 className="text-zinc-100 font-bold mb-3 uppercase text-[10px] tracking-wider text-[#606060]">Pesos de Score Adicionais</h4>
                   
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
@@ -399,7 +401,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" 
                         value={roomSettings.weight_vip ?? 15} 
                         onChange={e => setRoomSettings({...roomSettings, weight_vip: parseInt(e.target.value) || 0})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-1.5 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-1.5 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                     <div>
@@ -408,7 +410,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" 
                         value={roomSettings.weight_mod ?? 50} 
                         onChange={e => setRoomSettings({...roomSettings, weight_mod: parseInt(e.target.value) || 0})}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-1.5 text-white focus:border-[#FF6B35] outline-none"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-1.5 text-zinc-100 focus:border-[#FF6B35] outline-none"
                       />
                     </div>
                   </div>
@@ -420,7 +422,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" 
                         value={roomSettings.weight_tier_1 ?? 10} 
                         onChange={e => setRoomSettings({...roomSettings, weight_tier_1: parseInt(e.target.value) || 0})}
-                        className="w-full bg-[#1A1A1A] border border-[#323232] rounded px-2 py-1.5 text-white focus:border-[#FF6B35] outline-none text-center"
+                        className="w-full bg-[#1A1A1A] border border-[#323232] rounded px-2 py-1.5 text-zinc-100 focus:border-[#FF6B35] outline-none text-center"
                       />
                     </div>
                     <div>
@@ -429,7 +431,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" 
                         value={roomSettings.weight_tier_2 ?? 20} 
                         onChange={e => setRoomSettings({...roomSettings, weight_tier_2: parseInt(e.target.value) || 0})}
-                        className="w-full bg-[#1A1A1A] border border-[#323232] rounded px-2 py-1.5 text-white focus:border-[#FF6B35] outline-none text-center"
+                        className="w-full bg-[#1A1A1A] border border-[#323232] rounded px-2 py-1.5 text-zinc-100 focus:border-[#FF6B35] outline-none text-center"
                       />
                     </div>
                     <div>
@@ -438,21 +440,21 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         type="number" 
                         value={roomSettings.weight_tier_3 ?? 30} 
                         onChange={e => setRoomSettings({...roomSettings, weight_tier_3: parseInt(e.target.value) || 0})}
-                        className="w-full bg-[#1A1A1A] border border-[#323232] rounded px-2 py-1.5 text-white focus:border-[#FF6B35] outline-none text-center"
+                        className="w-full bg-[#1A1A1A] border border-[#323232] rounded px-2 py-1.5 text-zinc-100 focus:border-[#FF6B35] outline-none text-center"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-[#121212] p-4 rounded border border-[#2A2A2A]">
-                  <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Filtro de Domínios</h3>
+                  <h3 className="text-zinc-100 font-bold mb-4 uppercase tracking-wider text-xs">Filtro de Domínios</h3>
                   
                   <div className="mb-4">
                     <label className="block text-[#B0B0B0] mb-2 text-xs">Modo de Domínio</label>
                     <select 
                       value={roomSettings.domain_mode || "both"} 
                       onChange={e => setRoomSettings({...roomSettings, domain_mode: e.target.value})} 
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white outline-none font-mono text-xs cursor-pointer"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 outline-none font-mono text-xs cursor-pointer"
                     >
                       <option value="both">Híbrido (Whitelist + Blacklist)</option>
                       <option value="whitelist_only">Estrito (Apenas Whitelist)</option>
@@ -467,7 +469,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                       value={(roomSettings.domain_whitelist || ["youtube.com", "youtu.be", "instagram.com", "tiktok.com"]).join(", ")} 
                       onChange={e => setRoomSettings({...roomSettings, domain_whitelist: e.target.value.split(",").map((s) => s.trim()).filter(Boolean)})} 
                       placeholder="youtube.com, tiktok.com" 
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white outline-none font-mono text-xs" 
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 outline-none font-mono text-xs" 
                     />
                     <span className="text-[10px] text-[#606060] mt-1 block">Separe por vírgulas.</span>
                   </div>
@@ -479,7 +481,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                       value={(roomSettings.domain_blacklist || []).join(", ")} 
                       onChange={e => setRoomSettings({...roomSettings, domain_blacklist: e.target.value.split(",").map((s) => s.trim()).filter(Boolean)})} 
                       placeholder="bit.ly, dominio321.com" 
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-white outline-none font-mono text-xs" 
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-zinc-100 outline-none font-mono text-xs" 
                     />
                   </div>
                 </div>

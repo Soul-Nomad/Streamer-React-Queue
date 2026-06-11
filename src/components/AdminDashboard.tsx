@@ -27,7 +27,7 @@ const renderUserAvatarAdmin = (user: any, sizeClass = "w-8 h-8") => {
   const initials = name.trim().substring(0, 2).toUpperCase();
   return (
     <div
-      className={`${sizeClass} rounded-sm flex items-center justify-center font-bold text-[10px] text-white shrink-0 border border-[#404040]`}
+      className={`${sizeClass} rounded-sm flex items-center justify-center font-bold text-[10px] text-zinc-100 shrink-0 border border-[#404040]`}
       style={{ backgroundColor: color }}
     >
       {initials}
@@ -43,21 +43,21 @@ const renderTwitchBadgesAdmin = (user: any) => {
       {badges.map((b: string) => {
         if (b === 'broadcaster') {
           return (
-            <span key={b} className="bg-[#FF3B30] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse" title="Broadcaster (Streamer)">
+            <span key={b} className="bg-[#FF3B30] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse" title="Broadcaster (Streamer)">
               👑 STR
             </span>
           );
         }
         if (b === 'moderator') {
           return (
-            <span key={b} className="bg-[#4CAF50] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30" title="Moderador">
+            <span key={b} className="bg-[#4CAF50] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30" title="Moderador">
               🛡️ MOD
             </span>
           );
         }
         if (b === 'vip') {
           return (
-            <span key={b} className="bg-[#E25CFF] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30" title="VIP">
+            <span key={b} className="bg-[#E25CFF] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30" title="VIP">
               💎 VIP
             </span>
           );
@@ -145,7 +145,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-3">
+          <h1 className="text-2xl font-black text-zinc-100 flex items-center gap-3">
             <ShieldCheck className="w-8 h-8 text-[#FF6B35]" />
             PRO SYSTEM TERMINAL
           </h1>
@@ -157,19 +157,19 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
         <div className="flex bg-[#1A1A1A] p-1 rounded border border-[#222222]">
           <button 
             onClick={() => setActiveView('overview')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'overview' ? 'bg-[#FF6B35] text-white' : 'text-[#B0B0B0] hover:text-white')}
+            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'overview' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
           >
             Visão Geral
           </button>
           <button 
             onClick={() => setActiveView('users')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'users' ? 'bg-[#FF6B35] text-white' : 'text-[#B0B0B0] hover:text-white')}
+            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'users' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
           >
             Usuários & Perfis
           </button>
           <button 
             onClick={() => setActiveView('history')}
-            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'history' ? 'bg-[#FF6B35] text-white' : 'text-[#B0B0B0] hover:text-white')}
+            className={clsx("px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-mono", activeView === 'history' ? 'bg-[#FF6B35] text-zinc-100' : 'text-[#B0B0B0] hover:text-zinc-100')}
           >
             Histórico Global
           </button>
@@ -181,32 +181,32 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
                 <Users className="w-5 h-5 text-[#FF8C42] mb-3" />
-                <h3 className="text-3xl font-black text-white">{allUsers.length}</h3>
+                <h3 className="text-3xl font-black text-zinc-100">{allUsers.length}</h3>
                 <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Perfis Registrados</p>
               </div>
               
               <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
                 <ShieldAlert className="w-5 h-5 text-[#F44336] mb-3" />
-                <h3 className="text-3xl font-black text-white">{bans.filter(b => b.active).length}</h3>
+                <h3 className="text-3xl font-black text-zinc-100">{bans.filter(b => b.active).length}</h3>
                 <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Banimentos Ativos</p>
               </div>
 
               <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
                 <CheckCircle className="w-5 h-5 text-[#4CAF50] mb-3" />
-                <h3 className="text-3xl font-black text-white">{history.filter(h => h.status === 'approved').length}</h3>
+                <h3 className="text-3xl font-black text-zinc-100">{history.filter(h => h.status === 'approved').length}</h3>
                 <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Vídeos Aprovados</p>
               </div>
               
               <div className="bg-[#1A1A1A] border border-[#222222] rounded p-5 relative overflow-hidden text-left">
                 <XOctagon className="w-5 h-5 text-[#F44336] mb-3" />
-                <h3 className="text-3xl font-black text-white">{history.filter(h => h.status === 'rejected').length}</h3>
+                <h3 className="text-3xl font-black text-zinc-100">{history.filter(h => h.status === 'rejected').length}</h3>
                 <p className="text-xs text-[#B0B0B0] uppercase tracking-wider font-mono mt-1">Vídeos Rejeitados</p>
               </div>
            </div>
            
            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
              <div className="lg:col-span-2 bg-[#1A1A1A] border border-[#222222] rounded p-6 text-left flex flex-col h-[450px]">
-               <h3 className="text-white font-black text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
+               <h3 className="text-zinc-100 font-black text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
                  <AlertTriangle className="w-5 h-5 text-[#FF8C42]" />
                  Alertas de Inteligência Sensível & Fraude
                </h3>
@@ -247,7 +247,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
              </div>
              
              <div className="bg-[#1A1A1A] border border-[#222222] rounded p-6 text-left flex flex-col h-[450px]">
-               <h3 className="text-white font-black text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
+               <h3 className="text-zinc-100 font-black text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
                  <ShieldOff className="w-5 h-5 text-[#F44336]" />
                  Histórico de Banimentos Ativos
                </h3>
@@ -268,7 +268,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-center mb-1 gap-2">
                               <span className="text-xs font-bold font-mono truncate" style={{ color: color }}>{displayName}</span>
-                              <button onClick={() => handleUnban(b.userId)} className="text-[10px] bg-[#222222] hover:bg-[#333333] border border-[#404040] px-2 py-1 rounded cursor-pointer transition-colors text-[#4CAF50] font-bold font-mono shrink-0">Desbanir</button>
+                              <button onClick={() => handleLiftRestrictions(b.userId)} className="text-[10px] bg-[#222222] hover:bg-[#333333] border border-[#404040] px-2 py-1 rounded cursor-pointer transition-colors text-[#4CAF50] font-bold font-mono shrink-0">Perdoar</button>
                             </div>
                             <span className="text-[9px] bg-[#F44336]/20 text-[#F44336] px-1.5 py-0.5 rounded uppercase font-mono font-bold tracking-widest leading-none border border-[#F44336]/10">{b.banType}</span>
                             <p className="text-[11px] text-[#B0B0B0] mt-1.5 line-clamp-2 font-mono">{b.reason}</p>
@@ -292,7 +292,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Pesquisar por nome de usuário ou ID do perfil..."
-                className="w-full bg-[#1A1A1A] border border-[#222222] rounded pl-12 pr-4 py-3 text-sm text-white placeholder-[#505050] focus:outline-none focus:border-[#FF6B35]"
+                className="w-full bg-[#1A1A1A] border border-[#222222] rounded pl-12 pr-4 py-3 text-sm text-zinc-100 placeholder-[#505050] focus:outline-none focus:border-[#FF6B35]"
               />
            </div>
            
@@ -372,7 +372,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                             </div>
                             
                             <div className="flex bg-[#222222] rounded p-0.5 border border-[#404040]">
-                              <button onClick={() => handlePunish(user.userId, 'temporary')} className="px-2 py-1 hover:bg-[#333333] rounded text-[10px] text-white cursor-pointer transition-colors font-bold font-mono" title="Timeout">TIMEOUT</button>
+                              <button onClick={() => handlePunish(user.userId, 'temporary')} className="px-2 py-1 hover:bg-[#333333] rounded text-[10px] text-zinc-100 cursor-pointer transition-colors font-bold font-mono" title="Timeout">TIMEOUT</button>
                               <button onClick={() => handlePunish(user.userId, 'permanent')} className="px-2 py-1 hover:bg-[#F44336]/20 rounded text-[10px] text-[#F44336] cursor-pointer transition-colors font-bold font-mono" title="Ban Permanente">BANIR</button>
                               <button onClick={() => handlePunish(user.userId, 'shadow')} className="px-2 py-1 hover:bg-[#FF8C42]/20 rounded text-[10px] text-[#FF8C42] cursor-pointer transition-colors font-bold font-mono" title="Shadow Ban">SHADOW</button>
                               <button onClick={() => handleLiftRestrictions(user.userId)} className="px-2 py-1 hover:bg-[#4CAF50]/15 rounded text-[10px] text-[#4CAF50] cursor-pointer transition-colors border-l border-[#404040] ml-1 pl-3 font-bold font-mono" title="Remover Restrições">PERDOAR</button>
@@ -398,13 +398,13 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                   value={historySearchQuery}
                   onChange={e => setHistorySearchQuery(e.target.value)}
                   placeholder="Pesquisar por usuário, palavra-chave, plataforma, ou link..."
-                  className="w-full bg-[#1A1A1A] border border-[#222222] rounded pl-12 pr-4 py-3 text-sm text-white placeholder-[#505050] focus:outline-none focus:border-[#FF6B35] font-mono"
+                  className="w-full bg-[#1A1A1A] border border-[#222222] rounded pl-12 pr-4 py-3 text-sm text-zinc-100 placeholder-[#505050] focus:outline-none focus:border-[#FF6B35] font-mono"
                 />
               </div>
               <select 
                  value={historyFilterStatus}
                  onChange={e => setHistoryFilterStatus(e.target.value)}
-                 className="bg-[#1A1A1A] border border-[#222222] rounded px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF6B35] cursor-pointer font-mono"
+                 className="bg-[#1A1A1A] border border-[#222222] rounded px-4 py-3 text-sm text-zinc-100 focus:outline-none focus:border-[#FF6B35] cursor-pointer font-mono"
               >
                  <option value="all">Status: Todos</option>
                  <option value="approved">Status: Aprovados</option>
@@ -439,12 +439,12 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                            return (
                              <div className="flex items-center gap-2">
                                {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-6 h-6") : (
-                                 <div className="w-6 h-6 rounded bg-[#222222] flex items-center justify-center text-[10px] font-bold border border-[#444] text-white">
+                                 <div className="w-6 h-6 rounded bg-[#222222] flex items-center justify-center text-[10px] font-bold border border-[#444] text-zinc-100">
                                    ?
                                  </div>
                                )}
                                <div className="min-w-0">
-                                 <span className="font-bold text-sm text-white truncate block" style={{ color: color }}>
+                                 <span className="font-bold text-sm text-zinc-100 truncate block" style={{ color: color }}>
                                    {displayName}
                                  </span>
                                  {twitch?.login && (
@@ -456,7 +456,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                          })()}
                       </td>
                      <td className="p-4 max-w-sm">
-                        <p className="text-xs text-white truncate font-medium">{log.url}</p>
+                        <p className="text-xs text-zinc-100 truncate font-medium">{log.url}</p>
                         <span className="text-[9px] text-[#505050] font-mono">{log.platform}</span>
                      </td>
                      <td className="p-4">

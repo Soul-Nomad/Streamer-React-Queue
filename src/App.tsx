@@ -108,6 +108,9 @@ export default function App() {
        localStorage.removeItem('active_role');
        localStorage.removeItem('active_session_payload');
        showToast("A sessão do host foi finalizada.", 'info');
+       setTimeout(() => {
+         window.location.href = '/';
+       }, 500);
     });
 
     socket.on('kick', (data: { userId: string, reason: string }) => {

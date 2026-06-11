@@ -147,8 +147,8 @@ setTimeout(() => {
           if (!isHost) {
             if (state.blacklistUsernames?.includes(username.toLowerCase())) continue;
             const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
-            const maxVideos = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
-            if (userActive >= maxVideos) continue;
+            const maxVideos = state.settings?.maxVideosPerUser ?? state.settings?.max_videos_per_user ?? 2;
+            if (maxVideos > 0 && userActive >= maxVideos) continue;
           }
 
           const newVideo = {
@@ -1370,14 +1370,14 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
 
     if (!isStreamerOrHost) {
       // 1. Queue Limits and Max active videos per user check
-      const maxVideosPerUser = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
+      const maxVideosPerUser = state.settings?.maxVideosPerUser ?? state.settings?.max_videos_per_user ?? 2;
       const userActiveVideos = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
-      if (userActiveVideos >= maxVideosPerUser) {
+      if (maxVideosPerUser > 0 && userActiveVideos >= maxVideosPerUser) {
         return res.status(403).json({ error: `Você atingiu o limite de ${maxVideosPerUser} vídeos ativos na fila simultaneamente.` });
       }
 
-      const maxQueueSize = state.settings?.maxQueueSize || state.settings?.max_queue_size || 50;
-      if ((state.queue || []).length >= maxQueueSize) {
+      const maxQueueSize = state.settings?.maxQueueSize ?? state.settings?.max_queue_size ?? 50;
+      if (maxQueueSize > 0 && (state.queue || []).length >= maxQueueSize) {
         return res.status(403).json({ error: `A fila está cheia com o limite de ${maxQueueSize} vídeos.` });
       }
 
