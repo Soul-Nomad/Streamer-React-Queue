@@ -84,8 +84,129 @@ function getPersistentUserId(ip: string): string {
     return 'usr_' + crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
 }
 
+import tmi from 'tmi.js';
+
+let botClient: tmi.Client | null = null;
+const activeChannels = new Set<string>();
+
+export function connectBotToChannel(channelName: string) {
+  if (!botClient || !channelName) return;
+  const login = channelName.toLowerCase();
+  if (!activeChannels.has(login)) {
+     activeChannels.add(login);
+     botClient.join(login).catch(() => {});
+  }
+}
+
+// Bot Init inside server
+setTimeout(() => {
+  botClient = new tmi.Client({
+    options: { debug: false },
+    connection: { reconnect: true, secure: true }
+  });
+  
+  botClient.connect().catch(() => {});
+  
+  botClient.on('message', async (channel, tags, message, self) => {
+    if (self) return;
+    if (!message.includes('http://') && !message.includes('https://')) return;
+    const urls = message.match(/https?:\/\/[^\s]+/g);
+    if (!urls || urls.length === 0) return;
+
+    const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
+    
+    try {
+        const supabaseAdmin = getSupabaseAdmin();
+        const { data: rooms } = await supabaseAdmin.from('rooms').select('id, room_settings(settings_json)').eq('twitch_channel_id', login).eq('is_active', true);
+        if (!rooms || rooms.length === 0) return;
+        
+        const roomId = rooms[0].id;
+        const settingsRaw = Array.isArray(rooms[0].room_settings) ? (rooms[0].room_settings[0] as any)?.settings_json : (rooms[0].room_settings as any)?.settings_json;
+        const state: any = settingsRaw || {};
+        if (!state.settings) return;
+
+        for (const url of urls) {
+          const result = sanitizeAndValidateUrl(url, state.settings);
+          if (!result.valid || !result.normalizedUrl) continue;
+          const platform = result.platform || 'other';
+          const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
+          if (!verifyState.valid) continue;
+
+          const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
+          const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
+          if (isDuplicate) continue;
+
+          const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
+          const username = tags['username'] || 'TwitchUser';
+          const displayName = tags['display-name'] || username;
+
+          const rawBadges = tags.badges || {};
+          const actualBadges = Object.keys(rawBadges);
+
+          const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
+          if (!isHost) {
+            if (state.blacklistUsernames?.includes(username.toLowerCase())) continue;
+            const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
+            const maxVideos = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
+            if (userActive >= maxVideos) continue;
+          }
+
+          const newVideo = {
+            id: `vid_${canonicalId}_${Date.now()}`,
+            submitter: displayName,
+            submitterId: userId,
+            url: result.normalizedUrl,
+            platform,
+            title: verifyState.title || 'Vídeo do Chat',
+            status: state.settings?.isManualApprovalRequired ? 'pending' : 'approved',
+            timestamp: Date.now()
+          };
+
+          const updatedQueue = [...(state.queue || []), newVideo];
+          const updatedState = { ...state, queue: updatedQueue };
+
+          await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+
+          if (ablyRest) {
+            const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+            await ablyChannel.publish('session_state', updatedState);
+          }
+          break;
+        }
+    } catch(err) {}
+  });
+}, 2000);
+
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+const sessionWatchedCache = new Map<string, any[]>();
+
+export function updateWatchedCache(roomId: string, watchedVideos: any[]) {
+    let cache = sessionWatchedCache.get(roomId) || [];
+    const newItems = watchedVideos.map(v => ({
+       id: v.id,
+       url: v.url,
+       usuario: v.submitter,
+       timestamp_envio: v.timestamp,
+       timestamp_reproducao: v.watchedAt || Date.now(),
+       status: 'watched',
+       badges: []
+    }));
+    const unique = [...cache, ...newItems].reduce((acc: any[], current) => {
+      const x = acc.find(item => item.id === current.id);
+      if (!x) return acc.concat([current]);
+      return acc;
+    }, []);
+    sessionWatchedCache.set(roomId, unique);
+}
+
+// Admin / Host route to get fast session memory cache
+app.get('/api/sessions/:id/watched_cache', (req, res) => {
+   const roomId = req.params.id;
+   const cache = sessionWatchedCache.get(roomId) || [];
+   res.json({ success: true, cache });
+});
 
 // Auto-cleanup DB interval (every 10 mins)
 setInterval(async () => {
@@ -95,14 +216,33 @@ setInterval(async () => {
     if (!settings) return;
 
     for (const room of settings) {
+      // General video table cleanup
       const retentionHours = room.settings_json?.videoRetentionHours ?? room.settings_json?.video_retention_hours ?? 48;
-      if (retentionHours <= 0 || retentionHours > 48) continue;
-      const cutoffTime = new Date(Date.now() - retentionHours * 60 * 60 * 1000).toISOString();
-      
-      await supabaseAdmin.from('videos')
-        .delete()
-        .eq('room_id', room.room_id)
-        .lt('inserted_at', cutoffTime);
+      if (retentionHours > 0 && retentionHours <= 48) {
+        const cutoffTime = new Date(Date.now() - retentionHours * 60 * 60 * 1000).toISOString();
+        await supabaseAdmin.from('videos').delete().eq('room_id', room.room_id).lt('inserted_at', cutoffTime);
+      }
+
+      // 2h Watched Retention Policy
+      if (room.settings_json) {
+        const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+        let modified = false;
+        
+        let newQueue = room.settings_json.queue || [];
+        let newHistory = room.settings_json.history || [];
+
+        const initialQ = newQueue.length;
+        const initialH = newHistory.length;
+
+        newQueue = newQueue.filter((v: any) => !(v.status === 'watched' && v.watchedAt && v.watchedAt < twoHoursAgo));
+        newHistory = newHistory.filter((v: any) => !(v.status === 'watched' && v.watchedAt && v.watchedAt < twoHoursAgo));
+
+        if (newQueue.length !== initialQ || newHistory.length !== initialH) {
+           await supabaseAdmin.from('room_settings').update({
+             settings_json: { ...room.settings_json, queue: newQueue, history: newHistory }
+           }).eq('room_id', room.room_id);
+        }
+      }
     }
   } catch (err) {
     console.error('[Cleanup Interval Error]:', err);
@@ -178,7 +318,7 @@ function sanitizeInput(text: string): string {
 }
 
 // Normalize, parse, check unicode exploits, and blacklist restrictions of incoming URLs
-function sanitizeAndValidateUrl(rawUrl: string, settings: any): SecurityCheckResult {
+export function sanitizeAndValidateUrl(rawUrl: string, settings: any): SecurityCheckResult {
   try {
     let cleanUrl = rawUrl.trim();
     
@@ -300,7 +440,7 @@ async function checkDnsHost(urlStr: string): Promise<boolean> {
 }
 
 // Live URL check using oembed or low-timeout HEAD queries to catch 404, 410, etc.
-async function verifyVideoContent(
+export async function verifyVideoContent(
   url: string, 
   platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other',
   blockLive: boolean
@@ -353,7 +493,7 @@ async function verifyVideoContent(
 }
 
 // Canonical identification to prevent double entries (youtu.be vs youtube.com, etc)
-function extractCanonicalVideoId(url: string, platform: string): string {
+export function extractCanonicalVideoId(url: string, platform: string): string {
   try {
     const decoded = decodeURIComponent(url);
     if (platform === 'youtube') {
@@ -1009,6 +1149,11 @@ app.post(['/sessions', '/api/sessions'], async (req, res) => {
       return res.status(400).json({ error: 'Missing roomId or hostId in body' });
     }
     const initialSession = await createSession(roomId, hostId, twitchData);
+    
+    if (twitchData && twitchData.login) {
+      connectBotToChannel(twitchData.login);
+    }
+    
     res.json({ success: true, session: initialSession });
   } catch (err: any) {
     console.error('[Sessions POST Error]', err.message);
@@ -1036,6 +1181,7 @@ app.delete(['/sessions/:id', '/api/sessions/:id'], async (req, res) => {
   try {
     const roomId = req.params.id;
     await endSession(roomId);
+    sessionWatchedCache.delete(roomId); // Limpar cache completo da memória
     res.json({ success: true, message: 'Session terminated' });
   } catch (err: any) {
     console.error('[Sessions DELETE Error]', err.message);
@@ -1143,14 +1289,18 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
        }
     } catch(err) { }
 
+    const oldUser = (state.users || []).find((u: any) => u.userId === userId) || {};
+
     const newUser = {
       id: userId,
       userId,
       name: sanitizeInput(name || 'Viewer').substring(0, 20),
       isHost: state.hostId === userId,
-      isWhitelisted: false,
-      strikes: 0,
-      isBanned: false,
+      isWhitelisted: oldUser.isWhitelisted || false,
+      strikes: oldUser.strikes || 0,
+      isBanned: oldUser.isBanned || state.blacklistUsernames?.includes(username.toLowerCase()) || false,
+      timeoutUntil: oldUser.timeoutUntil || undefined,
+      lastSubmittedAt: oldUser.lastSubmittedAt || undefined,
       twitchData: finalTwitchData
     };
     cleanUsers.push(newUser);
@@ -1574,8 +1724,11 @@ app.post(['/sessions/:id/play_video', '/api/sessions/:id/play_video'], async (re
 
     // Mark as played/watched in the universal queue
     const updatedQueue = (state.queue || []).map((v: any) => 
-      v.id === videoId ? { ...v, status: 'watched' } : v
+      v.id === videoId ? { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() } : v
     );
+
+    const historyVideos = updatedQueue.filter((v: any) => v.status === 'watched');
+    updateWatchedCache(roomId, historyVideos);
 
     const updatedState = {
       ...state,
@@ -1583,7 +1736,7 @@ app.post(['/sessions/:id/play_video', '/api/sessions/:id/play_video'], async (re
       currentVideoId: videoId,
       isPlaying: true,
       currentTime: 0,
-      history: updatedQueue.filter((v: any) => v.status === 'watched')
+      history: historyVideos
     };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -1618,7 +1771,7 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
     // Mark current video as 'watched' in the queue (if it isn't already)
     const updatedQueue = queue.map((v: any) => {
       if (v.id === currentVideoId) {
-        return { ...v, status: 'watched' };
+        return { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() };
       }
       return v;
     });
@@ -1640,10 +1793,13 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
     // Now, let's also update the video status of the new current video in updatedQueue to 'watched' as well
     const finalQueue = updatedQueue.map((v: any) => {
       if (v.id === currentVideoId) {
-        return { ...v, status: 'watched' };
+        return { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() };
       }
       return v;
     });
+
+    const historyVideos = finalQueue.filter((v: any) => v.status === 'watched');
+    updateWatchedCache(roomId, historyVideos);
 
     const updatedState = {
       ...state,
@@ -1651,7 +1807,7 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
       currentVideoId,
       isPlaying,
       currentTime: 0,
-      history: finalQueue.filter((v: any) => v.status === 'watched')
+      history: historyVideos
     };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -1937,14 +2093,45 @@ app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
+    let shouldBan = false;
+    let targetUsername = 'unknown';
+
     const updatedUsers = (state.users || []).map((u: any) => {
       if (u.userId === targetUserId) {
-        return { ...u, strikes: (u.strikes || 0) + 1 };
+        targetUsername = u?.twitchData?.login || u?.name || 'unknown';
+        const newStrikes = (u.strikes || 0) + 1;
+        const maxStrikes = state.settings?.maxStrikesBeforeBan || 5;
+        if (newStrikes >= maxStrikes) {
+           shouldBan = true;
+           return { ...u, strikes: newStrikes, isBanned: true };
+        }
+        return { ...u, strikes: newStrikes };
       }
       return u;
     });
 
-    const updatedState = { ...state, users: updatedUsers };
+    let updatedState = { ...state, users: updatedUsers };
+
+    if (shouldBan) {
+       const blacklistUsernames = [...(state.blacklistUsernames || [])];
+       if (!blacklistUsernames.includes(targetUsername.toLowerCase())) {
+          blacklistUsernames.push(targetUsername.toLowerCase());
+       }
+       const newBan = {
+          id: 'ban_' + Date.now(),
+          userId: targetUserId,
+          username: targetUsername,
+          ip: '',
+          banType: 'permanent',
+          reason: 'Atingiu o limite máximo de strikes.',
+          moderator: 'System',
+          createdAt: Date.now(),
+          active: true,
+          history: [{ timestamp: Date.now(), action: 'ban', reason: 'Atingiu limite de strikes', moderator: 'System' }]
+       };
+       const allBans = [...(state.allBans || []), newBan];
+       updatedState = { ...updatedState, blacklistUsernames, allBans };
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
@@ -1955,6 +2142,9 @@ app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
       await channel.publish('session_state', updatedState);
+      if (shouldBan) {
+         await channel.publish('kick', { userId: targetUserId, reason: 'Atingiu o limite máximo de strikes.' });
+      }
     }
 
     res.json({ success: true, session: updatedState });
@@ -2060,8 +2250,14 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
     const allBans = [...(state.allBans || [])];
     allBans.push(newBan);
 
-    const filteredUsers = (state.users || []).filter((u: any) => u.userId !== targetUserId);
-    const updatedState = { ...state, users: filteredUsers, blacklistUsernames, allBans };
+    const updatedUsers = (state.users || []).map((u: any) => {
+      if (u.userId === targetUserId) {
+        return { ...u, isBanned: true };
+      }
+      return u;
+    });
+
+    const updatedState = { ...state, users: updatedUsers, blacklistUsernames, allBans };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
