@@ -135,7 +135,9 @@ const WHITELIST_DOMAINS = [
   'youtu.be',
   'youtube-nocookie.com',
   'instagram.com',
-  'tiktok.com'
+  'tiktok.com',
+  'twitter.com',
+  'x.com'
 ];
 
 // Content blocklisting preseeds (suspicious / maliciosos / +18 / unknown encurtadores)
@@ -149,7 +151,7 @@ interface SecurityCheckResult {
   valid: boolean;
   error?: string;
   normalizedUrl?: string;
-  platform?: 'youtube' | 'instagram' | 'tiktok' | 'other';
+  platform?: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other';
 }
 
 // XSS/HTML Input sanitizer
@@ -218,7 +220,7 @@ function sanitizeAndValidateUrl(rawUrl: string, settings: any): SecurityCheckRes
 
     // 6. Whitelist matching
     let matchedWhitelist = false;
-    let platform: 'youtube' | 'instagram' | 'tiktok' | 'other' = 'other';
+    let platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other' = 'other';
 
     if (domainMode === 'both' || domainMode === 'whitelist_only') {
       for (const whitelistDomain of whiteDomains) {
@@ -230,6 +232,8 @@ function sanitizeAndValidateUrl(rawUrl: string, settings: any): SecurityCheckRes
             platform = 'instagram';
           } else if (hostname.includes('tiktok')) {
             platform = 'tiktok';
+          } else if (hostname.includes('twitter') || hostname === 'x.com' || hostname.endsWith('.x.com')) {
+            platform = 'twitter';
           }
           break;
         }
@@ -242,6 +246,8 @@ function sanitizeAndValidateUrl(rawUrl: string, settings: any): SecurityCheckRes
         platform = 'instagram';
       } else if (hostname.includes('tiktok')) {
         platform = 'tiktok';
+      } else if (hostname.includes('twitter') || hostname === 'x.com' || hostname.endsWith('.x.com')) {
+        platform = 'twitter';
       }
     }
 
@@ -285,7 +291,7 @@ async function checkDnsHost(urlStr: string): Promise<boolean> {
 // Live URL check using oembed or low-timeout HEAD queries to catch 404, 410, etc.
 async function verifyVideoContent(
   url: string, 
-  platform: 'youtube' | 'instagram' | 'tiktok' | 'other',
+  platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other',
   blockLive: boolean
 ): Promise<{ valid: boolean, error?: string, title?: string }> {
   try {
@@ -317,6 +323,8 @@ async function verifyVideoContent(
       if (res.status === 200) {
         return { valid: true, title: 'Instagram Reel' };
       }
+    } else if (platform === 'twitter') {
+      return { valid: true, title: 'Vídeo do X/Twitter' };
     } else if (platform === 'other') {
       const res = await axios.head(url, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
       if (res.status >= 200 && res.status < 400) {
@@ -346,9 +354,72 @@ function extractCanonicalVideoId(url: string, platform: string): string {
     } else if (platform === 'tiktok') {
       const match = decoded.match(/\/video\/(\d+)/) || decoded.match(/v\/(\d+)/);
       return match ? match[1] : decoded;
+    } else if (platform === 'twitter') {
+      const match = decoded.match(/(?:twitter\.com|x\.com)\/(?:#!\/)?(?:\w+)\/status(?:es)?\/(\d+)/);
+      return match ? match[1] : decoded;
     }
   } catch (e) {}
   return url;
+}
+
+// Helper functions to dynamically obtain client_id and check follower/sub states in real-time
+async function getTwitchClientId(token: string): Promise<string> {
+  try {
+     const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: {
+           'Authorization': `OAuth ${token}`
+         },
+         timeout: 4000
+     });
+     if (valRes.data && valRes.data.client_id) {
+        return valRes.data.client_id;
+     }
+  } catch (e: any) {
+     console.error('[Twitch Validation] Error validating token in helper:', e.message);
+  }
+  return 'gp762nuuoqcoxypju8c569th9wz7q5'; // standard app client ID fallback
+}
+
+async function checkTwitchFollower(broadcasterId: string, userId: string, token: string): Promise<{ isFollower: boolean; followedAt?: string }> {
+  try {
+    const clientId = await getTwitchClientId(token);
+    const url = `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+    const res = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000
+    });
+    const d = res.data?.data;
+    if (d && d.length > 0) {
+      return { isFollower: true, followedAt: d[0].followed_at };
+    }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix Follower Check] API lookup failed:`, err.response?.data || err.message);
+  }
+  return { isFollower: false };
+}
+
+async function checkTwitchSubscriber(broadcasterId: string, userId: string, token: string): Promise<boolean> {
+  try {
+    const clientId = await getTwitchClientId(token);
+    const url = `https://api.twitch.tv/helix/subscriptions?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+    const res = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000
+    });
+    const d = res.data?.data;
+    if (d && d.length > 0) {
+      return true;
+    }
+  } catch (err: any) {
+    console.warn(`[Twitch Helix Subscriber Check] API lookup failed or unauthorized:`, err.response?.data || err.message);
+  }
+  return false;
 }
 
 // Resolve shortened URLs on the server to bypass CORS and find actual video IDs
@@ -579,7 +650,15 @@ app.get('/api/x-stream', async (req, res) => {
     return;
   }
 
-  console.log(`[X/Twitter Resolver] Attempting to resolve: ${videoUrl}`);
+  let cleanUrl = videoUrl.trim();
+  // Normalize /i/status/ or /status/ format to /tw/status/ with a placeholder screen name so scrapers parse it correctly
+  if (cleanUrl.includes('/i/status/')) {
+    cleanUrl = cleanUrl.replace('/i/status/', '/tw/status/');
+  } else if (cleanUrl.match(/https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/status\/(\d+)/i)) {
+    cleanUrl = cleanUrl.replace(/\/status\/(\d+)/i, '/tw/status/$1');
+  }
+
+  console.log(`[X/Twitter Resolver] Attempting to resolve original: ${videoUrl} -> normalized: ${cleanUrl}`);
 
   const cobaltServers = [
     'https://co.wuk.sh/api/json',
@@ -592,7 +671,7 @@ app.get('/api/x-stream', async (req, res) => {
       const response = await axios.post(
         apiEndpoint,
         {
-          url: videoUrl,
+          url: cleanUrl,
           vQuality: '720',
           aFormat: 'mp4',
           isAudioOnly: false
@@ -907,6 +986,117 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
       return res.status(403).json({ error: `Você está em timeout. Aguarde mais ${remaining} segundos.` });
     }
 
+    // CHECK CORE RULES: Follow, Sub, Cooldowns, Queue Limits, Hourly limits
+    const isStreamerOrHost = userId === state.hostId || !!userRecord?.isHost || !!userRecord?.twitchData?.isBroadcaster;
+
+    if (!isStreamerOrHost) {
+      // 1. Queue Limits and Max active videos per user check
+      const maxVideosPerUser = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
+      const userActiveVideos = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
+      if (userActiveVideos >= maxVideosPerUser) {
+        return res.status(403).json({ error: `Você atingiu o limite de ${maxVideosPerUser} vídeos ativos na fila simultaneamente.` });
+      }
+
+      const maxQueueSize = state.settings?.maxQueueSize || state.settings?.max_queue_size || 50;
+      if ((state.queue || []).length >= maxQueueSize) {
+        return res.status(403).json({ error: `A fila está cheia com o limite de ${maxQueueSize} vídeos.` });
+      }
+
+      // 2. Hourly Rate Limit Check (based on queue + history timestamps)
+      if (state.settings?.maxSubmissionsPerHour > 0) {
+        const oneHourAgo = Date.now() - 3600000;
+        const hourlySubmissions = [...(state.queue || []), ...(state.history || [])]
+          .filter((v: any) => v.submitterId === userId && v.timestamp && v.timestamp > oneHourAgo).length;
+        if (hourlySubmissions >= state.settings.maxSubmissionsPerHour) {
+          return res.status(429).json({ error: `Você atingiu o limite de ${state.settings.maxSubmissionsPerHour} envios por hora.` });
+        }
+      }
+
+      // 3. User Cooldown Checks
+      if (state.settings?.userCooldownSeconds > 0 && userRecord?.lastSubmittedAt) {
+        const elapsed = (Date.now() - userRecord.lastSubmittedAt) / 1000;
+        if (elapsed < state.settings.userCooldownSeconds) {
+          const remaining = Math.ceil(state.settings.userCooldownSeconds - elapsed);
+          return res.status(429).json({ error: `Você está em cooldown individual. Aguarde mais ${remaining} segundos.` });
+        }
+      }
+
+      // 4. Global Cooldown Checks
+      if (state.settings?.globalCooldownSeconds > 0) {
+        let lastGlobalTime = state.lastGlobalSubmissionAt || 0;
+        (state.queue || []).forEach((v: any) => {
+          if (v.timestamp && v.timestamp > lastGlobalTime) {
+            lastGlobalTime = v.timestamp;
+          }
+        });
+        const elapsed = (Date.now() - lastGlobalTime) / 1000;
+        if (elapsed < state.settings.globalCooldownSeconds) {
+          const remaining = Math.ceil(state.settings.globalCooldownSeconds - elapsed);
+          return res.status(429).json({ error: `O envio global está em cooldown. Aguarde mais ${remaining} segundos.` });
+        }
+      }
+
+      // 5. Dynamic twitch Follow and Subscription validation using real API metrics with local backup metadata
+      const hostUser = state.users?.find((u: any) => u.isHost || u.userId === state.hostId);
+      const broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || state.hostId;
+      const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+      const targetTwitchUserId = userRecord?.twitchData?.twitchUserId;
+
+      let meetsFollower = true;
+      let meetsSub = true;
+      let followTimeStr = userRecord?.twitchData?.followedAt;
+
+      if (broadcasterToken && broadcasterId && targetTwitchUserId && targetTwitchUserId !== broadcasterId) {
+        // Direct API Follower Verification
+        if (state.settings?.requireFollower || (state.settings?.minFollowMinutes && state.settings.minFollowMinutes > 0)) {
+          const followCheck = await checkTwitchFollower(broadcasterId, targetTwitchUserId, broadcasterToken);
+          meetsFollower = followCheck.isFollower;
+          followTimeStr = followCheck.followedAt || followTimeStr;
+        }
+
+        // Direct API Subscriber Verification
+        if (state.settings?.requireSub) {
+          meetsSub = await checkTwitchSubscriber(broadcasterId, targetTwitchUserId, broadcasterToken);
+        }
+      } else {
+        // Fallback: Check user record twitch data directly
+        meetsFollower = !!userRecord?.twitchData?.isFollower;
+        meetsSub = !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
+      }
+
+      // Combine direct API and user meta backup for extra safety
+      const finalIsFollower = meetsFollower || !!userRecord?.twitchData?.isFollower;
+      const finalIsSubscriber = meetsSub || !!userRecord?.twitchData?.isSubscriber || !!userRecord?.twitchData?.badges?.includes('subscriber');
+      const finalFollowedAt = followTimeStr || userRecord?.twitchData?.followedAt;
+
+      // Rule: Subscriber only mode
+      if (state.settings?.requireSub && !finalIsSubscriber) {
+        return res.status(403).json({ error: 'Apenas inscritos (subscribers) na Twitch podem enviar vídeos nesta sala.' });
+      }
+
+      // Rule: Follower only mode
+      if (state.settings?.requireFollower && !finalIsFollower) {
+        return res.status(403).json({ error: 'Apenas seguidores na Twitch podem enviar vídeos nesta sala.' });
+      }
+
+      // Rule: Minimum follower minutes mode
+      if (state.settings?.minFollowMinutes > 0) {
+        if (!finalIsFollower) {
+          return res.status(403).json({ error: 'Apenas seguidores na Twitch podem enviar vídeos nesta sala.' });
+        }
+        if (finalFollowedAt) {
+          const followDate = new Date(finalFollowedAt).getTime();
+          const minsDiff = (Date.now() - followDate) / (1000 * 60);
+          if (minsDiff < state.settings.minFollowMinutes) {
+            const remaining = Math.ceil(state.settings.minFollowMinutes - minsDiff);
+            return res.status(403).json({ 
+              error: `Você precisa seguir o canal há pelo menos ${state.settings.minFollowMinutes} minutos. Você segue há ${Math.floor(minsDiff)} minutos (faltam ${remaining} min).` 
+            });
+          }
+        }
+      }
+    }
+
     const vCheck = sanitizeAndValidateUrl(url, state.settings);
     if (!vCheck.valid) {
       return res.status(400).json({ error: vCheck.error || 'Link recusado.' });
@@ -948,7 +1138,20 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     const updatedQueue = [...(state.queue || [])];
     updatedQueue.push(newVideo);
 
-    const updatedState = { ...state, queue: updatedQueue };
+    // Save individual Cooldown and global Cooldown timestamp trigger
+    const updatedUsers = (state.users || []).map((u: any) => {
+      if (u.userId === userId) {
+        return { ...u, lastSubmittedAt: Date.now() };
+      }
+      return u;
+    });
+
+    const updatedState = { 
+      ...state, 
+      queue: updatedQueue, 
+      users: updatedUsers,
+      lastGlobalSubmissionAt: Date.now() 
+    };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
@@ -1216,7 +1419,15 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
       .from('room_settings')
-      .update({ settings_json: updatedState })
+      .update({ 
+        settings_json: updatedState,
+        require_sub: data.requireSub ?? state.settings?.requireSub ?? false,
+        require_follower: data.requireFollower ?? state.settings?.requireFollower ?? false,
+        cooldown_seconds: data.userCooldownSeconds ?? state.settings?.userCooldownSeconds ?? 60,
+        max_videos_per_user: data.maxVideosPerUser ?? state.settings?.maxVideosPerUser ?? 2,
+        max_queue_size: data.maxQueueSize ?? state.settings?.maxQueueSize ?? 50,
+        min_follow_days: data.minFollowMinutes ? Math.ceil(data.minFollowMinutes / 1440) : (state.settings?.minFollowMinutes ? Math.ceil(state.settings.minFollowMinutes / 1440) : 0)
+      })
       .eq('room_id', roomId);
 
     if (ablyRest) {
