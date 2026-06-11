@@ -140,6 +140,10 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
       return matchSearch && matchBadge && matchPlatform;
     })
     .sort((a: Video, b: Video) => {
+      // Prioritize playing video to stay at the top
+      if (a.status === 'playing' && b.status !== 'playing') return -1;
+      if (b.status === 'playing' && a.status !== 'playing') return 1;
+
       // For unwatched/pending list, order chronologically by timestamp ASC
       if (tab === 'pending') {
         return a.timestamp - b.timestamp;

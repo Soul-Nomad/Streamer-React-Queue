@@ -1180,29 +1180,49 @@ export default function HostView({ session }: { session: SessionState }) {
                       
                       <div className="flex flex-col items-center mb-6">
                         <div className="p-3 bg-orange-500/10 border border-orange-500/20 mb-4 rounded">
-                          <Cast className="w-8 h-8 text-orange-400" />
+                          <Cast className="w-8 h-8 text-orange-400 animate-pulse" />
                         </div>
-                        <h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-100 font-mono">Sala em Standby</h2>
-                        <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-sans">Compartilhe o link e aguarde os espectadores enviarem novos vídeos.</p>
+                        <h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-100 font-mono">Aguardando Mídias</h2>
+                        <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-sans px-2">
+                          Sua sala está ativa e pronta para receber conteúdos. Siga as instruções abaixo para começar.
+                        </p>
                       </div>
 
-                      <div className="space-y-3.5 mb-6 text-left border-y border-zinc-800/80 py-4 font-sans text-xs">
-                        <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono">Próximos Passos:</h3>
+                      <div className="space-y-4 mb-6 text-left border-y border-zinc-800/80 py-5 font-sans text-xs">
+                        <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono px-1">Guia de Início Rápido:</h3>
                         
                         <div className="flex gap-3">
-                          <span className="w-5 h-5 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">1</span>
+                          <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">1</span>
                           <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300">Compartilhar Convite</h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique no botão "Convite" no cabeçalho e cole para o seu chat.</p>
+                            <h4 className="font-bold text-zinc-300">Convite aos Espectadores</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique em <strong className="text-zinc-400">"CONVITE"</strong> lá no topo para copiar o link e envie para o chat da sua live.</p>
                           </div>
                         </div>
 
                         <div className="flex gap-3">
-                          <span className="w-5 h-5 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">2</span>
+                          <span className="w-6 h-6 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">2</span>
                           <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300 font-sans">Aprovar Mídias</h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">As submissões do chat aparecem na coluna da esquerda para aprovação.</p>
+                            <h4 className="font-bold text-zinc-300 font-sans">Gestão da Fila</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">As mídias enviadas aparecerão na <strong className="text-zinc-400">coluna à esquerda</strong>. Você pode aprovar, recusar ou pular vídeos.</p>
                           </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-6 h-6 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">3</span>
+                          <div className="leading-tight">
+                            <h4 className="font-bold text-zinc-300 font-sans">Configurações</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Acesse a aba <strong className="text-zinc-400">"CONFIGURAÇÕES"</strong> para definir limites de cooldown, domínios permitidos e regras de seguidores.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Requested Badge */}
+                      <div className="flex items-center justify-center pt-2">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-sm">
+                          <MessageSquare className="w-3 h-3 text-orange-500" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-mono">
+                            BOT PARA LINK DIRETO NO CHAT EM BREVE
+                          </span>
                         </div>
                       </div>
                     </div>
