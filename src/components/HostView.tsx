@@ -398,6 +398,7 @@ export default function HostView({ session }: { session: SessionState }) {
         }
 
         if (targetRoomId) {
+          localStorage.setItem('active_room_id', targetRoomId);
           let { data: settingsData } = await supabase
             .from('room_settings')
             .select('*')

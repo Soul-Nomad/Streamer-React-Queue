@@ -122,6 +122,7 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     settings: defaultSettings,
     blacklistIPs: [],
     blacklistUsernames: [],
+    allBans: [],
     auditLogs: []
   };
 
@@ -158,7 +159,11 @@ export async function getSession(roomId: string) {
     return null;
   }
 
-  return data.settings_json;
+  const session = data.settings_json || {};
+  if (!session.allBans) session.allBans = [];
+  if (!session.blacklistUsernames) session.blacklistUsernames = [];
+  
+  return session;
 }
 
 /**

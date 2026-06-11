@@ -109,6 +109,22 @@ export default function App() {
        localStorage.removeItem('active_session_payload');
        showToast("A sessão do host foi finalizada.", 'info');
     });
+
+    socket.on('kick', (data: { userId: string, reason: string }) => {
+       const currentUserId = socket.getUserId();
+       if (data.userId === currentUserId || data.userId === socket.id) {
+          setSession(null);
+          setIsHost(false);
+          localStorage.removeItem('active_room_id');
+          localStorage.removeItem('active_role');
+          localStorage.removeItem('active_session_payload');
+          showToast(`Você foi desconectado da sala: ${data.reason}`, 'error');
+          // Force a small delay then redirect to home to refresh state
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+       }
+    });
     
     return () => {
        socket.off('connect', handleConnect);
@@ -116,6 +132,7 @@ export default function App() {
        socket.off('session_state');
        socket.off('session_ended');
        socket.off('session_created');
+       socket.off('kick');
        socket.off('error');
        socket.off('timeout');
        socket.off('warn');

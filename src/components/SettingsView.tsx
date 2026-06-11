@@ -35,6 +35,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
       }
 
       if (targetRoomId) {
+        localStorage.setItem('active_room_id', targetRoomId);
         let { data: settingsData, error: settingsError } = await supabase
           .from('room_settings')
           .select('*')

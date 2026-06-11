@@ -28,8 +28,13 @@ class AblySocketAdapter {
   public connected = false;
   public id = '';
 
+  private currentRoomId: string | null = null;
+
   constructor() {
     // Resolve or spawn lifetime user ID
+    if (typeof window !== 'undefined') {
+      this.currentRoomId = localStorage.getItem('active_room_id') || localStorage.getItem('active_supabase_room_id');
+    }
     let currentId = typeof window !== 'undefined' ? localStorage.getItem('active_client_id') : null;
     if (!currentId || currentId.startsWith('usr_')) {
       if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
@@ -90,7 +95,25 @@ class AblySocketAdapter {
    */
   public async emit(event: string, ...args: any[]) {
     console.log(`[Socket Adapter Emit] Event: ${event}`, args);
-    const roomId = typeof window !== 'undefined' ? (localStorage.getItem('active_room_id') || args[0]?.roomId) : args[0]?.roomId;
+
+    // Resolve Room ID with higher persistence awareness
+    const getTargetRoomId = (): string | null => {
+      if (typeof window === 'undefined') return args[0]?.roomId || this.currentRoomId;
+      
+      const fromStorage = localStorage.getItem('active_room_id') || localStorage.getItem('active_supabase_room_id');
+      if (fromStorage) {
+        this.currentRoomId = fromStorage;
+        return fromStorage;
+      }
+      
+      if (args[0] && typeof args[0] === 'object' && args[0].roomId) {
+        return args[0].roomId;
+      }
+
+      return this.currentRoomId;
+    };
+
+    const roomId = getTargetRoomId();
     
     // Auto-ack implementation for long polling feedback
     let ackTimeout = setTimeout(() => {
@@ -158,7 +181,7 @@ class AblySocketAdapter {
             this.trigger('error', data.error || 'Falha ao processar sessão.');
           }
         } else {
-          const errData = await res.json();
+          const errData = res.status === 401 ? { error: 'Login da Twitch obrigatório para participar.' } : await res.json();
           this.trigger('error', errData.error || 'Erro na requisição da sala.');
         }
       } catch (err: any) {
@@ -217,6 +240,14 @@ class AblySocketAdapter {
    * Invokes all callbacks hook to this transaction.
    */
   public trigger(event: string, data: any) {
+    // Sync Room ID if session state is received
+    if (event === 'session_state' && data && data.id) {
+       this.currentRoomId = data.id;
+       if (typeof window !== 'undefined') {
+         localStorage.setItem('active_room_id', data.id);
+       }
+    }
+
     if (this.listeners[event]) {
       this.listeners[event].forEach(cb => {
         try {
@@ -263,6 +294,10 @@ class AblySocketAdapter {
 
     this.channel.subscribe('error', (msg) => {
       this.trigger('error', msg.data);
+    });
+
+    this.channel.subscribe('kick', (msg) => {
+      this.trigger('kick', msg.data);
     });
 
     this.ably.connection.on('connected', () => {
