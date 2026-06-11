@@ -3,7 +3,6 @@ import { socket } from '../socket';
 import { SessionState } from '../types';
 import { Settings, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import DevelopmentOverlay from './DevelopmentOverlay';
 
 export default function SettingsView({ session }: { session: SessionState }) {
   const [roomSettings, setRoomSettings] = useState<any>(null);
@@ -36,7 +35,6 @@ export default function SettingsView({ session }: { session: SessionState }) {
       }
 
       if (targetRoomId) {
-        localStorage.setItem('active_room_id', targetRoomId);
         let { data: settingsData, error: settingsError } = await supabase
           .from('room_settings')
           .select('*')
@@ -138,8 +136,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12 relative">
-        <DevelopmentOverlay />
+    <div className="w-full h-full flex flex-col bg-[#121212] overflow-hidden text-[#B0B0B0] animate-in fade-in pt-4 pb-8 px-6 md:px-12">
         <div className="flex-1 flex flex-col min-h-0 text-left bg-[#1A1A1A] border border-[#222222] rounded p-6 overflow-y-auto w-full max-w-5xl mx-auto">
           <div className="mb-6 border-b border-[#222222] pb-4 flex justify-between items-center">
             <div>

@@ -1,6 +1,5 @@
 import { X } from 'lucide-react';
 import { motion } from 'motion/react';
-import DevelopmentOverlay from './DevelopmentOverlay';
 
 export default function PoliticaDePrivacidade({ onClose }: { onClose: () => void }) {
   return (
@@ -14,9 +13,8 @@ export default function PoliticaDePrivacidade({ onClose }: { onClose: () => void
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-3xl bg-[#111116] border border-[#2d2d3a] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] font-sans overflow-hidden"
+        className="relative w-full max-w-3xl bg-[#111116] border border-[#2d2d3a] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] font-sans"
       >
-        <DevelopmentOverlay />
         <div className="flex items-center justify-between p-6 border-b border-[#2d2d3a]">
           <h2 className="text-xl font-black text-white uppercase tracking-wider">Política de Privacidade</h2>
           <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer">

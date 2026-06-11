@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { socket, getBackendUrl } from "../socket";
-import clsx from "clsx";
 import {
   MonitorPlay,
   LogIn,
