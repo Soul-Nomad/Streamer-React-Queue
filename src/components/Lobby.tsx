@@ -134,6 +134,27 @@ export default function Lobby() {
     }
   }, []);
 
+  const handleLoginTwitch = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "twitch",
+      options: {
+        scopes:
+          "moderator:read:followers channel:read:subscriptions user:read:follows user:read:subscriptions moderation:read",
+        redirectTo: window.location.origin,
+      },
+    });
+  };
+
+  // Force login if an invite link was used and user is not authenticated
+  useEffect(() => {
+    if (!loadingUser && !supabaseUser) {
+      const pendingRoom = localStorage.getItem("pending_room_id");
+      if (pendingRoom) {
+        handleLoginTwitch();
+      }
+    }
+  }, [loadingUser, supabaseUser]);
+
   useEffect(() => {
     supabase.auth
       .getSession()
@@ -339,17 +360,6 @@ export default function Lobby() {
     } catch (e) {
       return [];
     }
-  };
-
-  const handleLoginTwitch = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "twitch",
-      options: {
-        scopes:
-          "moderator:read:followers channel:read:subscriptions user:read:follows user:read:subscriptions moderation:read",
-        redirectTo: window.location.origin,
-      },
-    });
   };
 
   const handleSignOut = async () => {
