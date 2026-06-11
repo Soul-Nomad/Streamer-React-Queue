@@ -277,7 +277,7 @@ function CustomInstagramPlayer({ url, getRatioClass, webcamStream, WebcamPreview
   );
 }
 
-function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview, platformName = 'Vídeo' }: CustPlayerProps & { platformName?: string }) {
+function CustomXPlayer({ url, getRatioClass, webcamStream, WebcamPreview }: CustPlayerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -289,7 +289,7 @@ function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview
     setError(null);
     setVideoUrl(null);
 
-    fetch(`${getBackendUrl()}/api/media-stream?url=${encodeURIComponent(url)}`)
+    fetch(`${getBackendUrl()}/api/x-stream?url=${encodeURIComponent(url)}`)
       .then((res) => {
         if (!res.ok) throw new Error('Erro ao obter fluxo de transmissão');
         return res.json();
@@ -304,7 +304,7 @@ function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview
         }
       })
       .catch((err) => {
-        console.error("Extractor player error:", err);
+        console.error("X.com resolver error:", err);
         if (active) {
           setError('Ocorreu um erro ao carregar o vídeo de forma direta.');
         }
@@ -325,8 +325,8 @@ function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview
       <div className={clsx("relative w-full bg-[#0A0A0A] rounded-sm overflow-hidden flex flex-col items-center justify-center border border-[#1f1f1f]/80 p-8 text-center", getRatioClass())}>
          <WebcamPreview />
          <Loader2 className="w-10 h-10 text-[#FF6B35] animate-spin mb-4" />
-         <span className="text-[#EFEFEF] font-bold text-sm tracking-wide font-sans">Processando Vídeo do {platformName}</span>
-         <span className="text-[#505050] text-xs mt-1 font-mono">Processando fluxo direto...</span>
+         <span className="text-[#EFEFEF] font-bold text-sm tracking-wide font-sans">Processando Vídeo do X/Twitter</span>
+         <span className="text-[#505050] text-xs mt-1 font-mono">Processando fluxo via Cobalt...</span>
       </div>
     );
   }
@@ -338,7 +338,7 @@ function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview
          <AlertCircle className="w-10 h-10 text-[#e0a670] mb-3" />
          <span className="text-[#EFEFEF] font-bold text-sm">Problema ao Extrair Vídeo</span>
          <p className="text-[#B0B0B0] text-xs mt-2 leading-relaxed">
-            Este conteúdo pode não conter vídeo, ser privado ou possui restrições de reprodução direta.
+            Este conteúdo pode não conter vídeo, ser privado ou possui restrições.
          </p>
          <a 
             href={url} 
@@ -347,7 +347,7 @@ function CustomExtractorPlayer({ url, getRatioClass, webcamStream, WebcamPreview
             className="mt-6 flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm bg-[#222222] border border-[#2d2d2d] hover:bg-[#2c2c2c] text-[#EFEFEF] font-bold text-xs transition-all text-center cursor-pointer"
          >
             <ExternalLink className="w-3.5 h-3.5" />
-            Visualizar no {platformName}
+            Visualizar no X/Twitter
          </a>
       </div>
     );
@@ -691,9 +691,6 @@ export default function HostView({ session }: { session: SessionState }) {
   const isX = (url: string) => url.includes('x.com') || url.includes('twitter.com');
   const getTweetId = (url: string) => url.match(/(?:twitter\.com|x\.com)\/(?:#!\/)?(?:\w+)\/status(?:es)?\/(\d+)/)?.[1];
   const isLinkedIn = (url: string) => url.includes('linkedin.com');
-  const isReddit = (url: string) => url.includes('reddit.com') || url.includes('redditmedia.com') || url.includes('v.redd.it') || url.includes('redd.it');
-  const isFacebook = (url: string) => url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.gg');
-  const isVimeo = (url: string) => url.includes('vimeo.com');
 
   const handleDirectSubmit = () => {
     if (!directUrl.trim().startsWith('http')) return;
@@ -1566,37 +1563,12 @@ export default function HostView({ session }: { session: SessionState }) {
                        WebcamPreview={WebcamPreview} 
                     />
                  ) : isX(resolvedUrl) ? (
-                    <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="X/Twitter"
-                     />
-                  ) : isReddit(resolvedUrl) ? (
-                     <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="Reddit"
-                     />
-                  ) : isFacebook(resolvedUrl) ? (
-                     <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="Facebook"
-                     />
-                  ) : isVimeo(resolvedUrl) ? (
-                     <CustomExtractorPlayer 
-                        url={resolvedUrl} 
-                        getRatioClass={getRatioClass} 
-                        webcamStream={webcamStream} 
-                        WebcamPreview={WebcamPreview} 
-                        platformName="Vimeo"
-                     />
+                    <CustomXPlayer 
+                       url={resolvedUrl} 
+                       getRatioClass={getRatioClass} 
+                       webcamStream={webcamStream} 
+                       WebcamPreview={WebcamPreview} 
+                    />
                 ) : isLinkedIn(resolvedUrl) ? (
                    <div className="relative w-full max-w-[540px] h-full max-h-[82vh] bg-[#151515] rounded-sm overflow-hidden border border-[#222222]/80 pointer-events-auto flex items-center justify-center p-4 shadow-2xl">
                       <WebcamPreview />

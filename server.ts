@@ -138,17 +138,7 @@ const WHITELIST_DOMAINS = [
   'instagram.com',
   'tiktok.com',
   'twitter.com',
-  'x.com',
-  'reddit.com',
-  'redditmedia.com',
-  'v.redd.it',
-  'redd.it',
-  'facebook.com',
-  'fb.watch',
-  'fb.gg',
-  'fbcdn.net',
-  'fbsbx.com',
-  'vimeo.com'
+  'x.com'
 ];
 
 // Content blocklisting preseeds (suspicious / maliciosos / +18 / unknown encurtadores)
@@ -695,8 +685,8 @@ app.get('/api/instagram-stream', async (req, res) => {
   }
 });
 
-// GET /api/media-stream - Universal media resolver (supports Twitter, Reddit, Facebook, Vimeo, and more)
-app.get('/api/media-stream', async (req, res) => {
+// GET /api/x-stream - Resolver vídeo do X (Twitter) usando youtube-dl-exec (com fallback Cobalt)
+app.get('/api/x-stream', async (req, res) => {
   const videoUrl = req.query.url as string;
   if (!videoUrl) {
     res.status(400).json({ error: 'URL is required' });
@@ -704,39 +694,18 @@ app.get('/api/media-stream', async (req, res) => {
   }
 
   const cleanUrl = videoUrl.trim();
-  console.log(`[Media Stream Resolver] Attempting to resolve: ${cleanUrl}`);
-
-  // Determine dynamic Referer to prevent 403 blocks from specific target CDNs
-  let refererHeader = 'https://www.google.com/';
-  try {
-    const targetParsed = new URL(cleanUrl);
-    if (targetParsed.hostname.includes('twitter.com') || targetParsed.hostname.includes('x.com')) {
-      refererHeader = 'https://x.com/';
-    } else if (targetParsed.hostname.includes('reddit.com') || targetParsed.hostname.includes('redditmedia.com') || targetParsed.hostname.includes('redd.it')) {
-      refererHeader = 'https://www.reddit.com/';
-    } else if (targetParsed.hostname.includes('facebook.com') || targetParsed.hostname.includes('fb.watch') || targetParsed.hostname.includes('fb.gg')) {
-      refererHeader = 'https://www.facebook.com/';
-    } else if (targetParsed.hostname.includes('instagram.com')) {
-      refererHeader = 'https://www.instagram.com/';
-    } else if (targetParsed.hostname.includes('tiktok.com')) {
-      refererHeader = 'https://www.tiktok.com/';
-    } else if (targetParsed.hostname.includes('vimeo.com')) {
-      refererHeader = 'https://vimeo.com/';
-    }
-  } catch (urlErr) {
-    console.warn(`[Media Stream Resolver] Referer URL building failed:`, urlErr);
-  }
+  console.log(`[X/Twitter Resolver] Attempting to resolve: ${cleanUrl}`);
 
   // 1. Try resolving using local youtube-dl-exec for robust direct extraction
   try {
-    console.log(`[Media Stream Resolver] Querying local youtube-dl-exec...`);
+    console.log(`[X/Twitter Resolver] Querying local youtube-dl-exec...`);
     const youtubedlResult = await youtubedl(cleanUrl, {
       dumpSingleJson: true,
       noCheckCertificates: true,
       noWarnings: true,
       preferFreeFormats: true,
       addHeader: [
-        `referer:${refererHeader}`,
+        'referer:twitter.com',
         'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       ]
     }) as any;
@@ -745,9 +714,10 @@ app.get('/api/media-stream', async (req, res) => {
       // Filter for progressive MP4 formats (direct HTTP/HTTPS protocol)
       const httpFormats = youtubedlResult.formats.filter((f: any) => 
         f.url && 
-        (f.ext === 'mp4' || f.container === 'mp4' || f.protocol === 'https' || f.protocol === 'http') && 
+        f.ext === 'mp4' && 
+        (f.protocol === 'https' || f.protocol === 'http') && 
         f.resolution !== 'audio only' &&
-        !f.format_id?.includes('audio')
+        !f.format_id.includes('audio')
       );
 
       if (httpFormats.length > 0) {
@@ -760,7 +730,7 @@ app.get('/api/media-stream', async (req, res) => {
 
         const bestFormat = httpFormats[httpFormats.length - 1];
         if (bestFormat && bestFormat.url) {
-          console.log(`[Media Stream Resolver] youtube-dl-exec succeeded! Extracted progressive MP4: [${bestFormat.resolution}] ${bestFormat.url}`);
+          console.log(`[X/Twitter Resolver] youtube-dl-exec succeeded! Extracted progressive MP4: [${bestFormat.resolution}] ${bestFormat.url}`);
           res.json({ videoUrl: bestFormat.url });
           return;
         }
@@ -769,17 +739,13 @@ app.get('/api/media-stream', async (req, res) => {
       // Secondary fallback inside ytdl: if no progressive mp4 found, try playing whatever format or url exists
       const fallbackUrl = youtubedlResult.url || youtubedlResult.formats.reverse().find((f: any) => f.url)?.url;
       if (fallbackUrl) {
-        console.log(`[Media Stream Resolver] youtube-dl-exec semi-success (non-progressive fallback): ${fallbackUrl}`);
+        console.log(`[X/Twitter Resolver] youtube-dl-exec semi-success (non-progressive fallback): ${fallbackUrl}`);
         res.json({ videoUrl: fallbackUrl });
         return;
       }
-    } else if (youtubedlResult && youtubedlResult.url) {
-      console.log(`[Media Stream Resolver] youtube-dl-exec succeeded with direct URL output: ${youtubedlResult.url}`);
-      res.json({ videoUrl: youtubedlResult.url });
-      return;
     }
   } catch (err: any) {
-    console.error(`[Media Stream Resolver] youtube-dl-exec failed:`, err.message);
+    console.error(`[X/Twitter Resolver] youtube-dl-exec failed:`, err.message);
   }
 
   // 2. Cobalt API backup fallback normalization and queries
@@ -799,7 +765,7 @@ app.get('/api/media-stream', async (req, res) => {
 
   for (const apiEndpoint of cobaltServers) {
     try {
-      console.log(`[Media Stream Resolver Fallback] Querying API: ${apiEndpoint}`);
+      console.log(`[X/Twitter Resolver Fallback] Querying API: ${apiEndpoint}`);
       const response = await axios.post(
         apiEndpoint,
         {
@@ -820,29 +786,16 @@ app.get('/api/media-stream', async (req, res) => {
       const d = response.data;
       if (d && (d.url || d.text)) {
         const resolvedUrl = d.url || d.text;
-        console.log(`[Media Stream Resolver Fallback] Success! Resolved direct URL: ${resolvedUrl}`);
+        console.log(`[X/Twitter Resolver Fallback] Success! Resolved direct URL: ${resolvedUrl}`);
         res.json({ videoUrl: resolvedUrl });
         return;
       }
     } catch (err: any) {
-      console.warn(`[Media Stream Resolver Fallback] Failed on ${apiEndpoint}:`, err.response?.data || err.message);
+      console.warn(`[X/Twitter Resolver Fallback] Failed on ${apiEndpoint}:`, err.response?.data || err.message);
     }
   }
 
-  // Double check if the url is a direct file extension we can play
-  if (cleanUrl.match(/\.(mp4|webm|m3u8|mp3|ogg|wav)$/i)) {
-    console.log(`[Media Stream Resolver Fallback] Clean URL has a direct extension. Playing natively: ${cleanUrl}`);
-    res.json({ videoUrl: cleanUrl });
-    return;
-  }
-
-  res.json({ error: 'Não foi possível extrair o vídeo direto da origem indicada.', videoUrl: cleanUrl });
-});
-
-// GET /api/x-stream - Re-direct alias to /api/media-stream for backwards compatibility
-app.get('/api/x-stream', async (req, res) => {
-  const videoUrl = req.query.url as string;
-  res.redirect(`/api/media-stream?url=${encodeURIComponent(videoUrl)}`);
+  res.json({ error: 'Não foi possível extrair o vídeo direto do X/Twitter.', videoUrl: cleanUrl });
 });
 
 // Proxy direct streaming media to bypass local browser CORS & security headers
@@ -853,33 +806,10 @@ app.get('/api/proxy-video', async (req, res) => {
     return;
   }
 
-  // Dynamically set Referer based on target domain to avoid CDN 403 blocks (e.g. twimg/twitter, facebook, etc.)
-  let refererVal = 'https://www.google.com/';
-  try {
-    const parsedRefUrl = new URL(mediaUrl);
-    if (parsedRefUrl.hostname.includes('twimg.com')) {
-      refererVal = 'https://x.com/';
-    } else if (parsedRefUrl.hostname.includes('instagram.com')) {
-      refererVal = 'https://www.instagram.com/';
-    } else if (parsedRefUrl.hostname.includes('tiktok.com') || parsedRefUrl.hostname.includes('ttwstatic')) {
-      refererVal = 'https://www.tiktok.com/';
-    } else if (parsedRefUrl.hostname.includes('fbcdn') || parsedRefUrl.hostname.includes('facebook') || parsedRefUrl.hostname.includes('fbpage')) {
-      refererVal = 'https://www.facebook.com/';
-    } else if (parsedRefUrl.hostname.includes('reddit') || parsedRefUrl.hostname.includes('redditmedia') || parsedRefUrl.hostname.includes('redd.it')) {
-      refererVal = 'https://www.reddit.com/';
-    } else if (parsedRefUrl.hostname.includes('vimeo')) {
-      refererVal = 'https://vimeo.com/';
-    } else {
-      refererVal = parsedRefUrl.origin + '/';
-    }
-  } catch (refErr) {
-    console.warn(`[Proxy-Video] Error parsing referer value:`, refErr);
-  }
-
   // Set up headers to forward and bypass CORS/restrictions
   const requestHeaders: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': refererVal
+    'Referer': 'https://www.instagram.com/'
   };
 
   // Support Byte-Range request forwarding (crucial for Chrome/Safari media buffering)
