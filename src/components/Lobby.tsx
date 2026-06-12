@@ -139,7 +139,7 @@ export default function Lobby() {
       provider: "twitch",
       options: {
         scopes:
-          "moderator:read:followers channel:read:subscriptions user:read:follows user:read:subscriptions moderation:read moderator:manage:banned_users",
+          "moderator:read:followers channel:read:subscriptions user:read:follows user:read:subscriptions moderation:read",
         redirectTo: window.location.origin,
       },
     });

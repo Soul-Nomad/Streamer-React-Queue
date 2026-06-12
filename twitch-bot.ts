@@ -387,8 +387,6 @@ export function initTwitchBot() {
           }
           break;
         }
-    } catch(err: any) {
-        console.error("[Twitch Bot] Unexpected error processing message:", err.message, err.stack);
-    }
+    } catch(err) {}
   });
 }
