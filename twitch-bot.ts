@@ -3,6 +3,154 @@ import { getSupabaseAdmin, getSession } from './src/lib/supabase.js';
 import { sanitizeAndValidateUrl, extractCanonicalVideoId, verifyVideoContent } from './server.js';
 import crypto from 'crypto';
 import { ablyRest } from './src/lib/ably.js';
+import axios from 'axios';
+
+// Register or update active user record in session state for Twitch chat submitter
+async function ensureTwitchChatUserRegistered(
+  state: any,
+  userId: string,
+  username: string,
+  displayName: string,
+  tags: any,
+  broadcasterId: string,
+  broadcasterToken: string | undefined
+) {
+  if (!state.users) {
+    state.users = [];
+  }
+
+  // Find if user already exists
+  let userIndex = state.users.findIndex((u: any) => u.userId === userId || u.name?.toLowerCase() === username.toLowerCase());
+  let existingUser = userIndex !== -1 ? state.users[userIndex] : null;
+
+  let avatarUrl = existingUser?.twitchData?.avatarUrl || '';
+  let login = existingUser?.twitchData?.login || username.toLowerCase();
+  let finalDisplayName = existingUser?.twitchData?.displayName || displayName;
+
+  // Retrieve user profiles via Helix if token is present and details are missing
+  if (broadcasterToken && (!avatarUrl || !login || !finalDisplayName)) {
+    try {
+      let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
+      const rootRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: { 'Authorization': `OAuth ${broadcasterToken}` },
+        timeout: 3000
+      }).catch(() => null);
+      if (rootRes && rootRes.data && rootRes.data.client_id) {
+        clientId = rootRes.data.client_id;
+      }
+
+      const userRes = await axios.get(`https://api.twitch.tv/helix/users?id=${userId}`, {
+        headers: {
+          'Client-Id': clientId,
+          'Authorization': `Bearer ${broadcasterToken}`
+        },
+        timeout: 4000
+      });
+      const d = userRes.data?.data?.[0];
+      if (d) {
+        avatarUrl = d.profile_image_url || avatarUrl;
+        login = d.login || login;
+        finalDisplayName = d.display_name || finalDisplayName;
+      }
+    } catch (e: any) {
+      console.warn(`[Twitch Bot Info Retrieve Failure] id=${userId}:`, e.message);
+    }
+  }
+
+  // Fallback avatar/defaults if still empty
+  if (!avatarUrl) {
+    avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
+  }
+
+  // Parse tags for basic subscriber/moderator indicators as backup
+  const rawBadges = tags && tags.badges ? Object.keys(tags.badges) : [];
+  let isSubscriber = rawBadges.includes('subscriber') || !!tags?.subscriber;
+  let isModerator = rawBadges.includes('moderator') || rawBadges.includes('broadcaster');
+  let isVip = rawBadges.includes('vip');
+  
+  let isFollower = existingUser?.twitchData?.isFollower || false;
+  let followedAt = existingUser?.twitchData?.followedAt || null;
+
+  // Query real-time metrics (follow and subscription) using Broadcaster's Authenticated token
+  if (broadcasterToken && broadcasterId && userId !== broadcasterId) {
+    try {
+      let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
+      const rootRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: { 'Authorization': `OAuth ${broadcasterToken}` },
+        timeout: 3000
+      }).catch(() => null);
+      if (rootRes && rootRes.data && rootRes.data.client_id) {
+        clientId = rootRes.data.client_id;
+      }
+
+      // 1. Follow confirmation
+      const followUrl = `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&user_id=${userId}&moderator_id=${broadcasterId}`;
+      const fRes = await axios.get(followUrl, {
+        headers: {
+          'Client-Id': clientId,
+          'Authorization': `Bearer ${broadcasterToken}`
+        },
+        timeout: 4000
+      }).catch(() => null);
+      if (fRes && fRes.data?.data && fRes.data.data.length > 0) {
+        isFollower = true;
+        followedAt = fRes.data.data[0].followed_at;
+      }
+
+      // 2. Subscription confirmation
+      const subUrl = `https://api.twitch.tv/helix/subscriptions?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+      const sRes = await axios.get(subUrl, {
+        headers: {
+          'Client-Id': clientId,
+          'Authorization': `Bearer ${broadcasterToken}`
+        },
+        timeout: 4000
+      }).catch(() => null);
+      if (sRes && sRes.data?.data && sRes.data.data.length > 0) {
+        isSubscriber = true;
+      }
+    } catch (e: any) {
+      console.warn(`[Twitch Bot Follower Sync Error] id=${userId}:`, e.message);
+    }
+  } else if (userId === broadcasterId) {
+    isFollower = true;
+    isSubscriber = true;
+  }
+
+  const twitchData = {
+    avatarUrl,
+    login: login.toLowerCase(),
+    displayName: finalDisplayName,
+    twitchUserId: userId,
+    isSubscriber,
+    isModerator,
+    isVip,
+    isBroadcaster: userId === broadcasterId,
+    isFollower,
+    followedAt,
+    color: tags?.color || '#9146FF',
+    badges: rawBadges
+  };
+
+  const formattedUser = {
+    id: userId,
+    userId,
+    name: finalDisplayName,
+    isHost: userId === broadcasterId,
+    isWhitelisted: existingUser?.isWhitelisted || false,
+    strikes: existingUser?.strikes || 0,
+    isBanned: existingUser?.isBanned || false,
+    timeoutUntil: existingUser?.timeoutUntil || undefined,
+    lastSubmittedAt: Date.now(),
+    twitchData
+  };
+
+  if (userIndex !== -1) {
+    state.users[userIndex] = formattedUser;
+  } else {
+    state.users.push(formattedUser);
+  }
+}
 
 let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
@@ -182,6 +330,29 @@ export function initTwitchBot() {
               sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido! Você só pode enviar até ${maxVideos} vídeo(s) na fila.`);
               continue;
             }
+          }
+
+          // Register or update active room participant record for this Twitch chat submitter
+          const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
+          let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || matchedRoom.twitch_channel_id;
+          const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+
+          if (broadcasterId && typeof broadcasterId === 'string' && broadcasterId.includes('-')) {
+             broadcasterId = matchedRoom.twitch_channel_id; // fallback
+          }
+
+          try {
+            await ensureTwitchChatUserRegistered(
+              state,
+              userId,
+              username,
+              displayName,
+              tags,
+              broadcasterId || '',
+              broadcasterToken
+            );
+          } catch (regErr: any) {
+            console.error(`[ensureTwitchChatUserRegistered Error]`, regErr.message);
           }
 
           const newVideo = {
