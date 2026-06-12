@@ -40,6 +40,7 @@ export interface User {
   firstAccess?: number;       // Date of first join
   lastAccess?: number;        // Date of last join
   adminNotes?: string[];      // Host-written internal warning/general notes
+  lastPresenceAt?: number;    // UTC timestamp of last live chat typing or presence event
 }
 
 export type VideoStatus = 'pending' | 'approved' | 'rejected' | 'playing' | 'watched' | 'ignored';

@@ -98,10 +98,10 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
   const followDate = currentUser.twitchData?.followedAt ? new Date(currentUser.twitchData.followedAt) : null;
   const isFollower = currentUser.twitchData?.isFollower || !!followDate;
 
-  const isOnlineOnTwitch = twitchChatters?.some((tc: any) => 
+  const isOnlineOnTwitch = (twitchChatters?.some((tc: any) => 
     tc.user_login?.toLowerCase() === currentUser.twitchData?.login?.toLowerCase() || 
     tc.user_name?.toLowerCase() === currentUser.name?.toLowerCase()
-  ) || false;
+  ) || (currentUser.lastPresenceAt && (Date.now() - currentUser.lastPresenceAt) < 5 * 60 * 1000)) || false;
 
   // Calculate follow duration description
   let followDurationDesc = 'Não segue o canal';
