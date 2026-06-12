@@ -695,13 +695,28 @@ setTimeout(() => {
     }
 
     // 2. Process link submissions if message contains URL
-    if (!message.includes('http://') && !message.includes('https://')) return;
+    const hasProtocol = message.includes('http://') || message.includes('https://');
+    const hasKnownDomain = /youtube\.com|youtu\.be|tiktok\.com|instagram\.com|x\.com|twitter\.com/i.test(message);
     
-    const rawUrls = message.match(/https?:\/\/[^\s]+/g);
-    if (!rawUrls || rawUrls.length === 0) return;
-    const urls = Array.from(new Set(rawUrls));
+    if (!hasProtocol && !hasKnownDomain) return;
+    
+    // Improved regex to capture URLs with or without http/https
+    const urlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[a-zA-Z0-9_\-]+|youtu\.be\/[a-zA-Z0-9_\-]+|youtube\.com\/shorts\/[a-zA-Z0-9_\-]+|instagram\.com\/(?:p|reel|reels|tv)\/[a-zA-Z0-9_\-]+|tiktok\.com\/@[\w.-]+\/video\/\d+|tiktok\.com\/v\/\d+|twitter\.com\/\w+\/status\/\d+|x\.com\/\w+\/status\/\d+|[a-zA-Z0-9_.+-]+\.[a-zA-Z0-9-.]+\/[^\s]*)/gi;
+    
+    let rawMatches = message.match(urlRegex) || [];
+    if (rawMatches.length === 0) {
+      // Fallback check if regex missed but we had https://
+      if (!hasProtocol) return;
+      const fallbackUrls = message.match(/https?:\/\/[^\s]+/g);
+      if (!fallbackUrls) return;
+      rawMatches = fallbackUrls;
+    }
+    
+    // Normalize and add https:// if missing
+    const urlsToProcess = rawMatches.map(u => u.startsWith('http') ? u : `https://${u}`);
+    const urls = Array.from(new Set(urlsToProcess));
 
-    console.log(`[Twitch Bot] Scraped video link message in channel #${login} from @${tags.username}: ${message}`);
+    console.log(`[Twitch Bot Msg] Scraped video link message in channel #${login} from @${tags.username}: ${message} -> Extracted: ${urls.join(', ')}`);
     
     try {
         const supabaseAdmin = getSupabaseAdmin();
@@ -711,7 +726,7 @@ setTimeout(() => {
           .eq('is_active', true);
           
         if (!rooms || rooms.length === 0) {
-          console.log(`[Twitch Bot] Discarded link; no active rooms are currently running in the database.`);
+          console.log(`[Twitch Bot Msg] Discarded link; no active rooms are currently running in the database.`);
           return;
         }
 
@@ -733,7 +748,7 @@ setTimeout(() => {
         });
 
         if (!matchedRoom) {
-          console.warn(`[Twitch Bot] No matching active room found in database for channel #${login}`);
+          console.warn(`[Twitch Bot Msg] No matching active room found in database for channel #${login}. I have ${rooms.length} active rooms.`);
           return;
         }
         
@@ -1251,14 +1266,23 @@ export async function verifyVideoContent(
         return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão bloqueadas nesta sala.' };
       }
       
-      const res = await axios.get(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
-      if (res.status === 200) {
-        // Double check live streams via keyword if check exists
-        if (blockLive && (res.data.title || '').toLowerCase().includes('live')) {
-          return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão desabilitadas nas configurações.' };
-        }
-        return { valid: true, title: res.data.title || 'Vídeo do YouTube' };
+      let title = 'Vídeo do YouTube';
+      let isLive = false;
+      try {
+         const res = await axios.get(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
+         if (res.status === 200) {
+           title = res.data.title || title;
+           isLive = (title).toLowerCase().includes('live');
+         }
+      } catch (oembedErr: any) {
+         console.warn(`[Content Check Warning] YouTube oEmbed failed for ${url}:`, oembedErr.message);
       }
+
+      if (blockLive && isLive) {
+         return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão desabilitadas nas configurações.' };
+      }
+      return { valid: true, title };
+      
     } else if (platform === 'tiktok') {
       const res = await axios.get(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
       if (res.status === 200) {
