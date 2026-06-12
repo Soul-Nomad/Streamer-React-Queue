@@ -90,51 +90,145 @@ let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
 
 export function connectBotToChannel(channelName: string) {
-  if (!botClient || !channelName) return;
+  if (!channelName) return;
   const login = channelName.toLowerCase();
   if (!activeChannels.has(login)) {
      activeChannels.add(login);
-     botClient.join(login).catch(() => {});
+     console.log(`[Twitch Bot] Adding channel #${login} to queue/monitored set (Bot Ready: ${!!botClient})`);
+     if (botClient) {
+       botClient.join(login).catch((err) => {
+         console.error(`[Twitch Bot] Error joining channel #${login}:`, err.message);
+       });
+     }
+  }
+}
+
+async function joinAllActiveRooms() {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: rooms, error } = await supabaseAdmin
+      .from('rooms')
+      .select('id, twitch_channel_id, room_settings(settings_json)')
+      .eq('is_active', true);
+      
+    if (error || !rooms) {
+      console.warn('[Twitch Bot] Auto-join lookup returned zero active rooms or error:', error);
+      return;
+    }
+    
+    console.log(`[Twitch Bot] Found ${rooms.length} active room(s) in public DB on startup. Auto-joining...`);
+    
+    for (const room of rooms) {
+      const settingsRaw = Array.isArray(room.room_settings) 
+        ? (room.room_settings[0] as any)?.settings_json 
+        : (room.room_settings as any)?.settings_json;
+      
+      const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
+        || room.twitch_channel_id?.toLowerCase();
+        
+      if (streamerLogin && !streamerLogin.includes('-') && streamerLogin.length > 2) {
+         console.log(`[Twitch Bot] Auto-joining active streamer room channel: #${streamerLogin}`);
+         connectBotToChannel(streamerLogin);
+      }
+    }
+  } catch (err: any) {
+    console.error('[Twitch Bot] Failed to auto-join active rooms on boot:', err.message);
   }
 }
 
 // Bot Init inside server
 setTimeout(() => {
+  console.log('[Twitch Bot] Initializing anonymous Twitch IRC bot client...');
   botClient = new tmi.Client({
     options: { debug: false },
     connection: { reconnect: true, secure: true }
   });
   
-  botClient.connect().catch(() => {});
+  botClient.connect().catch((connectErr) => {
+    console.error('[Twitch Bot] Connection error during initial connect:', connectErr.message);
+  });
+
+  botClient.on('connected', (address, port) => {
+    console.log(`[Twitch Bot] Successfully connected to Twitch IRC server: ${address}:${port}`);
+    
+    // Join any channels that requested to join before the bot finished connecting
+    for (const chan of activeChannels) {
+      console.log(`[Twitch Bot] Joining accumulated pre-connection channel #${chan}`);
+      botClient?.join(chan).catch(err => {
+        console.error(`[Twitch Bot] Failed to join channel #${chan}:`, err.message);
+      });
+    }
+    
+    // Periodically fetch active rooms from Supabase DB to heal from server restarts
+    joinAllActiveRooms();
+  });
   
   botClient.on('message', async (channel, tags, message, self) => {
     if (self) return;
     if (!message.includes('http://') && !message.includes('https://')) return;
+    
     const urls = message.match(/https?:\/\/[^\s]+/g);
     if (!urls || urls.length === 0) return;
 
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
+    console.log(`[Twitch Bot] Scraped video link message in channel #${login} from @${tags.username}: ${message}`);
     
     try {
         const supabaseAdmin = getSupabaseAdmin();
-        const { data: rooms } = await supabaseAdmin.from('rooms').select('id, room_settings(settings_json)').eq('twitch_channel_id', login).eq('is_active', true);
-        if (!rooms || rooms.length === 0) return;
+        const { data: rooms } = await supabaseAdmin
+          .from('rooms')
+          .select('id, twitch_channel_id, room_settings(settings_json)')
+          .eq('is_active', true);
+          
+        if (!rooms || rooms.length === 0) {
+          console.log(`[Twitch Bot] Discarded link; no active rooms are currently running in the database.`);
+          return;
+        }
+
+        // Search case-insensitively in memory comparing with stored metadata
+        const matchedRoom = rooms.find(r => {
+          const settingsRaw = Array.isArray(r.room_settings) 
+            ? (r.room_settings[0] as any)?.settings_json 
+            : (r.room_settings as any)?.settings_json;
+          
+          const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
+            || r.twitch_channel_id?.toLowerCase();
+            
+          return streamerLogin === login;
+        });
+
+        if (!matchedRoom) {
+          console.warn(`[Twitch Bot] No matching active room found in database for channel #${login}`);
+          return;
+        }
         
-        const roomId = rooms[0].id;
-        const settingsRaw = Array.isArray(rooms[0].room_settings) ? (rooms[0].room_settings[0] as any)?.settings_json : (rooms[0].room_settings as any)?.settings_json;
+        const roomId = matchedRoom.id;
+        const settingsRaw = Array.isArray(matchedRoom.room_settings) ? (matchedRoom.room_settings[0] as any)?.settings_json : (matchedRoom.room_settings as any)?.settings_json;
         const state: any = settingsRaw || {};
-        if (!state.settings) return;
+        if (!state.settings) {
+          console.warn(`[Twitch Bot] Room settings state for room ${roomId} was empty.`);
+          return;
+        }
 
         for (const url of urls) {
           const result = sanitizeAndValidateUrl(url, state.settings);
-          if (!result.valid || !result.normalizedUrl) continue;
+          if (!result.valid || !result.normalizedUrl) {
+            console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
+            continue;
+          }
           const platform = result.platform || 'other';
           const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
-          if (!verifyState.valid) continue;
+          if (!verifyState.valid) {
+            console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
+            continue;
+          }
 
           const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
           const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
-          if (isDuplicate) continue;
+          if (isDuplicate) {
+            console.warn(`[Twitch Bot] Link already present in queue as ${canonicalId}`);
+            continue;
+          }
 
           const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
           const username = tags['username'] || 'TwitchUser';
@@ -145,10 +239,16 @@ setTimeout(() => {
 
           const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
           if (!isHost) {
-            if (state.blacklistUsernames?.includes(username.toLowerCase())) continue;
+            if (state.blacklistUsernames?.includes(username.toLowerCase())) {
+              console.warn(`[Twitch Bot] User @${username} is blacklisted.`);
+              continue;
+            }
             const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
             const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
-            if (maxVideos > 0 && userActive >= maxVideos) continue;
+            if (maxVideos > 0 && userActive >= maxVideos) {
+              console.warn(`[Twitch Bot] User @${username} has reached the limit of ${maxVideos} videos.`);
+              continue;
+            }
           }
 
           const newVideo = {
@@ -166,6 +266,7 @@ setTimeout(() => {
           const updatedState = { ...state, queue: updatedQueue };
 
           await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+          console.log(`[Twitch Bot] Added new video "${newVideo.title}" (${platform}) to room ${roomId} submitted by Chat user @${displayName}`);
 
           if (ablyRest) {
             const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
@@ -173,7 +274,9 @@ setTimeout(() => {
           }
           break;
         }
-    } catch(err) {}
+    } catch(err: any) {
+      console.error('[Twitch Bot] Exception encountered while parsing message link:', err.message);
+    }
   });
 }, 2000);
 
