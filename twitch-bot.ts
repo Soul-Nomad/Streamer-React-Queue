@@ -48,11 +48,41 @@ async function joinAllActiveRooms() {
   }
 }
 
+// Helper to send messages safely back to Twitch chat (requires authenticated bot config)
+function sendBotMessage(channel: string, message: string) {
+  if (!botClient) return;
+  console.log(`[Twitch Bot Ref Chat Feedback] Sending to ${channel}: ${message}`);
+  const botUsername = process.env.TWITCH_BOT_USERNAME || '';
+  const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
+  if (!botUsername || !botOauthToken) {
+    console.log('[Twitch Bot Ref Chat Feedback] Skipping chat response because credentials are not configured (running in read-only anonymous mode).');
+    return;
+  }
+  botClient.say(channel, message).catch((err) => {
+    console.error(`[Twitch Bot Ref Chat Feedback] Failed to send message to Twitch chat channel ${channel}:`, err.message);
+  });
+}
+
 export function initTwitchBot() {
-  botClient = new tmi.Client({
+  const botUsername = process.env.TWITCH_BOT_USERNAME || '';
+  const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
+  
+  const clientOptions: any = {
     options: { debug: true, messagesLogLevel: "info" },
     connection: { reconnect: true, secure: true }
-  });
+  };
+  
+  if (botUsername && botOauthToken) {
+    console.log(`[Twitch Bot Ref] Initializing authenticated client for user: @${botUsername}`);
+    clientOptions.identity = {
+      username: botUsername.toLowerCase(),
+      password: botOauthToken.startsWith('oauth:') ? botOauthToken : `oauth:${botOauthToken}`
+    };
+  } else {
+    console.log('[Twitch Bot Ref] Initializing anonymous read-only Twitch client...');
+  }
+
+  botClient = new tmi.Client(clientOptions);
 
   botClient.connect().catch(console.error);
 
@@ -101,8 +131,16 @@ export function initTwitchBot() {
         if (!state.settings) return;
 
         for (const url of urls) {
+          const username = tags['username'] || 'TwitchUser';
+          const displayName = tags['display-name'] || username;
+
           const result = sanitizeAndValidateUrl(url, state.settings);
-          if (!result.valid || !result.normalizedUrl) continue;
+          if (!result.valid || !result.normalizedUrl) {
+            console.warn(`[Twitch Bot Ref] URL validation failed: ${url}. Reason: ${result.error}`);
+            const reason = result.error || 'Mala formatação ou plataforma não suportada';
+            sendBotMessage(channel, `@${displayName} ❌ Link inválido. Motivo: ${reason}`);
+            continue;
+          }
 
           const platform = result.platform || 'other';
           const verifyState = await verifyVideoContent(
@@ -111,25 +149,39 @@ export function initTwitchBot() {
             state.settings?.blockLiveStreams ?? true
           );
 
-          if (!verifyState.valid) continue;
+          if (!verifyState.valid) {
+            console.warn(`[Twitch Bot Ref] Video content verification failed. Reason: ${verifyState.error}`);
+            const reason = verifyState.error || 'Falha ao analisar o vídeo';
+            sendBotMessage(channel, `@${displayName} ❌ Falha no vídeo da ${platform.toUpperCase()}: ${reason}`);
+            continue;
+          }
 
           const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
           const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
-          if (isDuplicate) continue;
+          if (isDuplicate) {
+            console.warn(`[Twitch Bot Ref] Link already present in queue.`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila!`);
+            continue;
+          }
 
           const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
-          const username = tags['username'] || 'TwitchUser';
-          const displayName = tags['display-name'] || username;
 
           const rawBadges = tags.badges || {};
           const actualBadges = Object.keys(rawBadges);
 
           const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
           if (!isHost) {
-            if (state.blacklistUsernames?.includes(username.toLowerCase())) continue;
+            if (state.blacklistUsernames?.includes(username.toLowerCase())) {
+              console.warn(`[Twitch Bot Ref] User @${username} is blacklisted.`);
+              continue;
+            }
             const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
             const maxVideos = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
-            if (userActive >= maxVideos) continue;
+            if (userActive >= maxVideos) {
+              console.warn(`[Twitch Bot Ref] User @${username} has reached limits.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido! Você só pode enviar até ${maxVideos} vídeo(s) na fila.`);
+              continue;
+            }
           }
 
           const newVideo = {
@@ -155,11 +207,12 @@ export function initTwitchBot() {
             await ablyChannel.publish('session_state', updatedState);
           }
 
-          if (botClient && process.env.TWITCH_BOT_USERNAME) {
-             const position = updatedQueue.filter(v => v.status === 'approved').length;
-             const estLengthStr = position * 3;
-             const prefix = state.settings?.isManualApprovalRequired ? 'Seu vídeo foi para aprovação.' : `Seu vídeo foi adicionado à fila (Pos: #${position}, Tempo est: ~${estLengthStr}m).`;
-             botClient.say(channel, `@${displayName} ${prefix}`);
+          // Success chat notifications
+          if (newVideo.status === 'pending') {
+            sendBotMessage(channel, `✨ @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi enviado e está aguardando aprovação dos moderadores! 📝`);
+          } else {
+            const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
+            sendBotMessage(channel, `🎉 @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi adicionado com sucesso! (Fila Pos: #${approvedCount}) 🎬`);
           }
           break;
         }

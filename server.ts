@@ -136,13 +136,42 @@ async function joinAllActiveRooms() {
   }
 }
 
+// Helper to send messages safely back to Twitch chat (requires authenticated bot config)
+function sendBotMessage(channel: string, message: string) {
+  if (!botClient) return;
+  console.log(`[Twitch Bot Chat Feedback] Sending to ${channel}: ${message}`);
+  const botUsername = process.env.TWITCH_BOT_USERNAME || '';
+  const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
+  if (!botUsername || !botOauthToken) {
+    console.log('[Twitch Bot Chat Feedback] Skipping chat response because credentials are not configured (running in read-only anonymous mode).');
+    return;
+  }
+  botClient.say(channel, message).catch((err) => {
+    console.error(`[Twitch Bot Chat Feedback] Failed to send message to Twitch chat channel ${channel}:`, err.message);
+  });
+}
+
 // Bot Init inside server
 setTimeout(() => {
-  console.log('[Twitch Bot] Initializing anonymous Twitch IRC bot client...');
-  botClient = new tmi.Client({
+  const botUsername = process.env.TWITCH_BOT_USERNAME || '';
+  const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
+  
+  const clientOptions: any = {
     options: { debug: false },
     connection: { reconnect: true, secure: true }
-  });
+  };
+  
+  if (botUsername && botOauthToken) {
+    console.log(`[Twitch Bot] Initializing authenticated Twitch IRC bot client as @${botUsername}...`);
+    clientOptions.identity = {
+      username: botUsername.toLowerCase(),
+      password: botOauthToken.startsWith('oauth:') ? botOauthToken : `oauth:${botOauthToken}`
+    };
+  } else {
+    console.log('[Twitch Bot] Initializing anonymous read-only Twitch IRC bot client...');
+  }
+  
+  botClient = new tmi.Client(clientOptions);
   
   botClient.connect().catch((connectErr) => {
     console.error('[Twitch Bot] Connection error during initial connect:', connectErr.message);
@@ -211,15 +240,22 @@ setTimeout(() => {
         }
 
         for (const url of urls) {
+          const username = tags['username'] || 'TwitchUser';
+          const displayName = tags['display-name'] || username;
+
           const result = sanitizeAndValidateUrl(url, state.settings);
           if (!result.valid || !result.normalizedUrl) {
             console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
+            const reason = result.error || 'Mala formatação ou plataforma não suportada';
+            sendBotMessage(channel, `@${displayName} ❌ Link inválido. Motivo: ${reason}`);
             continue;
           }
           const platform = result.platform || 'other';
           const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
           if (!verifyState.valid) {
             console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
+            const reason = verifyState.error || 'Falha ao analisar o vídeo';
+            sendBotMessage(channel, `@${displayName} ❌ Falha no vídeo da ${platform.toUpperCase()}: ${reason}`);
             continue;
           }
 
@@ -227,12 +263,11 @@ setTimeout(() => {
           const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
           if (isDuplicate) {
             console.warn(`[Twitch Bot] Link already present in queue as ${canonicalId}`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila!`);
             continue;
           }
 
           const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
-          const username = tags['username'] || 'TwitchUser';
-          const displayName = tags['display-name'] || username;
 
           const rawBadges = tags.badges || {};
           const actualBadges = Object.keys(rawBadges);
@@ -241,12 +276,14 @@ setTimeout(() => {
           if (!isHost) {
             if (state.blacklistUsernames?.includes(username.toLowerCase())) {
               console.warn(`[Twitch Bot] User @${username} is blacklisted.`);
+              // We intentionally skip chat feedback for blacklisted accounts to prevent troll spamming.
               continue;
             }
             const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
             const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
             if (maxVideos > 0 && userActive >= maxVideos) {
               console.warn(`[Twitch Bot] User @${username} has reached the limit of ${maxVideos} videos.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido! Você só pode enviar até ${maxVideos} vídeo(s) na fila.`);
               continue;
             }
           }
@@ -271,6 +308,14 @@ setTimeout(() => {
           if (ablyRest) {
             const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
             await ablyChannel.publish('session_state', updatedState);
+          }
+
+          // Success chat notifications
+          if (newVideo.status === 'pending') {
+            sendBotMessage(channel, `✨ @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi enviado e está aguardando aprovação dos moderadores! 📝`);
+          } else {
+            const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
+            sendBotMessage(channel, `🎉 @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi adicionado com sucesso! (Fila Pos: #${approvedCount}) 🎬`);
           }
           break;
         }
