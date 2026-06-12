@@ -88,6 +88,7 @@ import tmi from 'tmi.js';
 
 let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
+const processedMessages = new Set<string>();
 
 export function connectBotToChannel(channelName: string) {
   if (!channelName) return;
@@ -149,6 +150,67 @@ function sendBotMessage(channel: string, message: string) {
   botClient.say(channel, message).catch((err) => {
     console.error(`[Twitch Bot Chat Feedback] Failed to send message to Twitch chat channel ${channel}:`, err.message);
   });
+}
+
+function checkUserActionStatus(state: any, userId: string, twitchLogin?: string, twitchUserId?: string, userIp?: string) {
+  const loginLower = twitchLogin?.toLowerCase().trim();
+  const tId = twitchUserId?.trim();
+
+  // 1. Check blacklistUsernames
+  if (loginLower && state.blacklistUsernames?.map((n: string) => n.toLowerCase()).includes(loginLower)) {
+    return { banned: true, reason: 'Seu nome de usuário está na lista de banimento.' };
+  }
+
+  // 2. Check blacklistIPs
+  if (userIp && state.blacklistIPs?.includes(userIp)) {
+    return { banned: true, reason: 'Seu endereço de IP está na lista de banimento.' };
+  }
+
+  // 3. Search in users array for any matching record that is set to isBanned
+  const matchedUsers = (state.users || []).filter((u: any) => {
+    const uLogin = u.twitchData?.login?.toLowerCase().trim();
+    const uTId = u.twitchData?.twitchUserId;
+    return (
+      u.userId === userId ||
+      (loginLower && uLogin === loginLower) ||
+      (tId && uTId === tId) ||
+      (tId && u.userId === tId)
+    );
+  });
+
+  if (matchedUsers.some((u: any) => u.isBanned)) {
+    return { banned: true, reason: 'Você está banido desta sala.' };
+  }
+
+  // 4. Search in allBans array
+  if (state.allBans && state.allBans.length > 0) {
+    const isBannedInHistory = state.allBans.some((b: any) => {
+      const bLogin = b.username?.toLowerCase().trim();
+      return (
+        b.userId === userId ||
+        (loginLower && bLogin === loginLower) ||
+        (tId && b.userId === tId) ||
+        (userIp && b.ip === userIp)
+      );
+    });
+    if (isBannedInHistory) {
+      return { banned: true, reason: 'Você está permanentemente banido desta sala.' };
+    }
+  }
+
+  // 5. Check timeouts on any matched records
+  let maxTimeoutUntil = 0;
+  for (const u of matchedUsers) {
+    if (u.timeoutUntil && u.timeoutUntil > maxTimeoutUntil) {
+      maxTimeoutUntil = u.timeoutUntil;
+    }
+  }
+
+  if (maxTimeoutUntil && Date.now() < maxTimeoutUntil) {
+    return { timedOut: true, timeoutUntil: maxTimeoutUntil, remainingSeconds: Math.ceil((maxTimeoutUntil - Date.now()) / 1000) };
+  }
+
+  return { banned: false, timedOut: false };
 }
 
 // Ensure Twitch chatter is registered under session active users
@@ -449,6 +511,17 @@ setTimeout(() => {
           : (matchedRoom.room_settings as any)?.settings_json || {};
 
         if (state) {
+          const wasBannedObj = (state.users || []).find((u: any) => 
+            u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()
+          );
+          const wasBannedInState = wasBannedObj?.isBanned;
+          const wasInBlacklist = state.blacklistUsernames?.map((n: string) => n.toLowerCase()).includes(username.toLowerCase());
+          
+          if (wasBannedInState && wasInBlacklist) {
+            console.log(`[Twitch IRC Event Sync] Skipped: Ban for @${username} is already persisted/active.`);
+            return;
+          }
+
           const blacklistUsernames = [...(state.blacklistUsernames || [])];
           if (!blacklistUsernames.includes(username.toLowerCase())) {
             blacklistUsernames.push(username.toLowerCase());
@@ -518,6 +591,14 @@ setTimeout(() => {
 
         if (state) {
           const timeoutUntil = Date.now() + (duration * 1000);
+          const targetUser = (state.users || []).find((u: any) => 
+            u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()
+          );
+          if (targetUser?.timeoutUntil && Math.abs(targetUser.timeoutUntil - timeoutUntil) < 10000) {
+            console.log(`[Twitch IRC Event Sync] Skipped: Timeout for @${username} is already persisted/active.`);
+            return;
+          }
+
           const updatedUsers = (state.users || []).map((u: any) => {
             if (u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()) {
               return { ...u, timeoutUntil };
@@ -542,6 +623,20 @@ setTimeout(() => {
 
   botClient.on('message', async (channel, tags, message, self) => {
     if (self) return;
+
+    // Prevent duplicate processing of the same Twitch message ID
+    const msgId = tags.id || tags['id'];
+    if (msgId) {
+      if (processedMessages.has(msgId)) {
+        console.log(`[Twitch Bot] Duplicate message ignored: ${msgId}`);
+        return;
+      }
+      processedMessages.add(msgId);
+      if (processedMessages.size > 2000) {
+        const oldest = processedMessages.values().next().value;
+        if (oldest) processedMessages.delete(oldest);
+      }
+    }
 
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
 
@@ -597,8 +692,9 @@ setTimeout(() => {
     // 2. Process link submissions if message contains URL
     if (!message.includes('http://') && !message.includes('https://')) return;
     
-    const urls = message.match(/https?:\/\/[^\s]+/g);
-    if (!urls || urls.length === 0) return;
+    const rawUrls = message.match(/https?:\/\/[^\s]+/g);
+    if (!rawUrls || rawUrls.length === 0) return;
+    const urls = Array.from(new Set(rawUrls));
 
     console.log(`[Twitch Bot] Scraped video link message in channel #${login} from @${tags.username}: ${message}`);
     
@@ -675,16 +771,17 @@ setTimeout(() => {
 
           // 1. BAN AND TIMEOUT ENFORCEMENT
           if (!isHost) {
-            if (state.blacklistUsernames?.includes(username.toLowerCase()) || userRecord?.isBanned) {
+            const status = checkUserActionStatus(state, userId, username, userId);
+
+            if (status.banned) {
               console.warn(`[Twitch Bot] User @${username} is banned/blacklisted.`);
               // We intentionally skip chat feedback for blacklisted accounts to prevent troll spamming.
               continue;
             }
 
-            if (userRecord?.timeoutUntil && Date.now() < userRecord.timeoutUntil) {
-              const remaining = Math.ceil((userRecord.timeoutUntil - Date.now()) / 1000);
+            if (status.timedOut) {
               console.warn(`[Twitch Bot] User @${username} is on timeout.`);
-              sendBotMessage(channel, `@${displayName} ⚠️ Mutado (timeout de ${remaining}s).`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Mutado (timeout de ${status.remainingSeconds}s).`);
               continue;
             }
           }
@@ -2206,14 +2303,24 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
 
     const username = userRecord?.name || userRecord?.twitchData?.displayName || 'Viewer';
 
-    // CHECK FOR BAN OR TIMEOUT
-    if (userRecord.isBanned || state.blacklistUsernames?.includes(userRecord.twitchData?.login?.toLowerCase())) {
-      return res.status(403).json({ error: 'Você está permanentemente banido desta sala.' });
+    // CHECK FOR BAN OR TIMEOUT (UNIFIED ENFORCEMENT)
+    const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const ipStr = typeof userIp === 'string' ? userIp.split(',')[0].trim() : '';
+
+    const status = checkUserActionStatus(
+      state,
+      userId,
+      userRecord.twitchData?.login,
+      userRecord.twitchData?.twitchUserId,
+      ipStr
+    );
+
+    if (status.banned) {
+      return res.status(403).json({ error: status.reason || 'Você está permanentemente banido desta sala.' });
     }
 
-    if (userRecord.timeoutUntil && Date.now() < userRecord.timeoutUntil) {
-      const remaining = Math.ceil((userRecord.timeoutUntil - Date.now()) / 1000);
-      return res.status(403).json({ error: `Você está em timeout. Aguarde mais ${remaining} segundos.` });
+    if (status.timedOut) {
+      return res.status(403).json({ error: `Você está em timeout. Aguarde mais ${status.remainingSeconds} segundos.` });
     }
 
     // CHECK CORE RULES: Follow, Sub, Cooldowns, Queue Limits, Hourly limits
@@ -3094,9 +3201,24 @@ app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (
     let shouldBan = false;
     let targetUsername = 'unknown';
 
+    const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
+    const targetLogin = targetUser?.twitchData?.login?.toLowerCase();
+    const targetTwitchId = targetUser?.twitchData?.twitchUserId;
+    if (targetUser?.twitchData?.login) {
+      targetUsername = targetUser.twitchData.login;
+    } else if (targetUser?.name) {
+      targetUsername = targetUser.name;
+    }
+
     const updatedUsers = (state.users || []).map((u: any) => {
-      if (u.userId === targetUserId) {
-        targetUsername = u?.twitchData?.login || u?.name || 'unknown';
+      const uLogin = u.twitchData?.login?.toLowerCase();
+      const uTwitchId = u.twitchData?.twitchUserId;
+      const isMatch = u.userId === targetUserId || 
+                      (targetLogin && uLogin === targetLogin) || 
+                      (targetTwitchId && uTwitchId === targetTwitchId) || 
+                      (targetTwitchId && u.userId === targetTwitchId);
+
+      if (isMatch) {
         const newStrikes = (u.strikes || 0) + 1;
         const maxStrikes = state.settings?.maxStrikesBeforeBan || 5;
         if (newStrikes >= maxStrikes) {
@@ -3173,15 +3295,25 @@ app.post(['/sessions/:id/timeout_user', '/api/sessions/:id/timeout_user'], async
     const durationMinutes = minutes || 5; // Default to 5 minutes if not specified
     const timeoutUntil = Date.now() + (durationMinutes * 60 * 1000);
     
+    const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
+    const targetLogin = targetUser?.twitchData?.login?.toLowerCase();
+    const targetTwitchId = targetUser?.twitchData?.twitchUserId;
+
     const updatedUsers = (state.users || []).map((u: any) => {
-      if (u.userId === targetUserId) {
+      const uLogin = u.twitchData?.login?.toLowerCase();
+      const uTwitchId = u.twitchData?.twitchUserId;
+      const isMatch = u.userId === targetUserId || 
+                      (targetLogin && uLogin === targetLogin) || 
+                      (targetTwitchId && uTwitchId === targetTwitchId) || 
+                      (targetTwitchId && u.userId === targetTwitchId);
+
+      if (isMatch) {
         return { ...u, timeoutUntil };
       }
       return u;
     });
 
     // Timeout user through Twitch Native Moderation Helix API
-    const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
     const targetTwitchUserId = targetUser?.twitchData?.twitchUserId || (/^\d+$/.test(targetUserId) ? targetUserId : null);
     if (targetTwitchUserId) {
       await executeTwitchModeration(roomId, state, targetTwitchUserId, 'timeout', {
@@ -3224,6 +3356,7 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
       const timeoutUntil = Date.now() + (10 * 60 * 1000); // 10 mins default for dashboard "temporary"
       
       const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
+      const targetLogin = targetUser?.twitchData?.login?.toLowerCase();
       const targetTwitchUserId = targetUser?.twitchData?.twitchUserId || (/^\d+$/.test(targetUserId) ? targetUserId : null);
       if (targetTwitchUserId) {
          await executeTwitchModeration(roomId, state, targetTwitchUserId, 'timeout', {
@@ -3233,7 +3366,14 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
       }
 
       const updatedUsers = (state.users || []).map((u: any) => {
-        if (u.userId === targetUserId) return { ...u, timeoutUntil };
+        const uLogin = u.twitchData?.login?.toLowerCase();
+        const uTwitchId = u.twitchData?.twitchUserId;
+        const isMatch = u.userId === targetUserId || 
+                        (targetLogin && uLogin === targetLogin) || 
+                        (targetTwitchUserId && uTwitchId === targetTwitchUserId) || 
+                        (targetTwitchUserId && u.userId === targetTwitchUserId);
+
+        if (isMatch) return { ...u, timeoutUntil };
         return u;
       });
       const updatedState = { ...state, users: updatedUsers };
@@ -3249,14 +3389,15 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
     // Permanent Ban
     const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
     const targetUsername = targetUser?.twitchData?.login || targetUser?.name || 'unknown';
+    const targetLogin = targetUser?.twitchData?.login?.toLowerCase();
+    const targetTwitchUserId = targetUser?.twitchData?.twitchUserId || (/^\d+$/.test(targetUserId) ? targetUserId : null);
     
     const blacklistUsernames = [...(state.blacklistUsernames || [])];
-    if (!blacklistUsernames.includes(targetUsername.toLowerCase())) {
+    if (targetUsername !== 'unknown' && !blacklistUsernames.map(n => n.toLowerCase()).includes(targetUsername.toLowerCase())) {
       blacklistUsernames.push(targetUsername.toLowerCase());
     }
 
     // Ban through Twitch Native Moderation Helix API
-    const targetTwitchUserId = targetUser?.twitchData?.twitchUserId || (/^\d+$/.test(targetUserId) ? targetUserId : null);
     if (targetTwitchUserId) {
        await executeTwitchModeration(roomId, state, targetTwitchUserId, 'ban', {
          reason: reason || 'Banido permanentemente através do Painel Live Queue'
@@ -3286,14 +3427,26 @@ app.post(['/sessions/:id/ban_user', '/api/sessions/:id/ban_user'], async (req, r
     allBans.push(newBan);
 
     const updatedUsers = (state.users || []).map((u: any) => {
-      if (u.userId === targetUserId) {
+      const uLogin = u.twitchData?.login?.toLowerCase();
+      const uTwitchId = u.twitchData?.twitchUserId;
+      const isMatch = u.userId === targetUserId || 
+                      (targetLogin && uLogin === targetLogin) || 
+                      (targetTwitchUserId && uTwitchId === targetTwitchUserId) || 
+                      (targetTwitchUserId && u.userId === targetTwitchUserId);
+
+      if (isMatch) {
         return { ...u, isBanned: true };
       }
       return u;
     });
 
-    // Clean user submitted pending videos upon permanent ban
-    const updatedQueue = (state.queue || []).filter((v: any) => v.submitterId !== targetUserId);
+    // Clean user submitted pending and active videos upon permanent ban
+    const updatedQueue = (state.queue || []).filter((v: any) => {
+       const isMatch = v.submitterId === targetUserId || 
+                       (targetTwitchUserId && v.submitterId === targetTwitchUserId) || 
+                       (targetUsername && v.submitter?.toLowerCase() === targetUsername.toLowerCase());
+       return !isMatch;
+    });
 
     const updatedState = { ...state, users: updatedUsers, queue: updatedQueue, blacklistUsernames, allBans };
 
