@@ -642,53 +642,13 @@ setTimeout(() => {
         for (const url of urls) {
           const username = tags['username'] || 'TwitchUser';
           const displayName = tags['display-name'] || username;
-
-          const result = sanitizeAndValidateUrl(url, state.settings);
-          if (!result.valid || !result.normalizedUrl) {
-            console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
-            const reason = result.error || 'Mala formatação ou plataforma não suportada';
-            sendBotMessage(channel, `@${displayName} ❌ Link inválido. Motivo: ${reason}`);
-            continue;
-          }
-          const platform = result.platform || 'other';
-          const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
-          if (!verifyState.valid) {
-            console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
-            const reason = verifyState.error || 'Falha ao analisar o vídeo';
-            sendBotMessage(channel, `@${displayName} ❌ Falha no vídeo da ${platform.toUpperCase()}: ${reason}`);
-            continue;
-          }
-
-          const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
-          const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
-          if (isDuplicate) {
-            console.warn(`[Twitch Bot] Link already present in queue as ${canonicalId}`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila!`);
-            continue;
-          }
-
           const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
 
           const rawBadges = tags.badges || {};
           const actualBadges = Object.keys(rawBadges);
 
-          const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
-          if (!isHost) {
-            if (state.blacklistUsernames?.includes(username.toLowerCase())) {
-              console.warn(`[Twitch Bot] User @${username} is blacklisted.`);
-              // We intentionally skip chat feedback for blacklisted accounts to prevent troll spamming.
-              continue;
-            }
-            const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
-            const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
-            if (maxVideos > 0 && userActive >= maxVideos) {
-              console.warn(`[Twitch Bot] User @${username} has reached the limit of ${maxVideos} videos.`);
-              sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido! Você só pode enviar até ${maxVideos} vídeo(s) na fila.`);
-              continue;
-            }
-          }
+          const isHost = userId === state.hostId || actualBadges.includes('broadcaster') || username.toLowerCase() === login;
 
-          // Register or update active room participant record for this Twitch chat submitter
           const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
           let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || matchedRoom.twitch_channel_id;
           const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
@@ -711,6 +671,148 @@ setTimeout(() => {
             console.error(`[ensureTwitchChatUserRegistered Error]`, regErr.message);
           }
 
+          const userRecord = (state.users || []).find((u: any) => u.userId === userId || u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase());
+
+          // 1. BAN AND TIMEOUT ENFORCEMENT
+          if (!isHost) {
+            if (state.blacklistUsernames?.includes(username.toLowerCase()) || userRecord?.isBanned) {
+              console.warn(`[Twitch Bot] User @${username} is banned/blacklisted.`);
+              // We intentionally skip chat feedback for blacklisted accounts to prevent troll spamming.
+              continue;
+            }
+
+            if (userRecord?.timeoutUntil && Date.now() < userRecord.timeoutUntil) {
+              const remaining = Math.ceil((userRecord.timeoutUntil - Date.now()) / 1000);
+              console.warn(`[Twitch Bot] User @${username} is on timeout.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Mutado (timeout de ${remaining}s).`);
+              continue;
+            }
+          }
+
+          // 2. URL SANITIZATION AND VALIDATION
+          const result = sanitizeAndValidateUrl(url, state.settings);
+          if (!result.valid || !result.normalizedUrl) {
+            console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
+            const reason = result.error || 'link inválido.';
+            sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`);
+            continue;
+          }
+          const platform = result.platform || 'other';
+          const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
+          if (!verifyState.valid) {
+            console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
+            const reason = verifyState.error || 'erro de verificação.';
+            sendBotMessage(channel, `@${displayName} ❌ Vídeo rejeitado: ${reason}`);
+            continue;
+          }
+
+          // 3. DUPLICATE CHECK
+          const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
+          const isDuplicate = (state.queue || []).some((v: any) => extractCanonicalVideoId(v.url, v.platform) === canonicalId);
+          if (isDuplicate) {
+            console.warn(`[Twitch Bot] Link already present in queue as ${canonicalId}`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Já está na fila!`);
+            continue;
+          }
+
+          // 4. LIMIT AND COOLDOWN CHECKS
+          if (!isHost) {
+            const maxQueueSize = state.settings?.maxQueueSize !== undefined ? state.settings.maxQueueSize : (state.settings?.max_queue_size ?? 0);
+            if (maxQueueSize > 0 && (state.queue || []).length >= maxQueueSize) {
+              console.warn(`[Twitch Bot] Queue is full.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Fila cheia (limite ${maxQueueSize}).`);
+              continue;
+            }
+
+            const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
+            const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
+            if (maxVideos > 0 && userActive >= maxVideos) {
+              console.warn(`[Twitch Bot] User @${username} has reached the limit of ${maxVideos} videos.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido (${maxVideos} vídeo(s) na fila).`);
+              continue;
+            }
+
+            if (state.settings?.maxSubmissionsPerHour > 0) {
+              const oneHourAgo = Date.now() - 3600000;
+              const hourlySubmissions = [...(state.queue || []), ...(state.history || [])]
+                .filter((v: any) => v.submitterId === userId && v.timestamp && v.timestamp > oneHourAgo).length;
+              if (hourlySubmissions >= state.settings.maxSubmissionsPerHour) {
+                console.warn(`[Twitch Bot] User @${username} hourly submission limit reached.`);
+                sendBotMessage(channel, `@${displayName} ⚠️ Limite por hora atingido (${state.settings.maxSubmissionsPerHour} envios).`);
+                continue;
+              }
+            }
+
+            if (state.settings?.userCooldownSeconds > 0 && userRecord?.lastSubmittedAt) {
+              const elapsed = (Date.now() - userRecord.lastSubmittedAt) / 1000;
+              if (elapsed < state.settings.userCooldownSeconds) {
+                const remaining = Math.ceil(state.settings.userCooldownSeconds - elapsed);
+                console.warn(`[Twitch Bot] User @${username} is in individual cooldown.`);
+                sendBotMessage(channel, `@${displayName} ⚠️ Cooldown individual (restam ${remaining}s).`);
+                continue;
+              }
+            }
+
+            if (state.settings?.globalCooldownSeconds > 0) {
+              let lastGlobalTime = state.lastGlobalSubmissionAt || 0;
+              (state.queue || []).forEach((v: any) => {
+                if (v.timestamp && v.timestamp > lastGlobalTime) {
+                  lastGlobalTime = v.timestamp;
+                }
+              });
+              const elapsed = (Date.now() - lastGlobalTime) / 1000;
+              if (elapsed < state.settings.globalCooldownSeconds) {
+                const remaining = Math.ceil(state.settings.globalCooldownSeconds - elapsed);
+                console.warn(`[Twitch Bot] Global cooldown active.`);
+                sendBotMessage(channel, `@${displayName} ⚠️ Canal em cooldown (restam ${remaining}s).`);
+                continue;
+              }
+            }
+
+            const finalIsSubscriber = !!userRecord?.twitchData?.isSubscriber || actualBadges.includes('subscriber') || actualBadges.includes('founder') || !!tags.subscriber;
+            if (state.settings?.requireSub && !finalIsSubscriber) {
+              console.warn(`[Twitch Bot] User @${username} is not sub.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Apenas inscritos (subs) podem enviar.`);
+              continue;
+            }
+
+            const finalIsFollower = !!userRecord?.twitchData?.isFollower;
+            if (state.settings?.requireFollower && !finalIsFollower) {
+              console.warn(`[Twitch Bot] User @${username} is not follower.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Apenas seguidores podem enviar.`);
+              continue;
+            }
+
+            if (state.settings?.minFollowMinutes > 0) {
+              if (!finalIsFollower) {
+                sendBotMessage(channel, `@${displayName} ⚠️ Apenas seguidores podem enviar.`);
+                continue;
+              }
+              const finalFollowedAt = userRecord?.twitchData?.followedAt;
+              if (finalFollowedAt) {
+                const followDate = new Date(finalFollowedAt).getTime();
+                const minsDiff = (Date.now() - followDate) / (1000 * 60);
+                if (minsDiff < state.settings.minFollowMinutes) {
+                  const remaining = Math.ceil(state.settings.minFollowMinutes - minsDiff);
+                  console.warn(`[Twitch Bot] User @${username} followed for insufficient duration.`);
+                  sendBotMessage(channel, `@${displayName} ⚠️ Siga há mais de ${state.settings.minFollowMinutes}m (faltam ${remaining}m).`);
+                  continue;
+                }
+              }
+            }
+          }
+
+          let priority_score = 0;
+          if (isHost) priority_score += 1000;
+          else if (actualBadges.includes('moderator')) priority_score += 50;
+          else if (actualBadges.includes('vip')) priority_score += 15;
+          else if (userRecord?.twitchData?.isSubscriber || actualBadges.includes('subscriber') || actualBadges.includes('founder')) priority_score += 10;
+          else if (userRecord?.twitchData?.isFollower) priority_score += 2;
+
+          const nowD = new Date();
+          const dataEnvio = nowD.toLocaleDateString('pt-BR');
+          const horaEnvio = nowD.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
           const newVideo = {
             id: `vid_${canonicalId}_${Date.now()}`,
             submitter: displayName,
@@ -718,12 +820,32 @@ setTimeout(() => {
             url: result.normalizedUrl,
             platform,
             title: verifyState.title || 'Vídeo do Chat',
-            status: state.settings?.isManualApprovalRequired ? 'pending' : 'approved',
-            timestamp: Date.now()
+            status: (state.settings?.isManualApprovalRequired && !isHost) ? 'pending' : 'approved',
+            timestamp: Date.now(),
+            priority_score,
+            dataEnvio,
+            horaEnvio
           };
 
-          const updatedQueue = [...(state.queue || []), newVideo];
-          const updatedState = { ...state, queue: updatedQueue, users: state.users };
+          const updatedQueue = [...(state.queue || [])];
+          updatedQueue.push(newVideo);
+
+          const updatedUsers = (state.users || []).map((u: any) => {
+            if (u.userId === userId) {
+              return {
+                ...u,
+                lastSubmittedAt: Date.now()
+              };
+            }
+            return u;
+          });
+
+          const updatedState = { 
+            ...state, 
+            queue: updatedQueue, 
+            users: updatedUsers,
+            lastGlobalSubmissionAt: Date.now()
+          };
 
           await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
           console.log(`[Twitch Bot] Added new video "${newVideo.title}" (${platform}) to room ${roomId} submitted by Chat user @${displayName}`);
@@ -733,12 +855,11 @@ setTimeout(() => {
             await ablyChannel.publish('session_state', updatedState);
           }
 
-          // Success chat notifications
           if (newVideo.status === 'pending') {
-            sendBotMessage(channel, `✨ @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi enviado e está aguardando aprovação dos moderadores! 📝`);
+            sendBotMessage(channel, `@${displayName} 📥 Vídeo em aprovação.`);
           } else {
-            const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
-            sendBotMessage(channel, `🎉 @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi adicionado com sucesso! (Fila Pos: #${approvedCount}) 🎬`);
+            const approvedCount = updatedState.queue.filter((v: any) => v.status === 'approved').length;
+            sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Fila: #${approvedCount}.`);
           }
           break;
         }
@@ -2086,7 +2207,7 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     const username = userRecord?.name || userRecord?.twitchData?.displayName || 'Viewer';
 
     // CHECK FOR BAN OR TIMEOUT
-    if (userRecord.isBanned) {
+    if (userRecord.isBanned || state.blacklistUsernames?.includes(userRecord.twitchData?.login?.toLowerCase())) {
       return res.status(403).json({ error: 'Você está permanentemente banido desta sala.' });
     }
 
@@ -2743,21 +2864,42 @@ async function executeTwitchModeration(
        } catch (e) {}
     }
 
-    if (!broadcasterId) {
-      console.log(`[Twitch Sync Moderation] Skipped: Broadcaster ID could not be matched`);
-      return false;
-    }
-
     let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
+    let validatedBroadcasterId: string | null = null;
+
+    // Validate using OAuth header
     try {
       const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
         headers: { 'Authorization': `OAuth ${broadcasterToken}` },
         timeout: 3000
       });
-      if (valRes.data && valRes.data.client_id) {
-        clientId = valRes.data.client_id;
+      if (valRes.data) {
+        if (valRes.data.client_id) clientId = valRes.data.client_id;
+        if (valRes.data.user_id) validatedBroadcasterId = valRes.data.user_id;
       }
-    } catch (e) {}
+    } catch (e: any) {
+      // Try Bearer header fallback
+      try {
+        const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+          headers: { 'Authorization': `Bearer ${broadcasterToken}` },
+          timeout: 3000
+        });
+        if (valRes.data) {
+          if (valRes.data.client_id) clientId = valRes.data.client_id;
+          if (valRes.data.user_id) validatedBroadcasterId = valRes.data.user_id;
+        }
+      } catch (innerErr) {}
+    }
+
+    // Overwrite broadcasterId if token validation gave us a real numeric twitch ID
+    if (validatedBroadcasterId) {
+      broadcasterId = validatedBroadcasterId;
+    }
+
+    if (!broadcasterId || broadcasterId.includes('-')) {
+      console.log(`[Twitch Sync Moderation] Skipped: Broadcaster ID could not be matched (ID: ${broadcasterId})`);
+      return false;
+    }
 
     const headers = {
       'Client-Id': clientId,
@@ -2776,13 +2918,13 @@ async function executeTwitchModeration(
         }
       };
 
-      console.log(`[Twitch Sync Moderation] Sending ${action.toUpperCase()} action on twitch for user ID: ${targetTwitchUserId}`);
+      console.log(`[Twitch Sync Moderation] Sending ${action.toUpperCase()} action on twitch for user ID: ${targetTwitchUserId} (Broadcaster ID: ${broadcasterId})`);
       const res = await axios.post(url, body, { headers, timeout: 5000 });
       console.log(`[Twitch Sync Moderation] Response status: ${res.status}`);
       return true;
     } else if (action === 'unban') {
       const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${broadcasterId}&moderator_id=${broadcasterId}&user_id=${targetTwitchUserId}`;
-      console.log(`[Twitch Sync Moderation] Sending UNBAN action on twitch for user ID: ${targetTwitchUserId}`);
+      console.log(`[Twitch Sync Moderation] Sending UNBAN action on twitch for user ID: ${targetTwitchUserId} (Broadcaster ID: ${broadcasterId})`);
       const res = await axios.delete(url, { headers, timeout: 5000 });
       console.log(`[Twitch Sync Moderation] Response status: ${res.status}`);
       return true;
@@ -2987,6 +3129,15 @@ app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (
        };
        const allBans = [...(state.allBans || []), newBan];
        updatedState = { ...updatedState, blacklistUsernames, allBans };
+
+       // Sync automatic strike limit ban to Twitch
+       const targetUser = (state.users || []).find((u: any) => u.userId === targetUserId);
+       const targetTwitchUserId = targetUser?.twitchData?.twitchUserId || (/^\d+$/.test(targetUserId) ? targetUserId : null);
+       if (targetTwitchUserId) {
+          executeTwitchModeration(roomId, state, targetTwitchUserId, 'ban', {
+             reason: 'Ban automático: Atingiu limite de strikes no painel Live Queue'
+          }).catch(err => console.error('[Twitch Direct Ban Error on Strike limit]', err.message));
+       }
     }
 
     const supabaseAdmin = getSupabaseAdmin();
