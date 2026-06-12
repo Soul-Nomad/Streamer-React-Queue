@@ -4,7 +4,7 @@ import { SessionState, Video } from '../types';
 import { 
   Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon, Loader2, PlayCircle, Eye, ThumbsUp, Activity, Tv
 } from 'lucide-react';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 

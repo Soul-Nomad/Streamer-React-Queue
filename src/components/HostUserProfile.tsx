@@ -5,7 +5,7 @@ import {
   Trash2, UserMinus, UserCheck, Flame, Plus, StickyNote, HelpCircle,
   RefreshCw
 } from 'lucide-react';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 import { socket, getBackendUrl } from '../socket';
 
 interface HostUserProfileProps {

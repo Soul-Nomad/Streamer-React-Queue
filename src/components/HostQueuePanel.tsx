@@ -3,7 +3,7 @@ import { SessionState, Video } from '../types';
 import { 
   Play, Check, X, Search, Filter, Clock, Eye, List, Compass, Sparkles, AlertCircle
 } from 'lucide-react';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 
 interface HostQueuePanelProps {
   session: SessionState;

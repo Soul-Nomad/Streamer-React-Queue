@@ -8,7 +8,7 @@ import {
   Check, X, ShieldCheck, Cast, Play, Pause, History, Crop, Video, VideoOff, 
   ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock, RefreshCw
 } from 'lucide-react';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 

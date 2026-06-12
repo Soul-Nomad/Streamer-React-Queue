@@ -6,7 +6,7 @@ import {
   XOctagon, AlertTriangle, MessageSquare, Search, Filter, ShieldOff, Check, X,
   ShieldHalf, Settings, Save, ExternalLink
 } from 'lucide-react';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 

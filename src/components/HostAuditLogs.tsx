@@ -3,7 +3,7 @@ import { SessionState, SecurityAuditLog } from '../types';
 import { 
   Terminal, ShieldCheck, ShieldAlert, Trash2, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 import { socket } from '../socket';
 
 interface HostAuditLogsProps {
