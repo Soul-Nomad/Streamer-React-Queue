@@ -2,19 +2,22 @@ import { useState } from 'react';
 import { SessionState, User } from '../types';
 import { 
   ShieldCheck, AlertTriangle, ShieldAlert, Award, Star, Clock, 
-  Trash2, UserMinus, UserCheck, Flame, Plus, StickyNote, HelpCircle
+  Trash2, UserMinus, UserCheck, Flame, Plus, StickyNote, HelpCircle,
+  RefreshCw
 } from 'lucide-react';
 import clsx from 'clsx';
-import { socket } from '../socket';
+import { socket, getBackendUrl } from '../socket';
 
 interface HostUserProfileProps {
   session: SessionState;
   currentUser: User | null;
+  twitchChatters?: any[];
   onShowFeedback: (title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
-export default function HostUserProfile({ session, currentUser, onShowFeedback }: HostUserProfileProps) {
+export default function HostUserProfile({ session, currentUser, twitchChatters = [], onShowFeedback }: HostUserProfileProps) {
   const [noteText, setNoteText] = useState('');
+  const [refreshingTwitch, setRefreshingTwitch] = useState(false);
 
   if (!currentUser) {
     return (
@@ -50,6 +53,27 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
     onShowFeedback('VIP Alterado', `Mudou o status de VIP para @${currentUser.name}.`, 'success');
   };
 
+  const handleRefreshTwitch = async () => {
+    if (refreshingTwitch) return;
+    setRefreshingTwitch(true);
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/sessions/${session.id}/refresh_user_twitch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: currentUser.id })
+      });
+      if (res.ok) {
+        onShowFeedback('Métricas Atualizadas', `Dados da Twitch para @${currentUser.name} atualizados com sucesso do Helix API.`, 'success');
+      } else {
+        onShowFeedback('Ops!', 'Não foi possível atualizar as métricas no momento.', 'warning');
+      }
+    } catch (err) {
+      onShowFeedback('Erro', 'Falha ao conectar com o serviço de métricas.', 'error');
+    } finally {
+      setRefreshingTwitch(false);
+    }
+  };
+
   const handleAddNote = () => {
     if (!noteText.trim()) return;
     // Note: server supports 'admin_action' with actions
@@ -73,6 +97,11 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
   const isSubscriber = currentUser.twitchData?.isSubscriber || currentUser.twitchData?.badges?.includes('subscriber');
   const followDate = currentUser.twitchData?.followedAt ? new Date(currentUser.twitchData.followedAt) : null;
   const isFollower = currentUser.twitchData?.isFollower || !!followDate;
+
+  const isOnlineOnTwitch = twitchChatters?.some((tc: any) => 
+    tc.user_login?.toLowerCase() === currentUser.twitchData?.login?.toLowerCase() || 
+    tc.user_name?.toLowerCase() === currentUser.name?.toLowerCase()
+  ) || false;
 
   // Calculate follow duration description
   let followDurationDesc = 'Não segue o canal';
@@ -131,6 +160,16 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
           <p className="text-[10px] text-zinc-500 font-medium font-mono">
             {currentUser.twitchData?.login ? 'Autenticado' : 'Convidado Local'}
           </p>
+          {/* Real-time Twitch online status indicator */}
+          <div className="flex items-center gap-1.5 mt-1 justify-center bg-zinc-900/80 px-2 py-0.5 rounded border border-zinc-800/50">
+            <span className={clsx(
+              "w-2 h-2 rounded-full",
+              isOnlineOnTwitch ? "bg-green-500 animate-pulse" : "bg-zinc-650"
+            )} />
+            <span className="text-[9.5px] font-mono text-zinc-400">
+              {isOnlineOnTwitch ? "Online no Chat" : "Offline no Chat"}
+            </span>
+          </div>
         </div>
 
         {/* Reputation Badge */}
@@ -170,6 +209,18 @@ export default function HostUserProfile({ session, currentUser, onShowFeedback }
               <span className={clsx("font-bold text-[10.5px]", isFollower ? "text-orange-400" : "text-zinc-400")}>
                 {followDurationDesc}
               </span>
+            </div>
+            
+            {/* Direct Refresh action */}
+            <div className="pt-2 border-t border-zinc-900 flex justify-end">
+              <button
+                onClick={handleRefreshTwitch}
+                disabled={refreshingTwitch}
+                className="text-[10px] font-mono text-orange-400 hover:text-orange-300 disabled:text-zinc-600 flex items-center gap-1.5 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded transition duration-200 cursor-pointer"
+              >
+                <RefreshCw className={clsx("w-3 h-3", refreshingTwitch && "animate-spin")} />
+                {refreshingTwitch ? "Atualizando..." : "Atualizar Métricas"}
+              </button>
             </div>
           </div>
         </div>

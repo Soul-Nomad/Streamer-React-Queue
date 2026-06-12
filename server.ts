@@ -690,7 +690,7 @@ async function checkTwitchFollower(broadcasterId: string, userId: string, token:
   
   try {
     const clientId = await getTwitchClientId(token);
-    const url = `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&user_id=${userId}`;
+    const url = `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&user_id=${userId}&moderator_id=${broadcasterId}`;
     const res = await axios.get(url, {
       headers: {
         'Client-Id': clientId,
@@ -897,6 +897,169 @@ app.get('/api/twitch/followed', async (req, res) => {
      followed: followedList,
      ...(apiError ? { warning: apiError } : {})
   });
+});
+
+// GET /api/sessions/:id/twitch_chatters - Fetch live Twitch chatters (spectators) in broadcaster channel
+app.get('/api/sessions/:id/twitch_chatters', async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const state: any = await getSession(roomId);
+    if (!state) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const hostUser = state.users?.find((u: any) => u.isHost || u.userId === state.hostId);
+    const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+    const broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId;
+
+    if (!broadcasterToken || !broadcasterId) {
+      return res.status(200).json({ success: false, chatters: [], error: 'Broadcaster unauthenticated or credentials not found.' });
+    }
+
+    let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
+    try {
+      const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: { 'Authorization': `OAuth ${broadcasterToken}` },
+        timeout: 4000
+      });
+      if (valRes.data && valRes.data.client_id) {
+        clientId = valRes.data.client_id;
+      }
+    } catch (e) {}
+
+    const url = `https://api.twitch.tv/helix/chat/chatters?broadcaster_id=${broadcasterId}&moderator_id=${broadcasterId}&first=1000`;
+    const chattersRes = await axios.get(url, {
+      headers: {
+        'Client-Id': clientId,
+        'Authorization': `Bearer ${broadcasterToken}`
+      },
+      timeout: 5000
+    });
+
+    const chatters = chattersRes.data?.data || [];
+    res.json({ success: true, chatters });
+  } catch (err: any) {
+    console.error('[Fetch Twitch Chatters Error]', err.response?.data || err.message);
+    res.status(200).json({ success: false, chatters: [], error: err.response?.data?.message || err.message || 'Error fetching chatters' });
+  }
+});
+
+// POST /api/sessions/:id/refresh_user_twitch - Force refresh specific user's Twitch metrics (follower, subscriber, followedAt) in database persistent store
+app.post(['/sessions/:id/refresh_user_twitch', '/api/sessions/:id/refresh_user_twitch'], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { targetUserId } = req.body?.data || req.body || {};
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'targetUserId is required' });
+    }
+
+    const state: any = await getSession(roomId);
+    if (!state) return res.status(404).json({ error: 'Session not found.' });
+
+    const hostUser = state.users?.find((u: any) => u.isHost || u.userId === state.hostId);
+    let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId;
+    const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+
+    if (!broadcasterId || (typeof broadcasterId === 'string' && broadcasterId.includes('-'))) {
+      try {
+        const supabaseAdmin = getSupabaseAdmin();
+        const { data: roomDb } = await supabaseAdmin
+          .from('rooms')
+          .select('twitch_channel_id')
+          .eq('id', roomId)
+          .single();
+        if (roomDb?.twitch_channel_id && !roomDb.twitch_channel_id.includes('-')) {
+          broadcasterId = roomDb.twitch_channel_id;
+        }
+      } catch (e) {}
+    }
+
+    const userRecordIndex = state.users.findIndex((u: any) => u.userId === targetUserId);
+    if (userRecordIndex === -1) {
+      return res.status(404).json({ error: 'User not found in session.' });
+    }
+
+    const userRecord = state.users[userRecordIndex];
+    const targetTwitchUserId = userRecord.twitchData?.twitchUserId;
+    const userToken = userRecord.twitchData?.providerToken;
+
+    let meetsFollower = false;
+    let meetsSub = false;
+    let followTimeStr = userRecord.twitchData?.followedAt || null;
+
+    if (targetTwitchUserId && broadcasterId) {
+      if (targetTwitchUserId === broadcasterId) {
+        meetsFollower = true;
+        meetsSub = true;
+      } else {
+        if (broadcasterToken) {
+          try {
+            const followCheck = await checkTwitchFollower(broadcasterId, targetTwitchUserId, broadcasterToken);
+            if (followCheck.isFollower) {
+              meetsFollower = true;
+              followTimeStr = followCheck.followedAt || followTimeStr;
+            }
+          } catch (e) {}
+
+          try {
+            const subCheck = await checkTwitchSubscriber(broadcasterId, targetTwitchUserId, broadcasterToken);
+            if (subCheck) {
+              meetsSub = true;
+            }
+          } catch (e) {}
+        }
+
+        if ((!meetsFollower || !meetsSub) && userToken) {
+          try {
+            if (!meetsFollower) {
+              const followCheckViewer = await checkUserFollowsBroadcaster(targetTwitchUserId, broadcasterId, userToken);
+              if (followCheckViewer.isFollower) {
+                meetsFollower = true;
+                followTimeStr = followCheckViewer.followedAt || followTimeStr;
+              }
+            }
+            if (!meetsSub) {
+              const subCheckViewer = await checkUserSubscriberToBroadcaster(broadcasterId, targetTwitchUserId, userToken);
+              if (subCheckViewer) {
+                meetsSub = true;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    const updatedTwitchData = {
+      ...(userRecord.twitchData || {}),
+      isFollower: meetsFollower || !!userRecord.twitchData?.isFollower,
+      isSubscriber: meetsSub || !!userRecord.twitchData?.isSubscriber || !!userRecord.twitchData?.badges?.includes('subscriber'),
+      followedAt: followTimeStr
+    };
+
+    const updatedUsers = [...state.users];
+    updatedUsers[userRecordIndex] = {
+      ...userRecord,
+      twitchData: updatedTwitchData
+    };
+
+    const updatedState = { ...state, users: updatedUsers };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', roomId);
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    res.json({ success: true, session: updatedState });
+  } catch (err: any) {
+    console.error('[Refresh Twitch User Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/instagram-stream', async (req, res) => {

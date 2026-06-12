@@ -6,7 +6,7 @@ import { LinkedInEmbed } from 'react-social-media-embed';
 import { 
   MonitorPlay, ZoomIn, ZoomOut, Expand, Maximize, AlertCircle, SkipForward, SkipBack, 
   Check, X, ShieldCheck, Cast, Play, Pause, History, Crop, Video, VideoOff, 
-  ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock
+  ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock, RefreshCw
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -458,7 +458,10 @@ export default function HostView({ session }: { session: SessionState }) {
   const [activeTab, setActiveTab] = useState<'player' | 'submit' | 'participants' | 'moderation' | 'settings'>('player');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Stats and visual indicators
+  // Twitch Chatters states
+  const [twitchChatters, setTwitchChatters] = useState<any[]>([]);
+  const [loadingChatters, setLoadingChatters] = useState<boolean>(false);
+
   const [feedbackMsg, setFeedbackMsg] = useState<{title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info'} | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -471,6 +474,30 @@ export default function HostView({ session }: { session: SessionState }) {
   const [copied, setCopied] = useState<boolean>(false);
   const [optimisticLoading, setOptimisticLoading] = useState<boolean>(false);
   const [directUrl, setDirectUrl] = useState('');
+
+  const fetchTwitchChatters = async () => {
+    if (!session?.id) return;
+    setLoadingChatters(true);
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/sessions/${session.id}/twitch_chatters`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.chatters) {
+          setTwitchChatters(data.chatters);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch Twitch chatters:", err);
+    } finally {
+      setLoadingChatters(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'participants') {
+      fetchTwitchChatters();
+    }
+  }, [activeTab, session?.id]);
 
   useEffect(() => {
     const fetchAndSyncSettings = async () => {
@@ -938,46 +965,160 @@ export default function HostView({ session }: { session: SessionState }) {
           )}
 
           {activeTab === 'participants' && (
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-[#0a0a0f] space-y-4">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">Lista Geral de Participantes</h3>
-                  <p className="text-[10.5px] text-zinc-500">Visualização e controle de espectadores logados na sala.</p>
-                </div>
-                <span className="text-xs font-mono font-bold bg-zinc-900 border border-zinc-800 px-2 py-1 text-zinc-300">
-                  ONLINE: {session.users.length}
-                </span>
-              </div>
+            <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-[#0a0a0f] space-y-6">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {session.users.map(u => (
-                  <div 
-                    key={u.id} 
-                    onClick={() => { setSelectedUser(u); setActiveTab('player'); }}
-                    className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-orange-500/50 rounded-sm cursor-pointer transition-all duration-200"
+              {/* Header block with actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800 pb-4 gap-3">
+                <div className="space-y-1 text-left">
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-orange-500" />
+                    Controle de Espectadores & Live da Twitch
+                  </h3>
+                  <p className="text-[11px] text-zinc-500">Mapeamento em tempo real de quem está no chat do stream contra os participantes logados.</p>
+                </div>
+                
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={fetchTwitchChatters}
+                    disabled={loadingChatters}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:border-orange-500/50 rounded text-[11px] font-mono text-zinc-300 disabled:text-zinc-600 transition cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {renderUserAvatar(u, "w-8 h-8")}
-                      <div className="flex flex-col text-left min-w-0">
-                        <span className="text-xs font-bold truncate" style={{ color: u.twitchData?.color || '#FFFFFF' }}>
-                          @{u.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {renderTwitchBadgesHost(u)}
-                          <span className="text-[8px] text-zinc-500 font-mono block uppercase">
-                            {u.isHost ? 'BROADCASTER' : 'VIEWER'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Tiny action overview */}
-                    <div className="flex gap-1 shrink-0">
-                      <span className="text-[9px] font-mono select-none px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded">
-                        STRIKES: {u.strikes || 0}
-                      </span>
-                    </div>
+                    <RefreshCw className={clsx("w-3.5 h-3.5", loadingChatters && "animate-spin")} />
+                    {loadingChatters ? "Sincronizando..." : "Sincronizar Twitch Chat"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Two grids */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                
+                {/* COLUMN 1: Session application participants */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-zinc-950/80 px-3 py-2 border-l-2 border-orange-500 rounded border border-zinc-800">
+                    <span className="text-xs font-mono font-bold uppercase text-zinc-300">Conectados na Sala ({session.users.length})</span>
+                    <span className="text-[9px] bg-orange-500/10 text-orange-400 font-mono px-2 py-0.5 rounded border border-orange-500/20">APP ACTIVE</span>
                   </div>
-                ))}
+
+                  {session.users.length === 0 ? (
+                    <div className="p-8 border border-zinc-900 bg-zinc-950/20 text-center rounded">
+                      <p className="text-xs text-zinc-600 font-mono italic">Nenhum espectador logado na sala no momento.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[500px] overflow-y-auto pr-1">
+                      {session.users.map(u => {
+                        const inTwitchChat = twitchChatters.some(tc => tc.user_login?.toLowerCase() === u.twitchData?.login?.toLowerCase() || tc.user_name?.toLowerCase() === u.name?.toLowerCase());
+                        return (
+                          <div 
+                            key={u.id} 
+                            onClick={() => { setSelectedUser(u); setActiveTab('player'); }}
+                            className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-orange-500/50 rounded-sm cursor-pointer transition-all duration-200"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 text-left">
+                              {renderUserAvatar(u, "w-8 h-8")}
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold truncate" style={{ color: u.twitchData?.color || '#FFFFFF' }}>
+                                  @{u.name}
+                                </span>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  {renderTwitchBadgesHost(u)}
+                                  <span className={clsx(
+                                    "text-[8px] font-mono font-bold uppercase rounded px-1",
+                                    inTwitchChat ? "bg-green-500/10 text-green-400" : "bg-zinc-900 text-zinc-600"
+                                  )}>
+                                    {inTwitchChat ? 'TWITCH CHAT' : 'OFF CHAT'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded">
+                                STRIKES: {u.strikes || 0}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* COLUMN 2: Twitch Stream Chat Viewers */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-zinc-950/80 px-3 py-2 border-l-2 border-purple-500 rounded border border-zinc-800">
+                    <span className="text-xs font-mono font-bold uppercase text-zinc-300">Ao Vivo no Chat da Twitch ({twitchChatters.length})</span>
+                    <span className="text-[9px] bg-purple-500/10 text-purple-400 font-mono px-2 py-0.5 rounded border border-purple-500/20">STREAM REAL-TIME</span>
+                  </div>
+
+                  {loadingChatters && twitchChatters.length === 0 ? (
+                    <div className="p-8 border border-zinc-900 bg-zinc-950/20 text-center rounded flex flex-col items-center justify-center space-y-2">
+                      <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+                      <p className="text-xs text-zinc-500 font-mono">Buscando listagem Helix da Twitch...</p>
+                    </div>
+                  ) : twitchChatters.length === 0 ? (
+                    <div className="p-8 border border-zinc-900 bg-zinc-950/20 text-center rounded space-y-2">
+                      <p className="text-xs text-zinc-600 font-mono italic">Nenhum espectador detectado no chat ou credenciais da Twitch ausentes.</p>
+                      <button 
+                        onClick={fetchTwitchChatters}
+                        className="text-[10px] font-mono text-purple-400 hover:underline px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded mx-auto block cursor-pointer"
+                      >
+                        Tentar Carregar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[500px] overflow-y-auto pr-1">
+                      {twitchChatters.map(chatter => {
+                        const boundUser = session.users.find(u => u.name?.toLowerCase() === chatter.user_login?.toLowerCase() || u.twitchData?.login?.toLowerCase() === chatter.user_login?.toLowerCase());
+                        return (
+                          <div 
+                            key={chatter.user_id}
+                            onClick={() => {
+                              if (boundUser) {
+                                setSelectedUser(boundUser);
+                                setActiveTab('player');
+                              }
+                            }}
+                            className={clsx(
+                              "flex items-center justify-between p-3 bg-zinc-950/40 border border-zinc-900 rounded-sm transition duration-250 text-left",
+                              boundUser ? "hover:border-purple-500/50 cursor-pointer" : "opacity-75"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {boundUser?.twitchData?.avatarUrl ? (
+                                <img src={boundUser.twitchData.avatarUrl} alt="" className="w-8 h-8 rounded-full border border-zinc-800" referrerPolicy="no-referrer" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-[#9146FF]/10 text-[#9146FF] border border-[#9146FF]/30 flex items-center justify-center font-black text-xs font-mono">
+                                  T
+                                </div>
+                              )}
+                              
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold truncate text-zinc-300">
+                                  @{chatter.user_name}
+                                </span>
+                                <span className="text-[8.5px] text-zinc-600 font-mono font-bold uppercase mt-0.5">
+                                  ID: {chatter.user_id}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0">
+                              {boundUser ? (
+                                <span className="text-[8.5px] font-bold font-mono px-2 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 rounded">
+                                  SALA APP
+                                </span>
+                              ) : (
+                                <span className="text-[8.5px] font-medium font-mono px-2 py-0.5 bg-zinc-900 border border-zinc-850 text-zinc-500 rounded">
+                                  SÓ LIVE
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
           )}
@@ -1274,6 +1415,7 @@ export default function HostView({ session }: { session: SessionState }) {
                   <HostUserProfile 
                     session={session} 
                     currentUser={focusUser} 
+                    twitchChatters={twitchChatters}
                     onShowFeedback={showFeedback} 
                   />
                 </div>
