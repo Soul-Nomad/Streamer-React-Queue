@@ -84,9 +84,10 @@ function getPersistentUserId(ip: string): string {
     return 'usr_' + crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
 }
 
-import tmi from 'tmi.js';
+import { ChatClient } from '@twurple/chat';
+import { StaticAuthProvider } from '@twurple/auth';
 
-let botClient: tmi.Client | null = null;
+let botClient: ChatClient | null = null;
 const activeChannels = new Set<string>();
 const processedMessages = new Set<string>();
 
@@ -94,14 +95,12 @@ export function connectBotToChannel(channelName: string) {
   if (!channelName) return;
   const login = channelName.toLowerCase();
   
-  // We ALWAYS attempt to join if the bot is ready, even if it's already in activeChannels
-  // This serves as a self-healing mechanism because tmi.js handles duplicate join requests silently.
   if (!activeChannels.has(login)) {
      activeChannels.add(login);
-     console.log(`[Twitch Bot] Adding channel #${login} to queue/monitored set (Bot Ready: ${!!botClient})`);
+     console.log(`[Twitch Bot] Adding channel #${login} to queue/monitored set`);
   }
 
-  if (botClient && botClient.readyState() === 'OPEN') {
+  if (botClient && botClient.isConnected) {
     botClient.join(login).catch((err) => {
       console.error(`[Twitch Bot] Error joining channel #${login}:`, err.message);
     });
@@ -143,7 +142,7 @@ async function joinAllActiveRooms() {
 
 // Helper to send messages safely back to Twitch chat (requires authenticated bot config)
 function sendBotMessage(channel: string, message: string) {
-  if (!botClient) return;
+  if (!botClient || !botClient.isConnected) return;
   console.log(`[Twitch Bot Chat Feedback] Sending to ${channel}: ${message}`);
   const botUsername = process.env.TWITCH_BOT_USERNAME || '';
   const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
@@ -446,31 +445,28 @@ async function ensureTwitchChatUserRegistered(
 // Bot Init inside server
 setTimeout(() => {
   const botUsername = process.env.TWITCH_BOT_USERNAME || '';
-  const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
-  
-  const clientOptions: any = {
-    options: { debug: false },
-    connection: { reconnect: true, secure: true }
-  };
-  
-  if (botUsername && botOauthToken) {
-    console.log(`[Twitch Bot] Initializing authenticated Twitch IRC bot client as @${botUsername}...`);
-    clientOptions.identity = {
-      username: botUsername.toLowerCase(),
-      password: botOauthToken.startsWith('oauth:') ? botOauthToken : `oauth:${botOauthToken}`
-    };
-  } else {
-    console.log('[Twitch Bot] Initializing anonymous read-only Twitch IRC bot client...');
+  let token = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
+  if (token.startsWith('oauth:')) {
+    token = token.slice(6);
   }
   
-  botClient = new tmi.Client(clientOptions);
+  if (botUsername && token) {
+    console.log(`[Twitch Bot] Initializing authenticated Twitch IRC bot client as @${botUsername}...`);
+    const authProvider = new StaticAuthProvider(process.env.VITE_TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5', token);
+    botClient = new ChatClient({ authProvider });
+  } else {
+    console.log('[Twitch Bot] Initializing anonymous read-only Twitch IRC bot client...');
+    botClient = new ChatClient({});
+  }
   
-  botClient.connect().catch((connectErr) => {
+  try {
+    botClient.connect();
+  } catch (connectErr: any) {
     console.error('[Twitch Bot] Connection error during initial connect:', connectErr.message);
-  });
+  }
 
-  botClient.on('connected', (address, port) => {
-    console.log(`[Twitch Bot] Successfully connected to Twitch IRC server: ${address}:${port}`);
+  botClient.onConnect(() => {
+    console.log(`[Twitch Bot] Successfully connected to Twitch IRC server`);
     
     // Join any channels that requested to join before the bot finished connecting
     for (const chan of activeChannels) {
@@ -485,8 +481,9 @@ setTimeout(() => {
   });
   
   // Synchronized Real-Time Listeners for Twitch IRC native moderation events
-  botClient.on('ban', async (channel, username, reason, detail) => {
+  botClient.onBan(async (channel, username, _msg) => {
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
+    const reason = 'Ban via chat';
     console.log(`[Twitch IRC Event] User @${username} was BANNED in native chat channel #${login}. Reason: ${reason}`);
     try {
       const supabaseAdmin = getSupabaseAdmin();
@@ -564,8 +561,9 @@ setTimeout(() => {
     }
   });
 
-  botClient.on('timeout', async (channel, username, reason, duration) => {
+  botClient.onTimeout(async (channel, username, duration, _msg) => {
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
+    const reason = 'Timeout via chat';
     console.log(`[Twitch IRC Event] User @${username} was TIMED OUT in channel #${login} for ${duration}s. Reason: ${reason}`);
     try {
       const supabaseAdmin = getSupabaseAdmin();
@@ -625,11 +623,22 @@ setTimeout(() => {
     }
   });
 
-  botClient.on('message', async (channel, tags, message, self) => {
-    if (self) return;
+  botClient.onMessage(async (channel, username, message, msg) => {
+    // Map Twurple msg to legacy tags to avoid massive rewrite of limit handlers
+    const tags: any = {};
+    for (const [key, val] of msg.tags.entries()) tags[key] = val;
+    tags['id'] = msg.id;
+    tags['username'] = username;
+    tags['display-name'] = msg.userInfo.displayName || username;
+    tags['user-id'] = msg.userInfo.userId;
+    tags['room-id'] = msg.channelId || tags['room-id'];
+    tags['color'] = msg.userInfo.color;
+    tags['badges'] = {};
+    for (const [badge, version] of msg.userInfo.badges.entries()) tags['badges'][badge] = version;
+    if (msg.userInfo.isSubscriber) tags['subscriber'] = '1';
 
     // Prevent duplicate processing of the same Twitch message ID
-    const msgId = tags.id || tags['id'];
+    const msgId = msg.id;
     if (msgId) {
       if (processedMessages.has(msgId)) {
         console.log(`[Twitch Bot] Duplicate message ignored: ${msgId}`);
