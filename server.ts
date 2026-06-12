@@ -93,14 +93,18 @@ const processedMessages = new Set<string>();
 export function connectBotToChannel(channelName: string) {
   if (!channelName) return;
   const login = channelName.toLowerCase();
+  
+  // We ALWAYS attempt to join if the bot is ready, even if it's already in activeChannels
+  // This serves as a self-healing mechanism because tmi.js handles duplicate join requests silently.
   if (!activeChannels.has(login)) {
      activeChannels.add(login);
      console.log(`[Twitch Bot] Adding channel #${login} to queue/monitored set (Bot Ready: ${!!botClient})`);
-     if (botClient) {
-       botClient.join(login).catch((err) => {
-         console.error(`[Twitch Bot] Error joining channel #${login}:`, err.message);
-       });
-     }
+  }
+
+  if (botClient && botClient.readyState() === 'OPEN') {
+    botClient.join(login).catch((err) => {
+      console.error(`[Twitch Bot] Error joining channel #${login}:`, err.message);
+    });
   }
 }
 
@@ -701,7 +705,8 @@ setTimeout(() => {
     if (!hasProtocol && !hasKnownDomain) return;
     
     // Improved regex to capture URLs with or without http/https
-    const urlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[a-zA-Z0-9_\-]+|youtu\.be\/[a-zA-Z0-9_\-]+|youtube\.com\/shorts\/[a-zA-Z0-9_\-]+|instagram\.com\/(?:p|reel|reels|tv)\/[a-zA-Z0-9_\-]+|tiktok\.com\/@[\w.-]+\/video\/\d+|tiktok\.com\/v\/\d+|twitter\.com\/\w+\/status\/\d+|x\.com\/\w+\/status\/\d+|[a-zA-Z0-9_.+-]+\.[a-zA-Z0-9-.]+\/[^\s]*)/gi;
+    // Adjusted to match until whitespace to capture the complete URL properly, preventing truncation of path parameters, slashes, or query variables.
+    const urlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[a-zA-Z0-9_\-]+[^\s]*|youtu\.be\/[a-zA-Z0-9_\-]+[^\s]*|youtube\.com\/shorts\/[a-zA-Z0-9_\-]+[^\s]*|instagram\.com\/(?:p|reel|reels|tv)\/[^\s]+|tiktok\.com\/@[\w.-]+\/video\/\d+[^\s]*|tiktok\.com\/v\/\d+[^\s]*|twitter\.com\/\w+\/status\/\d+[^\s]*|x\.com\/\w+\/status\/\d+[^\s]*|[a-zA-Z0-9_.+-]+\.[a-zA-Z0-9-.]+\/[^\s]*)/gi;
     
     let rawMatches = message.match(urlRegex) || [];
     if (rawMatches.length === 0) {
