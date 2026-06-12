@@ -1331,21 +1331,29 @@ export default function HostView({ session }: { session: SessionState }) {
                       </div>
 
                       <div className="space-y-4 mb-6 text-left border-y border-zinc-800/80 py-5 font-sans text-xs">
-                        <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono px-1">Guia de Início Rápido:</h3>
+                        <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono px-1">Métodos de Envio Ativos:</h3>
                         
                         <div className="flex gap-3">
-                          <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">1</span>
+                          <span className="w-6 h-6 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">1</span>
                           <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300">Convite aos Espectadores</h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Clique no botão abaixo para copiar o link e envie para o chat da sua live.</p>
+                            <h4 className="font-bold text-zinc-300">Chat da Stream (Twitch)</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Espectadores podem enviar links de vídeos diretamente no chat. O bot captura e coloca na fila.</p>
                           </div>
                         </div>
 
                         <div className="flex gap-3">
-                          <span className="w-6 h-6 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">2</span>
+                          <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">2</span>
+                          <div className="leading-tight">
+                            <h4 className="font-bold text-zinc-300">Convite via Link</h4>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">Copie o link abaixo para convidados externos ou para quem prefere enviar pela plataforma.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-6 h-6 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">3</span>
                           <div className="leading-tight">
                             <h4 className="font-bold text-zinc-300 font-sans">Gestão da Fila</h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">As mídias enviadas aparecerão na <strong className="text-zinc-400">coluna à esquerda</strong>. Você pode aprovar, recusar ou pular vídeos.</p>
+                            <p className="text-[10.5px] text-zinc-500 mt-0.5">As mídias enviadas aparecerão na <strong className="text-zinc-400">coluna à esquerda</strong> para sua moderação.</p>
                           </div>
                         </div>
                       </div>
@@ -1358,10 +1366,10 @@ export default function HostView({ session }: { session: SessionState }) {
                         Copiar Link de Convite
                       </button>
 
-                      <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-zinc-900/50 border border-zinc-800/50 rounded-sm">
-                        <MessageSquare className="w-3 h-3 text-orange-500" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-mono">
-                          BOT PARA LINK DIRETO NO CHAT EM BREVE
+                      <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 font-mono">
+                          BOT DE CHAT CONECTADO E MONITORANDO
                         </span>
                       </div>
 
