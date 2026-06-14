@@ -170,15 +170,13 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Development Status Banner - Show only on Home (Lobby) */}
-      {!session && (
-        <div className="select-none border-b border-white/10 bg-[#FF8C42] px-4 py-1.5 text-center">
-          <p className="flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-wider text-white md:text-xs">
-            <AlertCircle className="h-3 w-3 shrink-0 text-white md:h-4 md:w-4" />
-            Este serviço está em fase de desenvolvimento e pode apresentar instabilidades.
-          </p>
-        </div>
-      )}
+      {/* Development Status Banner - Always visible across the platform */}
+      <div className="select-none border-b border-white/10 bg-[#FF8C42] px-4 py-1.5 text-center relative z-[9990]">
+        <p className="flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-wider text-white md:text-xs">
+          <AlertCircle className="h-3 w-3 shrink-0 text-white md:h-4 md:w-4" />
+          Este serviço está em fase de desenvolvimento e pode apresentar instabilidades.
+        </p>
+      </div>
 
       {/* Toast Overlay Portal Container */}
       <AnimatePresence>

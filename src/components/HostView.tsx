@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { socket, getBackendUrl } from '../socket';
 import { SessionState, User } from '../types';
 import ReactPlayer from 'react-player';
@@ -6,10 +6,11 @@ import { LinkedInEmbed } from 'react-social-media-embed';
 import { 
   MonitorPlay, ZoomIn, ZoomOut, Expand, Maximize, AlertCircle, SkipForward, SkipBack, 
   Check, X, ShieldCheck, Cast, Play, Pause, History, Crop, Video, VideoOff, 
-  ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock, RefreshCw
+  ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock, RefreshCw,
+  Radio, CassetteTape
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 import AdminDashboard from './AdminDashboard';
@@ -453,6 +454,47 @@ function CustomTikTokPlayer({ url, getRatioClass, webcamStream, WebcamPreview }:
 
 export default function HostView({ session }: { session: SessionState }) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Advanced infinite parallax scroll engines with dynamic physics and multi-layered depth
+  const { scrollY } = useScroll();
+
+  // 1. Nebula Background: Slow organic sine-wave horizontal/vertical sway and breathing that never run off-screen
+  const rawBgY = useTransform(scrollY, (v) => Math.sin(v / 500) * 40);
+  const bgY = useSpring(rawBgY, { stiffness: 15, damping: 25, mass: 1 });
+  const rawBgScale = useTransform(scrollY, (v) => 1.05 + Math.cos(v / 800) * 0.03);
+  const bgScale = useSpring(rawBgScale, { stiffness: 15, damping: 25, mass: 1 });
+
+  // 2. Seamless Infinite Tech Grid: Math loop at exactly grid height (60px) to scroll infinitely with ZERO jumps or snaps
+  const rawGridY = useTransform(scrollY, (v) => -(v % 60));
+  const gridY = useSpring(rawGridY, { stiffness: 45, damping: 22 });
+
+  // 3. Multi-Depth Floating Micro-Stars: Individual depth sways that flutter dynamically on scroll
+  const depthSlowY = useTransform(scrollY, (v) => Math.sin(v / 300) * 20);
+  const depthSlowX = useTransform(scrollY, (v) => Math.cos(v / 350) * 10);
+
+  const depthMediumY = useTransform(scrollY, (v) => Math.sin(v / 200) * 45);
+  const depthMediumX = useTransform(scrollY, (v) => Math.cos(v / 240) * 20);
+
+  const depthFastY = useTransform(scrollY, (v) => Math.sin(v / 140) * 70);
+  const depthFastX = useTransform(scrollY, (v) => Math.cos(v / 160) * 30);
+
+  const STARS_PRESET = useMemo(() => [
+    { top: "12%", left: "8%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "22%", left: "85%", size: "w-1 h-1", depth: "medium" },
+    { top: "45%", left: "12%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "62%", left: "80%", size: "w-1 h-1", depth: "medium" },
+    { top: "78%", left: "18%", size: "w-1.5 h-1.5 bg-accent/40 animate-pulse", depth: "fast" },
+    { top: "34%", left: "73%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "88%", left: "55%", size: "w-1 h-1", depth: "medium" },
+    { top: "8%", left: "92%", size: "w-1.5 h-1.5 bg-white/40 animate-pulse", depth: "fast" },
+    { top: "52%", left: "77%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "94%", left: "28%", size: "w-1 h-1", depth: "medium" },
+    { top: "6%", left: "42%", size: "w-1 h-1", depth: "medium" },
+    { top: "58%", left: "48%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "28%", left: "28%", size: "w-1.5 h-1.5 bg-[#00FF66]/30 animate-pulse", depth: "fast" },
+    { top: "72%", left: "62%", size: "w-1 h-1", depth: "medium" },
+    { top: "38%", left: "94%", size: "w-0.5 h-0.5", depth: "slow" },
+  ], []);
   
   // App Navigation and Main tab
   const [activeTab, setActiveTab] = useState<'player' | 'submit' | 'participants' | 'moderation' | 'settings'>('player');
@@ -803,20 +845,76 @@ export default function HostView({ session }: { session: SessionState }) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0d0d12] text-[#efefef] font-sans overflow-hidden select-none" id="streamer_host_view">
+    <div className="crt-screen flex flex-col h-screen text-[#efefef] font-sans overflow-hidden select-none relative antialiased" id="streamer_host_view">
+      {/* Parallax Background Canvas with nebula image */}
+      <motion.div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0 pointer-events-none"
+        style={{ 
+          backgroundImage: "url('/Background.jpeg')",
+          y: bgY,
+          scale: bgScale,
+        }}
+      />
+
+      {/* 1. Seamless Infinite Cyberpunk Digital Grid (Seamless 60px modulus vertical scroll) */}
+      <motion.div 
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.07]"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(145, 70, 255, 0.4) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(145, 70, 255, 0.4) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
+          y: gridY,
+        }}
+      />
+
+      {/* 2. Procedural Multi-Depth Stars (Infinite Scroll Sway) */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {STARS_PRESET.map((star, idx) => {
+          let transformX = depthSlowX;
+          let transformY = depthSlowY;
+          if (star.depth === "medium") {
+            transformX = depthMediumX;
+            transformY = depthMediumY;
+          } else if (star.depth === "fast") {
+            transformX = depthFastX;
+            transformY = depthFastY;
+          }
+          return (
+            <motion.div
+              key={idx}
+              className={`absolute rounded-full bg-white/50 ${star.size}`}
+              style={{
+                top: star.top,
+                left: star.left,
+                x: transformX,
+                y: transformY,
+              }}
+            />
+          );
+        })}
+      </div>
+      
+      {/* Dark Translucent overlay to maintain extreme contrast and layout elegance */}
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] pointer-events-none z-0" />
+      
+      {/* Background Cathode sweeping scanning bar */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#00FF66]/2 to-transparent h-1 opacity-20 pointer-events-none animate-pulse-phosphor z-50 transform translate-y-0" style={{ animationDuration: '8s' }} />
+
       {/* 1. Global Gradient Header Bar */}
-      <header className="h-14 bg-zinc-950 border-b border-[#1f1f2e] px-4 flex items-center justify-between relative shrink-0">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-purple-500 to-emerald-400" />
+      <header className="h-16 bg-black/40 backdrop-blur-md border-b border-white/10 px-4 flex items-center justify-between relative shrink-0 z-10">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-[#9146FF] to-emerald-400" />
         
         {/* Brand & Room Info */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border border-red-400/40" />
-            <h1 className="text-sm font-black uppercase tracking-wider font-mono bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Live Console</h1>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00FF66] animate-pulse border border-[#00FF66]/40" />
+            <h1 className="text-sm font-black uppercase tracking-wider font-mono bg-gradient-to-r from-[#9146FF] to-orange-400 bg-clip-text text-transparent">Live Console</h1>
           </div>
-          <span className="h-4 w-px bg-zinc-800" />
+          <span className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-1.5 font-mono text-[10.5px]">
-            <span className="text-zinc-500 uppercase">SALA:</span>
+            <span className="text-zinc-550 uppercase">SALA:</span>
             <span className="text-orange-400 font-extrabold tracking-widest">{session.id}</span>
           </div>
         </div>
@@ -828,11 +926,11 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'player' 
-                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
-                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+                ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]" 
+                : "text-zinc-450 hover:text-zinc-100 hover:bg-black/30 border border-transparent"
             )}
           >
-            <MonitorPlay className="w-3.5 h-3.5" />
+            <Radio className="w-3.5 h-3.5" />
             WORKSPACE
           </button>
           
@@ -841,8 +939,8 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'submit' 
-                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
-                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+                ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]" 
+                : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent"
             )}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -854,8 +952,8 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'participants' 
-                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
-                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+                ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]" 
+                : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent"
             )}
           >
             <Users className="w-3.5 h-3.5" />
@@ -867,8 +965,8 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'moderation' 
-                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
-                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+                ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]" 
+                : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent"
             )}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -880,8 +978,8 @@ export default function HostView({ session }: { session: SessionState }) {
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
               activeTab === 'settings' 
-                ? "bg-orange-600/10 text-orange-400 border border-orange-500/20" 
-                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
+                ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]" 
+                : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent"
             )}
           >
             <Settings className="w-3.5 h-3.5" />
@@ -893,7 +991,7 @@ export default function HostView({ session }: { session: SessionState }) {
         <div className="flex items-center gap-2">
           <button
             onClick={copyInvite}
-            className="px-3 py-1.5 text-xs font-bold font-mono tracking-wider hover:bg-zinc-900 border border-zinc-800 rounded transition-all cursor-pointer flex items-center gap-1.5 text-zinc-300 hover:text-white"
+            className="px-3 py-1.5 text-xs font-bold font-mono tracking-wider hover:bg-black/40 border border-white/10 rounded transition-all cursor-pointer flex items-center gap-1.5 text-zinc-300 hover:text-white"
           >
             <Copy className="w-3.5 h-3.5 text-orange-400" />
             {copied ? "COPIADO!" : "CONVITE"}
@@ -901,7 +999,7 @@ export default function HostView({ session }: { session: SessionState }) {
           
           <button
             onClick={handleEndSession}
-            className="p-1 px-2 hover:bg-red-600/10 text-zinc-400 hover:text-red-500 border border-transparent hover:border-red-500/20 rounded transition-all cursor-pointer"
+            className="p-1 px-2 hover:bg-red-650/10 text-zinc-400 hover:text-red-500 border border-transparent hover:border-red-500/20 rounded transition-all cursor-pointer"
             title="Encerrar Sessão"
           >
             <LogOut className="w-4 h-4" />
@@ -910,10 +1008,10 @@ export default function HostView({ session }: { session: SessionState }) {
       </header>
 
       {/* 2. Responsive Multi-Column Layout Grid */}
-      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+      <div className="flex-1 flex overflow-hidden min-h-0 relative z-10">
         
         {/* COLUMN 1: Persistent Queue (Visible across all tabs for instant tracking!) */}
-        <aside className="w-80 shrink-0 h-full overflow-hidden flex flex-col border-r border-[#1f1f2e]">
+        <aside className="w-80 shrink-0 h-full overflow-hidden flex flex-col border-r border-white/10">
           <HostQueuePanel 
             session={session} 
             playVideo={playVideo} 
@@ -923,26 +1021,26 @@ export default function HostView({ session }: { session: SessionState }) {
         </aside>
 
         {/* WORKSPACE AREA: Center & Right sections loaded conditionally */}
-        <main className="flex-1 flex min-w-0 h-full relative overflow-hidden bg-zinc-950">
+        <main className="flex-1 flex min-w-0 h-full relative overflow-hidden bg-transparent">
           
           {activeTab === 'moderation' && (
-            <div className="w-full h-full overflow-y-auto">
+            <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
               <AdminDashboard session={session} />
             </div>
           )}
 
           {activeTab === 'settings' && (
-            <div className="w-full h-full overflow-y-auto">
+            <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
               <SettingsView session={session} />
             </div>
           )}
 
           {activeTab === 'submit' && (
-            <div className="flex-1 flex items-center justify-center p-6 bg-[#0a0a0f]">
-              <div className="w-full max-w-md bg-zinc-950 border border-[#1f1f2e] p-6 space-y-4">
+            <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
+              <div className="w-full max-w-sm bg-black/60 border border-white/10 p-6 space-y-4 rounded shadow-2xl backdrop-blur-md">
                 <div className="space-y-1">
                   <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">Injeção Manual de Mídias</h3>
-                  <p className="text-[10.5px] text-zinc-500">Envie um link de vídeo diretamente sobrepondo cooldowns ou regras de validações normais de viewers.</p>
+                  <p className="text-[10.5px] text-zinc-450">Envie um link de vídeo diretamente sobrepondo cooldowns ou regras de validações normais de viewers.</p>
                 </div>
                 <div className="space-y-2">
                   <input 
@@ -950,12 +1048,12 @@ export default function HostView({ session }: { session: SessionState }) {
                     value={directUrl}
                     onChange={e => setDirectUrl(e.target.value)}
                     placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500 font-mono"
+                    className="w-full bg-black/45 border border-white/10 rounded px-3 py-2.5 text-xs text-white placeholder-zinc-550 focus:outline-none focus:border-[#9146FF] font-mono"
                   />
                   <button 
                     onClick={handleDirectSubmit}
                     disabled={!directUrl.trim().startsWith('http')}
-                    className="w-full bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-bold py-2.5 rounded text-xs transition-colors cursor-pointer font-mono"
+                    className="w-full bg-[#9146FF] hover:bg-[#9146FF]/80 disabled:bg-white/5 disabled:text-zinc-650 text-white font-black py-2.5 rounded text-xs transition-colors cursor-pointer font-mono shadow-[0_0_15px_rgba(145,70,255,0.15)]"
                   >
                     INJETAR AGORA
                   </button>

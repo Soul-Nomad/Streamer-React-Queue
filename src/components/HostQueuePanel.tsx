@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { SessionState, Video } from '../types';
 import { 
-  Play, Check, X, Search, Filter, Clock, Eye, List, Compass, Sparkles, AlertCircle
+  Play, Check, X, Search, Filter, Clock, Eye, List, Compass, AlertCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -149,15 +149,15 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
     });
 
   return (
-    <div className="flex flex-col h-full bg-[#111116] border-r border-[#1f1f2e] text-zinc-100 font-sans" id="host_queue_panel">
+    <div className="flex flex-col h-full bg-black/30 border-r border-white/10 text-zinc-100 font-sans backdrop-blur-md" id="host_queue_panel">
       {/* Session/Header statistics */}
-      <div className="p-3 bg-zinc-950 border-b border-[#1f1f2e] flex items-center justify-between">
+      <div className="p-3 bg-black/45 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-mono text-xs font-black tracking-wider text-zinc-300">
           <List className="w-4 h-4 text-orange-500" />
           <span>Fila de Mídia</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-zinc-400">
+          <span className="text-[10px] font-mono bg-black/40 border border-white/10 px-1.5 py-0.5 rounded text-zinc-450">
             TOTAL: {queue.length}
           </span>
           <span className="text-[10px] font-mono bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded text-orange-400">
@@ -167,37 +167,37 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-3 bg-zinc-950/60 p-1 border-b border-[#1f1f2e]">
+      <div className="grid grid-cols-3 bg-black/35 p-1 border-b border-white/10">
         <button
           onClick={() => setTab('pending')}
           className={clsx(
-            "py-1.5 text-xs font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer",
+            "py-1.5 text-[11px] font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1 cursor-pointer",
             tab === 'pending' 
-              ? "text-orange-400 border-orange-500 bg-zinc-900/60" 
+              ? "text-orange-400 border-orange-500 bg-black/45" 
               : "text-zinc-400 border-transparent hover:text-zinc-200"
           )}
         >
           <Clock className="w-3.5 h-3.5" />
-          Na Fila ({queue.filter(v => v.status !== 'watched').length})
+          Fila ({queue.filter(v => v.status !== 'watched').length})
         </button>
         <button
           onClick={() => setTab('watched')}
           className={clsx(
-            "py-1.5 text-xs font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer",
+            "py-1.5 text-[11px] font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1 cursor-pointer",
             tab === 'watched' 
-              ? "text-green-400 border-green-500 bg-zinc-900/60" 
+              ? "text-green-450 border-green-500 bg-black/45" 
               : "text-zinc-400 border-transparent hover:text-zinc-200"
           )}
         >
           <Eye className="w-3.5 h-3.5" />
-          Já Vistos ({queue.filter(v => v.status === 'watched').length})
+          Vistos ({queue.filter(v => v.status === 'watched').length})
         </button>
         <button
           onClick={() => setTab('all')}
           className={clsx(
-            "py-1.5 text-xs font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer",
+            "py-1.5 text-[11px] font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1 cursor-pointer",
             tab === 'all' 
-              ? "text-cyan-400 border-cyan-500 bg-zinc-900/60" 
+              ? "text-cyan-455 border-cyan-500 bg-black/45" 
               : "text-zinc-400 border-transparent hover:text-zinc-200"
           )}
         >
@@ -207,44 +207,44 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
       </div>
 
       {/* Search and Filters panel */}
-      <div className="p-3 bg-zinc-950/40 border-b border-[#1f1f2e] space-y-2">
+      <div className="p-3 bg-black/20 border-b border-white/10 space-y-2">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-500" />
+          <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-550" />
           <input
             type="text"
             placeholder="Busca instantânea..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-900/80 border border-zinc-800 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-orange-600 text-zinc-100 placeholder-zinc-500"
+            className="w-full bg-black/40 border border-white/10 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#9146FF] text-zinc-100 placeholder-zinc-550 font-mono"
           />
         </div>
         <div className="grid grid-cols-2 gap-1.5">
-          <div className="flex items-center gap-1 bg-zinc-900/80 border border-zinc-800 rounded px-2 py-1">
-            <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
+          <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded px-2 py-1">
+            <Filter className="w-3 h-3 text-zinc-550 shrink-0" />
             <select
               value={badgeFilter}
               onChange={(e) => setBadgeFilter(e.target.value)}
-              className="w-full bg-transparent text-[10px] text-zinc-300 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
+              className="w-full bg-transparent text-[10px] text-zinc-350 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
             >
-              <option value="all" className="bg-zinc-900 text-zinc-100">Badge: Todos</option>
-              <option value="broadcaster" className="bg-zinc-900 text-zinc-100">Broadcasters</option>
-              <option value="moderator" className="bg-zinc-900 text-zinc-100">Moderadores</option>
-              <option value="vip" className="bg-zinc-900 text-zinc-100">VIPs</option>
-              <option value="subscriber" className="bg-zinc-900 text-zinc-100">Inscritos</option>
+              <option value="all" className="bg-black text-zinc-100">Badge: Todos</option>
+              <option value="broadcaster" className="bg-black text-zinc-100">Broadcasters</option>
+              <option value="moderator" className="bg-black text-zinc-100">Moderadores</option>
+              <option value="vip" className="bg-black text-zinc-100">VIPs</option>
+              <option value="subscriber" className="bg-black text-zinc-100">Inscritos</option>
             </select>
           </div>
-          <div className="flex items-center gap-1 bg-zinc-900/80 border border-zinc-800 rounded px-2 py-1">
-            <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
+          <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded px-2 py-1">
+            <Filter className="w-3 h-3 text-zinc-550 shrink-0" />
             <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
-              className="w-full bg-transparent text-[10px] text-zinc-300 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
+              className="w-full bg-transparent text-[10px] text-zinc-350 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
             >
-              <option value="all" className="bg-zinc-900 text-zinc-100">Plataforma</option>
-              <option value="youtube" className="bg-zinc-900 text-zinc-100">YouTube</option>
-              <option value="tiktok" className="bg-zinc-900 text-zinc-100">TikTok</option>
-              <option value="instagram" className="bg-zinc-900 text-zinc-100">Instagram</option>
-              <option value="twitch" className="bg-zinc-900 text-zinc-100">Twitch</option>
+              <option value="all" className="bg-black text-zinc-100">Plataforma</option>
+              <option value="youtube" className="bg-black text-zinc-100">YouTube</option>
+              <option value="tiktok" className="bg-black text-zinc-100">TikTok</option>
+              <option value="instagram" className="bg-black text-zinc-100">Instagram</option>
+              <option value="twitch" className="bg-black text-zinc-100">Twitch</option>
             </select>
           </div>
         </div>
@@ -262,10 +262,10 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
             <div
               key={vid.id}
               className={clsx(
-                "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden",
+                "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden backdrop-blur-sm",
                 isCurrent 
-                  ? "bg-[#181822] border-orange-500/60 glow-orange" 
-                  : "bg-[#16161d]/90 border-transparent hover:border-zinc-800 hover:bg-[#1b1b24]/60"
+                  ? "bg-black/60 border-orange-500/60 shadow-[0_0_15px_rgba(255,107,53,0.15)] glow-orange" 
+                  : "bg-black/35 border-transparent hover:border-white/15 hover:bg-black/50"
               )}
             >
               {isCurrent && (

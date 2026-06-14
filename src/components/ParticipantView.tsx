@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { socket } from '../socket';
 import { SessionState, Video } from '../types';
 import { 
-  Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon, Loader2, PlayCircle, Eye, ThumbsUp, Activity, Tv
+  Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon, Loader2, PlayCircle, Eye, ThumbsUp, Activity,
+  CassetteTape, BoomBox, AudioLines, Music
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import logoTransparent from "@/CASSETE-TAPE.png";
 
 // --- Helper Functions ---
 const getInitials = (name: string) => name ? name.trim().substring(0, 2).toUpperCase() : '?';
@@ -73,6 +75,47 @@ const StatusBadge = ({ status }: { status: Video['status'] | 'playing' }) => {
 
 // --- Main Component ---
 export default function ParticipantView({ session }: { session: SessionState }) {
+  // Advanced infinite parallax scroll engines with dynamic physics and multi-layered depth
+  const { scrollY } = useScroll();
+
+  // 1. Nebula Background: Slow organic sine-wave horizontal/vertical sway and breathing that never run off-screen
+  const rawBgY = useTransform(scrollY, (v) => Math.sin(v / 500) * 40);
+  const bgY = useSpring(rawBgY, { stiffness: 15, damping: 25, mass: 1 });
+  const rawBgScale = useTransform(scrollY, (v) => 1.05 + Math.cos(v / 800) * 0.03);
+  const bgScale = useSpring(rawBgScale, { stiffness: 15, damping: 25, mass: 1 });
+
+  // 2. Seamless Infinite Tech Grid: Math loop at exactly grid height (60px) to scroll infinitely with ZERO jumps or snaps
+  const rawGridY = useTransform(scrollY, (v) => -(v % 60));
+  const gridY = useSpring(rawGridY, { stiffness: 45, damping: 22 });
+
+  // 3. Multi-Depth Floating Micro-Stars: Individual depth sways that flutter dynamically on scroll
+  const depthSlowY = useTransform(scrollY, (v) => Math.sin(v / 300) * 20);
+  const depthSlowX = useTransform(scrollY, (v) => Math.cos(v / 350) * 10);
+
+  const depthMediumY = useTransform(scrollY, (v) => Math.sin(v / 200) * 45);
+  const depthMediumX = useTransform(scrollY, (v) => Math.cos(v / 240) * 20);
+
+  const depthFastY = useTransform(scrollY, (v) => Math.sin(v / 140) * 70);
+  const depthFastX = useTransform(scrollY, (v) => Math.cos(v / 160) * 30);
+
+  const STARS_PRESET = useMemo(() => [
+    { top: "12%", left: "8%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "22%", left: "85%", size: "w-1 h-1", depth: "medium" },
+    { top: "45%", left: "12%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "62%", left: "80%", size: "w-1 h-1", depth: "medium" },
+    { top: "78%", left: "18%", size: "w-1.5 h-1.5 bg-accent/40 animate-pulse", depth: "fast" },
+    { top: "34%", left: "73%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "88%", left: "55%", size: "w-1 h-1", depth: "medium" },
+    { top: "8%", left: "92%", size: "w-1.5 h-1.5 bg-white/40 animate-pulse", depth: "fast" },
+    { top: "52%", left: "77%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "94%", left: "28%", size: "w-1 h-1", depth: "medium" },
+    { top: "6%", left: "42%", size: "w-1 h-1", depth: "medium" },
+    { top: "58%", left: "48%", size: "w-0.5 h-0.5", depth: "slow" },
+    { top: "28%", left: "28%", size: "w-1.5 h-1.5 bg-[#00FF66]/30 animate-pulse", depth: "fast" },
+    { top: "72%", left: "62%", size: "w-1 h-1", depth: "medium" },
+    { top: "38%", left: "94%", size: "w-0.5 h-0.5", depth: "slow" },
+  ], []);
+
   const [url, setUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -231,7 +274,62 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-[100dvh] bg-[#0d0d12] text-[#efefef] font-sans selection:bg-orange-500 selection:text-white w-full overflow-hidden relative" id="participant_view_redesigned">
+    <div className="crt-screen flex flex-col md:flex-row h-[100dvh] text-[#efefef] font-sans selection:bg-orange-500 selection:text-white w-full overflow-hidden relative antialiased" id="participant_view_redesigned">
+      {/* Parallax Background Canvas with nebula image */}
+      <motion.div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0 pointer-events-none"
+        style={{ 
+          backgroundImage: "url('/Background.jpeg')",
+          y: bgY,
+          scale: bgScale,
+        }}
+      />
+
+      {/* 1. Seamless Infinite Cyberpunk Digital Grid (Seamless 60px modulus vertical scroll) */}
+      <motion.div 
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.07]"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(145, 70, 255, 0.4) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(145, 70, 255, 0.4) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
+          y: gridY,
+        }}
+      />
+
+      {/* 2. Procedural Multi-Depth Stars (Infinite Scroll Sway) */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {STARS_PRESET.map((star, idx) => {
+          let transformX = depthSlowX;
+          let transformY = depthSlowY;
+          if (star.depth === "medium") {
+            transformX = depthMediumX;
+            transformY = depthMediumY;
+          } else if (star.depth === "fast") {
+            transformX = depthFastX;
+            transformY = depthFastY;
+          }
+          return (
+            <motion.div
+              key={idx}
+              className={`absolute rounded-full bg-white/50 ${star.size}`}
+              style={{
+                top: star.top,
+                left: star.left,
+                x: transformX,
+                y: transformY,
+              }}
+            />
+          );
+        })}
+      </div>
+      
+      {/* Dark Translucent overlay to maintain extreme contrast and layout elegance */}
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] pointer-events-none z-0" />
+      
+      {/* Background Cathode sweeping scanning bar */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#00FF66]/2 to-transparent h-1 opacity-20 pointer-events-none animate-pulse-phosphor z-50 transform translate-y-0" style={{ animationDuration: '8s' }} />
       
       {/* Timeout Overlay */}
       <AnimatePresence>
@@ -261,15 +359,15 @@ export default function ParticipantView({ session }: { session: SessionState }) 
 
       {/* Sidebar Navigation (Desktop) */}
       <nav className={clsx(
-        "fixed md:relative z-50 w-[260px] md:w-[72px] lg:w-[240px] h-full bg-zinc-950 border-r border-[#1f1f2e] flex flex-col transition-transform duration-300",
+        "fixed md:relative z-50 w-[260px] md:w-[72px] lg:w-[240px] h-full bg-black/45 backdrop-blur-md border-r border-[#1f1f2e]/60 border-white/10 flex flex-col transition-transform duration-300",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
-        <div className="h-14 flex items-center justify-between lg:justify-start gap-3 px-4 border-b border-[#1f1f2e] shrink-0 overflow-hidden relative">
+        <div className="h-14 flex items-center justify-between lg:justify-start gap-3 px-4 border-b border-[#1f1f2e]/60 border-white/10 shrink-0 overflow-hidden relative">
            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-orange-500 to-transparent" />
            <Radio className="w-5 h-5 text-orange-500 shrink-0" />
            <div className="flex flex-col md:hidden lg:flex">
              <span className="font-extrabold font-mono text-xs uppercase tracking-wider text-orange-400 truncate max-w-[150px]">{session.id}</span>
-             <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Sessão Ativa</span>
+             <span className="text-[9px] text-zinc-550 uppercase tracking-widest font-mono">Sessão Ativa</span>
            </div>
            <button className="md:hidden p-1 text-zinc-400 ml-auto" onClick={() => setMobileMenuOpen(false)}>
              <X className="w-5 h-5" />
@@ -277,27 +375,27 @@ export default function ParticipantView({ session }: { session: SessionState }) 
         </div>
 
         <div className="flex flex-col gap-1 p-2 pt-4 flex-1">
-          <NavItem active={activeTab === 'home'} onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} icon={<Tv className="w-4 h-4"/>} label="Transmissão" />
-          <NavItem active={activeTab === 'queue'} onClick={() => { setActiveTab('queue'); setMobileMenuOpen(false); }} icon={<ListIcon className="w-4 h-4"/>} label="Fila de Vídeos" badge={approvedVideos.length} />
+          <NavItem active={activeTab === 'home'} onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} icon={<img src={logoTransparent} alt="" className="w-4 h-4 object-contain opacity-70" referrerPolicy="no-referrer" />} label="Transmissão" />
+          <NavItem active={activeTab === 'queue'} onClick={() => { setActiveTab('queue'); setMobileMenuOpen(false); }} icon={<CassetteTape className="w-4 h-4"/>} label="Fila de Vídeos" badge={approvedVideos.length} />
           <NavItem active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} icon={<Users className="w-4 h-4"/>} label="Participantes" badge={session.users.length} />
           <NavItem active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }} icon={<Crown className="w-4 h-4"/>} label="Meu Perfil" />
         </div>
 
-        <div className="p-3 border-t border-[#1f1f2e] space-y-2 shrink-0 bg-zinc-950">
-          <button onClick={copyInvite} className={clsx("w-full flex items-center md:justify-center lg:justify-start gap-3 p-2 rounded-sm text-xs font-bold font-mono tracking-wider uppercase transition-all border", copied ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800")}>
+        <div className="p-3 border-t border-[#1f1f2e]/60 border-white/10 space-y-2 shrink-0 bg-transparent backdrop-blur-md">
+          <button onClick={copyInvite} className={clsx("w-full flex items-center md:justify-center lg:justify-start gap-3 p-2 rounded-sm text-xs font-bold font-mono tracking-wider uppercase transition-all border cursor-pointer", copied ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]" : "bg-black/30 text-zinc-300 border-white/10 hover:bg-black/55")}>
             {copied ? <Check className="w-4 h-4 shrink-0" /> : <Copy className="w-4 h-4 shrink-0" />} <span className="md:hidden lg:inline">{copied ? 'COPIADO' : 'CONVITE'}</span>
           </button>
           <button onClick={() => { 
             localStorage.removeItem('active_room_id');
             window.location.reload(); 
-          }} className="w-full flex items-center md:justify-center lg:justify-start gap-3 p-2 rounded-sm text-xs font-bold font-mono tracking-wider uppercase text-red-500 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20">
+          }} className="w-full flex items-center md:justify-center lg:justify-start gap-3 p-2 rounded-sm text-xs font-bold font-mono tracking-wider uppercase text-red-500 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20 cursor-pointer">
             <LogOut className="w-4 h-4 shrink-0" /> <span className="md:hidden lg:inline">SAIR</span>
           </button>
         </div>
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-[100dvh] relative min-w-0 bg-[#0a0a0f]">
+      <main className="flex-1 flex flex-col h-[100dvh] relative min-w-0 bg-transparent z-10">
         
         {/* Mobile Header */}
         <header className="md:hidden h-14 flex items-center justify-between px-3 border-b border-[#1f1f2e] bg-zinc-950 shrink-0 relative">
@@ -349,7 +447,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                 <div className="absolute top-0 right-0 w-32 h-full opacity-10 pointer-events-none bg-gradient-to-l from-orange-500 to-transparent"></div>
                 <div className="flex items-center justify-between mb-3 border-b border-zinc-800/50 pb-2">
                   <h3 className="text-[10px] font-mono tracking-widest uppercase text-zinc-500 flex items-center gap-1.5">
-                    <MonitorPlay className="w-3.5 h-3.5 text-orange-500" /> Mídia Sincronizada
+                    <Radio className="w-3.5 h-3.5 text-orange-500" /> Mídia Sincronizada
                   </h3>
                   {currentVideo && <StatusBadge status="playing" />}
                 </div>
@@ -358,7 +456,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                   <div className="flex lg:items-center gap-4 flex-col lg:flex-row justify-between">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded shrink-0 flex items-center justify-center">
-                         <PlayCircle className="w-5 h-5 text-orange-400" />
+                         <BoomBox className="w-5 h-5 text-orange-400" />
                       </div>
                       <div className="min-w-0">
                         <a href={currentVideo.url} target="_blank" rel="noreferrer" className="text-sm font-bold text-white hover:text-orange-400 transition-colors truncate block max-w-sm">
@@ -373,7 +471,12 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <Tv className="w-8 h-8 text-zinc-800 mb-2" />
+                    <img
+                      src={logoTransparent}
+                      alt=""
+                      className="w-10 h-10 object-contain mx-auto opacity-20 mb-2 animate-pulse"
+                      referrerPolicy="no-referrer"
+                    />
                     <span className="text-sm font-bold text-zinc-500">Transmissão Sincronizada Inativa</span>
                     <span className="text-xs text-zinc-600 mt-1">Aguardando o streamer iniciar um vídeo da fila.</span>
                   </div>
@@ -425,7 +528,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             <div className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-40">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <h2 className="text-sm font-extrabold uppercase font-mono tracking-widest text-white flex items-center gap-2">
-                  <ListIcon className="w-4 h-4 text-orange-500" /> Fila de Reprodução
+                  <CassetteTape className="w-4 h-4 text-orange-500" /> Fila de Reprodução
                 </h2>
               </div>
               
@@ -663,20 +766,20 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
     <button 
       onClick={onClick} 
       className={clsx(
-        "flex items-center gap-3 p-2.5 rounded-sm transition-all text-xs font-mono tracking-widest uppercase relative group border border-transparent",
-        active ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300"
+        "flex items-center gap-3 p-2.5 rounded-sm transition-all text-[11px] font-mono tracking-widest uppercase relative group border border-transparent cursor-pointer",
+        active ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]" : "text-zinc-455 hover:bg-black/35 hover:text-zinc-300"
       )}
     >
-      <div className={clsx("shrink-0", active ? "text-orange-500" : "")}>{icon}</div>
+      <div className={clsx("shrink-0", active ? "text-orange-450" : "")}>{icon}</div>
       <span className="md:hidden lg:inline text-left flex-1 truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
-         <span className={clsx("md:hidden lg:inline ml-auto px-1.5 py-0.5 text-[9px] font-black rounded-sm border", active ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-zinc-800 text-zinc-400 border-zinc-700")}>
+         <span className={clsx("md:hidden lg:inline ml-auto px-1.5 py-0.5 text-[9px] font-black rounded-sm border", active ? "bg-[#9146FF]/20 text-orange-400 border-[#9146FF]/30" : "bg-black/40 text-zinc-455 border-white/10")}>
            {badge}
          </span>
       )}
       
       {/* Tooltip for collapsed sidebar */}
-      <div className="hidden md:block lg:hidden absolute left-full ml-3 px-2 py-1 bg-zinc-800 text-white text-[10px] rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap border border-zinc-700 z-50">
+      <div className="hidden md:block lg:hidden absolute left-full ml-3 px-2 py-1 bg-black/80 text-white text-[10px] rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap border border-white/10 z-50">
         {label} {badge !== undefined && badge > 0 ? `(${badge})` : ''}
       </div>
     </button>
