@@ -1,6 +1,6 @@
 import { Radio, HelpCircle, Flame, History, Clock, ArrowRight, CornerDownRight, Check, Zap } from "lucide-react";
 import { motion } from "motion/react";
-import logoTransparent from "@/CASSETE-TAPE.png";
+import logoTransparent from "@/public/CASSETE-TAPE.png";
 
 interface LobbyContentProps {
   processedOnlineStreamers: any[];

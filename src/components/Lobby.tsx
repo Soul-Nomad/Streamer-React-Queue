@@ -5,6 +5,7 @@ import {
   LogIn,
   LogOut,
   Twitch,
+  AlertCircle,
   AlertTriangle,
   Crown,
   Search,
@@ -795,6 +796,14 @@ export default function Lobby() {
         >
           <Plus className="w-5 h-5" />
         </button>
+      </div>
+
+      {/* Development Status Banner - Moved here from App.tsx */}
+      <div className="select-none border-t border-white/10 bg-[#FF8C42] px-4 py-2 text-center relative z-50">
+        <p className="flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-wider text-white md:text-xs">
+          <AlertCircle className="h-3 w-3 shrink-0 text-white md:h-4 md:w-4" />
+          Este serviço está em fase de desenvolvimento e pode apresentar instabilidades.
+        </p>
       </div>
 
       {/* DESIGN FOOTER WARNINGS BAR */}

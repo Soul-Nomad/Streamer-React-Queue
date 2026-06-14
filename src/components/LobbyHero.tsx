@@ -1,7 +1,7 @@
 import { Crown, Twitch, Terminal, Send } from "lucide-react";
 import { motion } from "motion/react";
 import { User as SupabaseUser } from "@supabase/supabase-js";
-import logoTransparent from "@/CASSETE-TAPE.png";
+import logoTransparent from "@/public/CASSETE-TAPE.png";
 
 interface LobbyHeroProps {
   supabaseUser: SupabaseUser | null;

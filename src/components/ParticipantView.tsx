@@ -8,7 +8,7 @@ import {
 import { clsx } from 'clsx';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import logoTransparent from "@/CASSETE-TAPE.png";
+import logoTransparent from "@/public/CASSETE-TAPE.png";
 
 // --- Helper Functions ---
 const getInitials = (name: string) => name ? name.trim().substring(0, 2).toUpperCase() : '?';
