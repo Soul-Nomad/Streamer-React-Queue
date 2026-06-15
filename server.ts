@@ -2502,10 +2502,16 @@ app.post(['/sessions/:id/play_video', '/api/sessions/:id/play_video'], async (re
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    // Mark as played/watched in the universal queue
-    const updatedQueue = (state.queue || []).map((v: any) => 
-      v.id === videoId ? { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() } : v
-    );
+    // Mark the new video as 'playing' and the previous active video as 'watched'
+    const updatedQueue = (state.queue || []).map((v: any) => {
+      if (v.id === videoId) {
+        return { ...v, status: 'playing', watchedAt: v.watchedAt || Date.now() };
+      }
+      if ((v.id === state.currentVideoId || v.status === 'playing') && v.id !== videoId) {
+        return { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() };
+      }
+      return v;
+    });
 
     const historyVideos = updatedQueue.filter((v: any) => v.status === 'watched');
     updateWatchedCache(roomId, historyVideos);
@@ -2550,7 +2556,7 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
 
     // Mark current video as 'watched' in the queue (if it isn't already)
     const updatedQueue = queue.map((v: any) => {
-      if (v.id === currentVideoId) {
+      if (v.id === currentVideoId || v.status === 'playing') {
         return { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() };
       }
       return v;
@@ -2570,10 +2576,10 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
       isPlaying = false;
     }
 
-    // Now, let's also update the video status of the new current video in updatedQueue to 'watched' as well
+    // Now, let's also update the video status of the new current video in updatedQueue to 'playing' as well
     const finalQueue = updatedQueue.map((v: any) => {
       if (v.id === currentVideoId) {
-        return { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() };
+        return { ...v, status: 'playing', watchedAt: v.watchedAt || Date.now() };
       }
       return v;
     });
@@ -2648,11 +2654,26 @@ app.post(['/sessions/:id/play_previous', '/api/sessions/:id/play_previous'], asy
     }
 
     if (prevVideoId) {
+      const updatedQueue = queue.map((v: any) => {
+        if (v.id === currentVideoId || v.status === 'playing') {
+          return { ...v, status: 'watched', watchedAt: v.watchedAt || Date.now() };
+        }
+        if (v.id === prevVideoId) {
+          return { ...v, status: 'playing' };
+        }
+        return v;
+      });
+
+      const historyVideos = updatedQueue.filter((v: any) => v.status === 'watched');
+      updateWatchedCache(roomId, historyVideos);
+
       const updatedState = {
         ...state,
+        queue: updatedQueue,
         currentVideoId: prevVideoId,
         isPlaying: true,
-        currentTime: 0
+        currentTime: 0,
+        history: historyVideos
       };
 
       const supabaseAdmin = getSupabaseAdmin();

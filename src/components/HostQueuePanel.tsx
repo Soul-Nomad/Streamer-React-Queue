@@ -335,26 +335,15 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
                   {vid.url}
                 </p>
 
-                {/* Progress Time Bar */}
-                <div className="mt-2 mb-3.5 space-y-1.5 bg-zinc-950/40 p-2 rounded border border-zinc-900/50">
-                  <div className="flex items-center justify-between text-[9px] font-mono text-zinc-450 leading-none">
-                    <span className={clsx(
-                      "font-extrabold uppercase tracking-widest text-[8px]",
-                      isCurrent ? "text-orange-400" : vid.status === 'watched' ? "text-green-400" : "text-zinc-500"
-                    )}>
-                      {isCurrent ? "EM REPRODUÇÃO" : vid.status === 'watched' ? "REPRODUZIDO" : "NA FILA"}
-                    </span>
-                    <span>{progressText}</span>
-                  </div>
-                  <div className="w-full bg-zinc-900/80 rounded-full h-1.5 overflow-hidden border border-zinc-805">
-                    <div 
-                      className={clsx(
-                        "h-full rounded-full transition-all duration-300",
-                        isCurrent ? "bg-orange-500" : vid.status === 'watched' ? "bg-green-500" : "bg-zinc-700 w-0"
-                      )}
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
+                {/* Duration and Status */}
+                <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 mb-2.5 mt-1">
+                  <span className={clsx(
+                    "font-extrabold uppercase text-[8.5px] tracking-wider",
+                    isCurrent ? "text-orange-400 animate-pulse" : vid.status === 'watched' ? "text-green-400" : "text-zinc-550"
+                  )}>
+                    {isCurrent ? "● EM REPRODUÇÃO" : vid.status === 'watched' ? "REPRODUZIDO" : "NA FILA"}
+                  </span>
+                  <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
                 </div>
 
                 {/* Submitter User Profile */}

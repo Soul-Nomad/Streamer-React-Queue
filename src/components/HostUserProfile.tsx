@@ -215,7 +215,7 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
           <div className="bg-zinc-950/60 p-3 rounded-sm border border-[#1f1f2e] flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-400">Strikes Ativos:</span>
             <div className="flex items-center gap-1.5">
-              {[1, 2, 3].map((s) => (
+              {[1, 2, 3, 4, 5].map((s) => (
                 <Flame 
                   key={s} 
                   className={clsx(
@@ -224,7 +224,7 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
                   )} 
                 />
               ))}
-              <span className="text-xs font-bold font-mono text-zinc-300 ml-1">({strikes})</span>
+              <span className="text-xs font-bold font-mono text-zinc-300 ml-1">({strikes}/5)</span>
             </div>
           </div>
 
@@ -276,58 +276,20 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
             Auditoria de Segurança
           </h4>
           <div className="bg-zinc-950/60 p-3.5 rounded-sm border border-[#1f1f2e] space-y-3">
-            {/* Security Metadata Grid */}
-            <div className="grid grid-cols-2 gap-2.5 text-[10.5px] font-mono border-b border-zinc-900 pb-3">
-              <div>
-                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1">IP do Usuário</span>
-                <span className="text-zinc-300 font-bold">
-                  {currentUser.ip ? currentUser.ip.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)/, '$1.$2.X.X') : 'Encriptado'}
-                </span>
-              </div>
-              <div>
-                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1">Reputação</span>
-                <span className={clsx(
-                  "font-black leading-none",
-                  (currentUser.reputation ?? 100) >= 80 ? "text-green-400" : (currentUser.reputation ?? 100) > 50 ? "text-amber-500" : "text-red-550"
-                )}>
-                  {currentUser.reputation ?? Math.max(0, Math.min(100, 100 - (strikes * 33) - ((currentUser.rejectedCount || 0) * 10) + ((currentUser.approvedCount || 0) * 5)))}%
-                </span>
-              </div>
-              <div>
-                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1 font-sans">Histórico Fila</span>
-                <span className="text-zinc-355 font-medium">
-                  {currentUser.approvedCount || 0} OK / {currentUser.rejectedCount || 0} Rej
-                </span>
-              </div>
-              <div>
-                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1">Estado Penal</span>
-                <span className={clsx(
-                  "font-bold leading-none",
-                  currentUser.shadowBanned ? "text-red-400" : "text-green-450"
-                )}>
-                  {currentUser.shadowBanned ? "Shadowban" : "Sem restrições"}
-                </span>
-              </div>
-            </div>
-
             {/* Recent Incident Logs matching the user */}
             <div className="space-y-2">
-              <span className="text-zinc-500 block font-mono uppercase text-[8.5px] tracking-widest leading-none">Ocorrências na Sessão</span>
+              <span className="text-zinc-500 block font-mono uppercase text-[8.5px] tracking-widest leading-none mb-1.5">Logs de Ações Suspeitas</span>
               {(() => {
-                const userLogs = session.auditLogs?.filter(l => 
-                  l.username?.toLowerCase() === currentUser.name?.toLowerCase()
-                ) || [];
                 const userSuspicious = session.suspiciousAlerts?.filter(a => 
                   a.username?.toLowerCase() === currentUser.name?.toLowerCase() || a.userId === currentUser.userId
                 ) || [];
-                const mergedLogs = [...userLogs, ...userSuspicious]
-                  .sort((a, b) => b.timestamp - a.timestamp)
-                  .slice(0, 3);
+                const sortedAlerts = [...userSuspicious]
+                  .sort((a, b) => b.timestamp - a.timestamp);
 
-                if (mergedLogs.length > 0) {
+                if (sortedAlerts.length > 0) {
                   return (
-                    <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
-                      {mergedLogs.map((log: any) => (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {sortedAlerts.map((log: any) => (
                         <div key={log.id} className="text-[10px] leading-tight font-mono text-zinc-300 border-l-2 border-red-500/40 pl-2.5 py-0.5 bg-zinc-900/10 rounded-r">
                           <div className="flex items-center justify-between text-[8px] text-zinc-500 mb-0.5">
                             <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
@@ -345,8 +307,8 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
                   );
                 } else {
                   return (
-                    <p className="text-[10px] italic text-zinc-600 font-mono leading-relaxed pt-1">
-                      Nenhum incidente de segurança logado nesta sessão.
+                    <p className="text-[10px] italic text-zinc-650 font-mono leading-relaxed pt-1">
+                      Nenhuma ação suspeita registrada para este usuário nesta sessão.
                     </p>
                   );
                 }
