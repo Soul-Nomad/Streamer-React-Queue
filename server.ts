@@ -2743,21 +2743,26 @@ async function executeTwitchModeration(
        } catch (e) {}
     }
 
-    if (!broadcasterId) {
-      console.log(`[Twitch Sync Moderation] Skipped: Broadcaster ID could not be matched`);
-      return false;
-    }
-
     let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
     try {
       const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
         headers: { 'Authorization': `OAuth ${broadcasterToken}` },
         timeout: 3000
       });
-      if (valRes.data && valRes.data.client_id) {
-        clientId = valRes.data.client_id;
+      if (valRes.data) {
+        if (valRes.data.client_id) {
+          clientId = valRes.data.client_id;
+        }
+        if (valRes.data.user_id) {
+          broadcasterId = valRes.data.user_id;
+        }
       }
     } catch (e) {}
+
+    if (!broadcasterId) {
+      console.log(`[Twitch Sync Moderation] Skipped: Broadcaster ID could not be matched`);
+      return false;
+    }
 
     const headers = {
       'Client-Id': clientId,

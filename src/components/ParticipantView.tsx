@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { socket } from '../socket';
+import { socket, getBackendUrl } from '../socket';
 import { SessionState, Video } from '../types';
 import { 
   Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon, Loader2, PlayCircle, Eye, ThumbsUp, Activity,
@@ -119,7 +119,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const [url, setUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitFeedback, setSubmitFeedback] = useState<{type: 'success' | 'info', msg: string, position?: number, estimate?: number} | null>(null);
+  const [submitFeedback, setSubmitFeedback] = useState<{type: 'success' | 'info' | 'error', msg: string, position?: number, estimate?: number} | null>(null);
   
   // Navigation State
   const [activeTab, setActiveTab] = useState<'home' | 'queue' | 'users' | 'profile'>('home');
@@ -207,28 +207,60 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       }
     }
 
-    socket.emit('submit_video', localPayload);
-    
-    const isManualApprovalRequired = session.settings?.isManualApprovalRequired ?? true;
-    const itemsBeforeMe = session.queue.filter(v => v.status === 'approved').length;
-    
-    setSubmitFeedback({
-      type: 'success',
-      msg: isManualApprovalRequired ? 'Vídeo enviado para aprovação!' : 'Vídeo adicionado à fila!',
-      position: isManualApprovalRequired ? undefined : itemsBeforeMe + 1,
-      estimate: isManualApprovalRequired ? undefined : (itemsBeforeMe + 1) * 3
-    });
+    try {
+      const backendUrl = getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/sessions/${session.id}/submit_video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: me?.userId || socket.getUserId(),
+          data: localPayload
+        })
+      });
 
-    setUrl('');
-    setCaptchaAnswer('');
-    setCaptchaChallenge({ num1: Math.floor(Math.random() * 9) + 1, num2: Math.floor(Math.random() * 9) + 1 });
-    
-    setTimeout(() => {
-      setSubmitFeedback(null);
+      if (!res.ok) {
+        const errDetails = await res.json();
+        setSubmitFeedback({
+          type: 'error',
+          msg: errDetails.error || 'Ação recusada pelo guardião da fila.'
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const resData = await res.json();
+      if (resData && resData.session) {
+        socket.trigger('session_state', resData.session);
+      }
+
+      const isManualApprovalRequired = session.settings?.isManualApprovalRequired ?? true;
+      const itemsBeforeMe = (resData?.session?.queue || []).filter((v: any) => v.status === 'approved').length;
+
+      setSubmitFeedback({
+        type: 'success',
+        msg: isManualApprovalRequired ? 'Vídeo enviado para aprovação!' : 'Vídeo adicionado com sucesso!',
+        position: isManualApprovalRequired ? undefined : itemsBeforeMe,
+        estimate: isManualApprovalRequired ? undefined : itemsBeforeMe * 3
+      });
+
+      setUrl('');
+      setCaptchaAnswer('');
+      setCaptchaChallenge({ num1: Math.floor(Math.random() * 9) + 1, num2: Math.floor(Math.random() * 9) + 1 });
+
+      setTimeout(() => {
+        setSubmitFeedback(null);
+        setIsSubmitting(false);
+        setActiveTab('queue');
+        queueEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 4000);
+
+    } catch (err: any) {
+      setSubmitFeedback({
+        type: 'error',
+        msg: 'Não foi possível conectar ao servidor.'
+      });
       setIsSubmitting(false);
-      setActiveTab('queue');
-      queueEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 4000);
+    }
   };
 
   const copyInvite = () => {
@@ -364,7 +396,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       )}>
         <div className="h-14 flex items-center justify-between lg:justify-start gap-3 px-4 border-b border-[#1f1f2e]/60 border-white/10 shrink-0 overflow-hidden relative">
            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-orange-500 to-transparent" />
-           <Radio className="w-5 h-5 text-orange-500 shrink-0" />
+           <img src="/LOGO.jpeg" className="h-8 w-auto mix-blend-screen drop-shadow-md object-contain shrink-0" alt="Logo" />
            <div className="flex flex-col md:hidden lg:flex">
              <span className="font-extrabold font-mono text-xs uppercase tracking-wider text-orange-400 truncate max-w-[150px]">{session.id}</span>
              <span className="text-[9px] text-zinc-550 uppercase tracking-widest font-mono">Sessão Ativa</span>
@@ -404,8 +436,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex flex-col items-center">
-            <span className="font-extrabold font-mono text-[11px] tracking-wider text-orange-400">{session.id}</span>
-            <span className="text-[9px] text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"/>Ao Vivo</span>
+            <img src="/LOGO.jpeg" className="h-6 w-auto mix-blend-screen drop-shadow-md object-contain" alt="Logo" />
           </div>
           <button onClick={copyInvite} className="p-1.5 text-zinc-400 hover:text-white rounded-sm">
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -674,12 +705,26 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                   initial={{ opacity: 0, y: 10, scale: 0.95 }} 
                   animate={{ opacity: 1, y: 0, scale: 1 }} 
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="absolute bottom-full left-0 right-0 mx-4 mb-4 md:mx-auto md:max-w-md bg-emerald-950/90 backdrop-blur border border-emerald-500/30 p-3 rounded-sm shadow-2xl flex items-start gap-3"
+                  className={clsx(
+                    "absolute bottom-full left-0 right-0 mx-4 mb-4 md:mx-auto md:max-w-md backdrop-blur p-3 rounded-sm shadow-2xl flex items-start gap-3 border z-50",
+                    submitFeedback.type === 'error' 
+                      ? "bg-red-950/90 border-red-500/40 text-red-200" 
+                      : "bg-emerald-950/90 border-emerald-500/30 text-emerald-200"
+                  )}
                 >
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                  {submitFeedback.type === 'error' ? (
+                    <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                  )}
                   <div>
-                    <h4 className="text-sm font-bold text-emerald-400 font-mono tracking-tight uppercase">{submitFeedback.msg}</h4>
-                    {submitFeedback.position && (
+                    <h4 className={clsx(
+                      "text-sm font-bold font-mono tracking-tight uppercase",
+                      submitFeedback.type === 'error' ? "text-red-400" : "text-emerald-400"
+                    )}>
+                      {submitFeedback.msg}
+                    </h4>
+                    {submitFeedback.type !== 'error' && submitFeedback.position && (
                       <div className="flex items-center gap-4 mt-1.5 text-xs text-emerald-200/70 font-mono">
                         <span>POSIÇÃO: <strong className="text-emerald-300">#{submitFeedback.position}</strong></span>
                         <span>ESTIMATIVA: <strong className="text-emerald-300">~{submitFeedback.estimate} min</strong></span>

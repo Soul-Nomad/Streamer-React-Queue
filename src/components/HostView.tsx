@@ -909,8 +909,7 @@ export default function HostView({ session }: { session: SessionState }) {
         {/* Brand & Room Info */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00FF66] animate-pulse border border-[#00FF66]/40" />
-            <h1 className="text-sm font-black uppercase tracking-wider font-mono bg-gradient-to-r from-[#9146FF] to-orange-400 bg-clip-text text-transparent">Live Console</h1>
+            <img src="/LOGO.jpeg" alt="Logo" className="w-12 h-auto object-contain mix-blend-screen drop-shadow-md" />
           </div>
           <span className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-1.5 font-mono text-[10.5px]">

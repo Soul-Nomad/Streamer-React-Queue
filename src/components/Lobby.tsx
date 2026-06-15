@@ -457,7 +457,7 @@ export default function Lobby() {
     supabase.auth.signInWithOAuth({
       provider: "twitch",
       options: {
-        scopes: "channel:read:redemptions channel:read:subscriptions chat:read chat:edit",
+        scopes: "channel:read:redemptions channel:read:subscriptions chat:read chat:edit moderator:manage:banned_users moderator:read:chatters moderator:read:followers channel:read:vips channel:manage:redemptions user:read:follows",
         redirectTo: window.location.origin,
       },
     });
@@ -636,7 +636,9 @@ export default function Lobby() {
 
       {/* TOP HEADER CONTROLS */}
       <header className="sticky top-0 z-[100] h-16 bg-black/40 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 flex items-center justify-between">
-        <div className="flex-1 hidden sm:block" />
+        <div className="flex-1 hidden sm:flex items-center">
+          <img src="/LOGO.jpeg" alt="Logo" className="w-12 h-auto object-contain mix-blend-screen drop-shadow-md" />
+        </div>
         
         {/* Console Search Input Box */}
         <div className="flex-1 max-w-sm sm:max-w-md mx-4 relative z-10">
