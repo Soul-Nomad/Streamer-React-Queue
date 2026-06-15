@@ -570,9 +570,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">Meus Envios Pendentes</h3>
                     </div>
                     <div className="grid gap-2">
-                      {myPendingVideos.map(v => (
-                        <QueueCard key={v.id} video={v} type="pending" />
-                      ))}
+                      <AnimatePresence initial={false}>
+                        {myPendingVideos.map(v => (
+                          <QueueCard key={v.id} video={v} type="pending" />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   </div>
                 )}
@@ -591,9 +593,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     </div>
                   ) : (
                     <div className="grid gap-2">
-                      {approvedVideos.map((v, i) => (
-                        <QueueCard key={v.id} video={v} type="queued" index={i + 1} />
-                      ))}
+                      <AnimatePresence initial={false}>
+                        {approvedVideos.map((v, i) => (
+                          <QueueCard key={v.id} video={v} type="queued" index={i + 1} />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
@@ -605,9 +609,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 font-mono">Últimos Reproduzidos</h3>
                     </div>
                     <div className="grid gap-2">
-                      {historyVideos.slice(0, 5).map(v => (
-                        <QueueCard key={v.id} video={v} type="history" />
-                      ))}
+                      <AnimatePresence initial={false}>
+                        {historyVideos.slice(0, 5).map(v => (
+                          <QueueCard key={v.id} video={v} type="history" />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   </div>
                 )}
@@ -830,7 +836,15 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
 
 function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number }) {
   return (
-    <div className={clsx("bg-zinc-950 border p-3 rounded-sm flex items-center justify-between group transition-colors", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50" : "border-zinc-800/50 opacity-80")}>
+    <motion.div
+      layout="position"
+      initial={{ opacity: 0, scale: 0.98, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
+      transition={{ type: "spring", stiffness: 180, damping: 20 }}
+      whileHover={{ scale: 1.005, transition: { duration: 0.1 } }}
+      className={clsx("bg-zinc-950 border p-3 rounded-sm flex items-center justify-between group transition-all duration-300", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" : "border-zinc-800/50 opacity-85")}
+    >
       <div className="flex items-center gap-3 overflow-hidden flex-1">
         {index !== undefined && (
           <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
@@ -853,7 +867,7 @@ function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'qu
           <ExternalLink className="w-3 h-3" />
         </a>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

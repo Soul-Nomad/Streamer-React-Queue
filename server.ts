@@ -88,6 +88,7 @@ import tmi from 'tmi.js';
 
 let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
+const recentlyProcessedVideos = new Set<string>();
 
 export function connectBotToChannel(channelName: string) {
   if (!channelName) return;
@@ -663,6 +664,16 @@ setTimeout(() => {
           }
 
           const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
+
+          // 1. Check synchronous in-memory lock first to prevent quick-succession race conditions
+          const uniqKey = `${roomId}:${canonicalId}`;
+          if (recentlyProcessedVideos.has(uniqKey)) {
+            console.warn(`[Twitch Bot @Deduplication] Prevented duplicate processing of video key: ${uniqKey}`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já foi enviado recentemente.`);
+            continue;
+          }
+
+          // 2. Check existing queue for persistence deduplication
           const isDuplicate = (state.queue || []).some((v: any) => 
             v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
           );
@@ -671,6 +682,12 @@ setTimeout(() => {
             sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
             continue;
           }
+
+          // 3. Register synchronous lock immediately BEFORE any async processes occur
+          recentlyProcessedVideos.add(uniqKey);
+          setTimeout(() => {
+            recentlyProcessedVideos.delete(uniqKey);
+          }, 15000); // 15 seconds window is optimal to ignore Twitch duplicates and simultaneous network echoes
 
           const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
 
@@ -2320,6 +2337,13 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     const cleanUrl = vCheck.normalizedUrl || url;
     const canonId = extractCanonicalVideoId(cleanUrl, platform);
 
+    // 1. Check synchronous concurrent-safe cache first
+    const uniqKey = `${roomId}:${canonId}`;
+    if (recentlyProcessedVideos.has(uniqKey)) {
+      return res.status(400).json({ error: 'Este vídeo já está sendo processado ou foi enviado recentemente.' });
+    }
+
+    // 2. Check DB state queue duplication
     const isDuplicate = (state.queue || []).some((v: any) => 
       (v.status === 'pending' || v.status === 'approved' || !v.status) && 
       extractCanonicalVideoId(v.url, v.platform) === canonId
@@ -2327,6 +2351,12 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     if (isDuplicate) {
       return res.status(400).json({ error: 'Este vídeo já está na fila.' });
     }
+
+    // 3. Register synchronous cache lock immediately
+    recentlyProcessedVideos.add(uniqKey);
+    setTimeout(() => {
+      recentlyProcessedVideos.delete(uniqKey);
+    }, 15000);
 
     const contentCheck = await verifyVideoContent(cleanUrl, platform, state.settings?.blockLiveStreams);
     if (!contentCheck.valid) {

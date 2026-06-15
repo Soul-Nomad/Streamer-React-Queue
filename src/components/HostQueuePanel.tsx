@@ -287,11 +287,11 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
             return (
               <motion.div
                 key={vid.id}
-                layoutId={vid.id}
-                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                layout="position"
+                initial={{ opacity: 0, scale: 0.98, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
+                transition={{ type: "spring", stiffness: 180, damping: 20 }}
                 className={clsx(
                   "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden backdrop-blur-sm",
                   isCurrent 
@@ -305,18 +305,33 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
 
                 {/* Top Details */}
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1 text-[9px] font-mono">
+                  <div className="flex items-center gap-1.5 text-[9px] font-mono">
                     {tab === 'pending' && (
-                      <span className="text-orange-400 font-extrabold pr-1"># {index + 1}</span>
+                      <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
                     )}
-                    {vid.status === 'pending' && (
-                      <span className="text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase animate-pulse">Pendente</span>
-                    )}
-                    {vid.status === 'approved' && (
-                      <span className="text-orange-400 bg-orange-500/10 px-1 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">Aprovado</span>
-                    )}
-                    {vid.status === 'watched' && (
-                      <span className="text-green-400 bg-green-500/10 px-1 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">Visto</span>
+                    {isCurrent ? (
+                      <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
+                        <span className="h-1 w-1 rounded-full bg-orange-500"></span>
+                        Em Reprodução
+                      </span>
+                    ) : vid.status === 'pending' ? (
+                      <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                        Pendente
+                      </span>
+                    ) : vid.status === 'approved' ? (
+                      <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                        Na Fila
+                      </span>
+                    ) : vid.status === 'watched' ? (
+                      <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                        Visto
+                      </span>
+                    ) : null}
+                    
+                    {duration > 0 && (
+                      <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
+                        {formatTime(duration)}
+                      </span>
                     )}
                   </div>
                   <span className={clsx("text-[8px] px-1 py-0.5 rounded border font-mono tracking-wider uppercase shrink-0 font-bold", platformColor)}>
@@ -335,19 +350,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
                   {vid.url}
                 </p>
 
-                {/* Duration and Status */}
-                <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 mb-2.5 mt-1">
-                  <span className={clsx(
-                    "font-extrabold uppercase text-[8.5px] tracking-wider",
-                    isCurrent ? "text-orange-400 animate-pulse" : vid.status === 'watched' ? "text-green-400" : "text-zinc-550"
-                  )}>
-                    {isCurrent ? "● EM REPRODUÇÃO" : vid.status === 'watched' ? "REPRODUZIDO" : "NA FILA"}
-                  </span>
-                  <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
-                </div>
-
                 {/* Submitter User Profile */}
-                <div className="flex items-center justify-between gap-1 border-t border-zinc-800/60 pt-2 mt-1">
+                <div className="flex items-center justify-between gap-1 border-t border-zinc-900/60 pt-2 mt-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     {renderAvatar(sender, vid.submitter)}
                     <span 
