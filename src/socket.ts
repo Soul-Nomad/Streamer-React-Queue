@@ -86,6 +86,19 @@ class AblySocketAdapter {
     if (typeof window !== 'undefined') {
       const activeSupabaseUserId = localStorage.getItem('active_supabase_user_id');
       if (activeSupabaseUserId) return activeSupabaseUserId;
+
+      // Fallback: Check if there is an active session payload in local storage
+      const activePayload = localStorage.getItem('active_session_payload');
+      if (activePayload) {
+        try {
+          const parsed = JSON.parse(activePayload);
+          if (parsed && parsed.userId) {
+            return parsed.userId;
+          }
+        } catch (e) {
+          // Ignored
+        }
+      }
     }
     return this.id;
   }

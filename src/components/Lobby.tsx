@@ -121,14 +121,26 @@ export default function Lobby() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSupabaseUser(session?.user ?? null);
+      const user = session?.user ?? null;
+      setSupabaseUser(user);
+      if (user?.id) {
+        localStorage.setItem("active_supabase_user_id", user.id);
+      } else {
+        localStorage.removeItem("active_supabase_user_id");
+      }
       setLoadingUser(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSupabaseUser(session?.user ?? null);
+      const user = session?.user ?? null;
+      setSupabaseUser(user);
+      if (user?.id) {
+        localStorage.setItem("active_supabase_user_id", user.id);
+      } else {
+        localStorage.removeItem("active_supabase_user_id");
+      }
       setLoadingUser(false);
     });
 
@@ -303,6 +315,7 @@ export default function Lobby() {
     if (supabaseUser) {
       localStorage.removeItem(`twitch_provider_token_${supabaseUser.id}`);
     }
+    localStorage.removeItem("active_supabase_user_id");
     await supabase.auth.signOut();
     setSupabaseUser(null);
     setTwitchUsername("");
