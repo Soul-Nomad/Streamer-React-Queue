@@ -286,7 +286,7 @@ export function initTwitchBot() {
           if (!result.valid || !result.normalizedUrl) {
             console.warn(`[Twitch Bot Ref] URL validation failed: ${url}. Reason: ${result.error}`);
             const reason = result.error || 'Mala formatação ou plataforma não suportada';
-            sendBotMessage(channel, `@${displayName} ❌ Link inválido. Motivo: ${reason}`);
+            sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`);
             continue;
           }
 
@@ -300,15 +300,17 @@ export function initTwitchBot() {
           if (!verifyState.valid) {
             console.warn(`[Twitch Bot Ref] Video content verification failed. Reason: ${verifyState.error}`);
             const reason = verifyState.error || 'Falha ao analisar o vídeo';
-            sendBotMessage(channel, `@${displayName} ❌ Falha no vídeo da ${platform.toUpperCase()}: ${reason}`);
+            sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
             continue;
           }
 
           const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
-          const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
+          const isDuplicate = (state.queue || []).some((v: any) => 
+            v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
+          );
           if (isDuplicate) {
             console.warn(`[Twitch Bot Ref] Link already present in queue.`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila!`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
             continue;
           }
 
@@ -327,7 +329,7 @@ export function initTwitchBot() {
             const maxVideos = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
             if (userActive >= maxVideos) {
               console.warn(`[Twitch Bot Ref] User @${username} has reached limits.`);
-              sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido! Você só pode enviar até ${maxVideos} vídeo(s) na fila.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`);
               continue;
             }
           }
@@ -380,10 +382,10 @@ export function initTwitchBot() {
 
           // Success chat notifications
           if (newVideo.status === 'pending') {
-            sendBotMessage(channel, `✨ @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi enviado e está aguardando aprovação dos moderadores! 📝`);
+            sendBotMessage(channel, `@${displayName} 📝 Vídeo enviado para moderação.`);
           } else {
             const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
-            sendBotMessage(channel, `🎉 @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi adicionado com sucesso! (Fila Pos: #${approvedCount}) 🎬`);
+            sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Posição: #${approvedCount}`);
           }
           break;
         }

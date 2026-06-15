@@ -647,7 +647,7 @@ setTimeout(() => {
           if (!result.valid || !result.normalizedUrl) {
             console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
             const reason = result.error || 'Mala formatação ou plataforma não suportada';
-            sendBotMessage(channel, `@${displayName} ❌ Link inválido. Motivo: ${reason}`);
+            sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`);
             continue;
           }
           const platform = result.platform || 'other';
@@ -655,15 +655,17 @@ setTimeout(() => {
           if (!verifyState.valid) {
             console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
             const reason = verifyState.error || 'Falha ao analisar o vídeo';
-            sendBotMessage(channel, `@${displayName} ❌ Falha no vídeo da ${platform.toUpperCase()}: ${reason}`);
+            sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
             continue;
           }
 
           const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
-          const isDuplicate = (state.queue || []).some((v: any) => v.id.includes(canonicalId));
+          const isDuplicate = (state.queue || []).some((v: any) => 
+            v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
+          );
           if (isDuplicate) {
             console.warn(`[Twitch Bot] Link already present in queue as ${canonicalId}`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila!`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
             continue;
           }
 
@@ -683,7 +685,7 @@ setTimeout(() => {
             const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
             if (maxVideos > 0 && userActive >= maxVideos) {
               console.warn(`[Twitch Bot] User @${username} has reached the limit of ${maxVideos} videos.`);
-              sendBotMessage(channel, `@${displayName} ⚠️ Limite atingido! Você só pode enviar até ${maxVideos} vídeo(s) na fila.`);
+              sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`);
               continue;
             }
           }
@@ -735,10 +737,10 @@ setTimeout(() => {
 
           // Success chat notifications
           if (newVideo.status === 'pending') {
-            sendBotMessage(channel, `✨ @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi enviado e está aguardando aprovação dos moderadores! 📝`);
+            sendBotMessage(channel, `@${displayName} 📝 Vídeo enviado para moderação.`);
           } else {
             const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
-            sendBotMessage(channel, `🎉 @${displayName}, seu vídeo de ${platform.toUpperCase()} ("${newVideo.title}") foi adicionado com sucesso! (Fila Pos: #${approvedCount}) 🎬`);
+            sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Posição: #${approvedCount}`);
           }
           break;
         }
@@ -2277,7 +2279,10 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
     const cleanUrl = vCheck.normalizedUrl || url;
     const canonId = extractCanonicalVideoId(cleanUrl, platform);
 
-    const isDuplicate = (state.queue || []).some((v: any) => extractCanonicalVideoId(v.url, v.platform) === canonId);
+    const isDuplicate = (state.queue || []).some((v: any) => 
+      (v.status === 'pending' || v.status === 'approved' || !v.status) && 
+      extractCanonicalVideoId(v.url, v.platform) === canonId
+    );
     if (isDuplicate) {
       return res.status(400).json({ error: 'Este vídeo já está na fila.' });
     }

@@ -34,22 +34,22 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
   }
 
   const handleGiveStrike = () => {
-    socket.emit('give_strike', { userId: currentUser.id });
+    socket.emit('give_strike', { userId: currentUser.userId });
     onShowFeedback('Strike Aplicado', `@${currentUser.name} recebeu +1 strike.`, 'warning');
   };
 
   const handleTimeout = (minutes: number) => {
-    socket.emit('timeout_user', { userId: currentUser.id, minutes });
+    socket.emit('timeout_user', { userId: currentUser.userId, minutes });
     onShowFeedback('Timeout Aplicado', `@${currentUser.name} silenciado por ${minutes} minutos.`, 'warning');
   };
 
   const handleBan = () => {
-    socket.emit('ban_user', { userId: currentUser.id, banType: 'permanent', reason: 'Banido através do painel do Host' });
+    socket.emit('ban_user', { userId: currentUser.userId, banType: 'permanent', reason: 'Banido através do painel do Host' });
     onShowFeedback('Usuário Banido', `@${currentUser.name} foi permanente banido da sala.`, 'error');
   };
 
   const handleToggleVIP = () => {
-    socket.emit('toggle_whitelist', currentUser.id);
+    socket.emit('toggle_whitelist', currentUser.userId);
     onShowFeedback('VIP Alterado', `Mudou o status de VIP para @${currentUser.name}.`, 'success');
   };
 
@@ -60,7 +60,7 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
       const res = await fetch(`${getBackendUrl()}/api/sessions/${session.id}/refresh_user_twitch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId: currentUser.id })
+        body: JSON.stringify({ targetUserId: currentUser.userId })
       });
       if (res.ok) {
         onShowFeedback('Métricas Atualizadas', `Dados da Twitch para @${currentUser.name} atualizados com sucesso do Helix API.`, 'success');
@@ -78,7 +78,7 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
     if (!noteText.trim()) return;
     // Note: server supports 'admin_action' with actions
     socket.emit('admin_action', {
-      userId: currentUser.id,
+      userId: currentUser.userId,
       action: 'add_note',
       note: noteText.trim()
     });
@@ -88,7 +88,7 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
 
   // Safe checks & values
   const handleForgive = () => {
-    socket.emit('admin_action', { userId: currentUser.id, action: 'forgive' });
+    socket.emit('admin_action', { userId: currentUser.userId, action: 'forgive' });
     onShowFeedback('Perdoado', `@${currentUser.name} teve todas as restrições removidas.`, 'success');
   };
 
