@@ -273,7 +273,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const approvedVideos = session.queue.filter(v => v.status === 'approved');
   const historyVideos = session.history.slice(-10).reverse();
 
-  const isCaptchaRequired = !me?.isWhitelisted;
+  const isCaptchaRequired = !(me?.isHost || me?.twitchData?.isSubscriber || me?.twitchData?.isModerator || me?.twitchData?.isBroadcaster);
   const isInputValid = url.trim().startsWith('http');
   const canSubmit = isInputValid && remainingCooldown === 0 && timeoutSeconds === 0 && (!isCaptchaRequired || captchaAnswer.trim() !== '');
 
@@ -664,7 +664,6 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       </h2>
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {renderTwitchBadges(me)}
-                        {me.isWhitelisted && <span className="bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-sm text-[9px] uppercase font-mono tracking-widest border border-orange-500/20">Whitelist</span>}
                       </div>
                     </div>
 

@@ -219,7 +219,6 @@ function registerOrUpdateTwitchChatterFromTags(
     userId,
     name: displayName,
     isHost: isBroadcaster,
-    isWhitelisted: existingUser?.isWhitelisted || false,
     strikes: existingUser?.strikes || 0,
     isBanned: existingUser?.isBanned || false,
     timeoutUntil: existingUser?.timeoutUntil || undefined,
@@ -232,7 +231,6 @@ function registerOrUpdateTwitchChatterFromTags(
     state.users[userIndex] = {
       ...existingUser,
       ...formattedUser,
-      adminNotes: existingUser.adminNotes || [],
       reputation: existingUser.reputation ?? 100,
       strikes: existingUser.strikes || 0,
       isBanned: existingUser.isBanned || false,
@@ -357,7 +355,6 @@ async function ensureTwitchChatUserRegistered(
     userId,
     name: finalDisplayName,
     isHost: isBroadcaster,
-    isWhitelisted: existingUser?.isWhitelisted || false,
     strikes: existingUser?.strikes || 0,
     isBanned: existingUser?.isBanned || false,
     timeoutUntil: existingUser?.timeoutUntil || undefined,
@@ -369,7 +366,6 @@ async function ensureTwitchChatUserRegistered(
     state.users[userIndex] = {
       ...existingUser,
       ...formattedUser,
-      adminNotes: existingUser.adminNotes || [],
       reputation: existingUser.reputation ?? 100,
       strikes: existingUser.strikes || 0,
       isBanned: existingUser.isBanned || false,
@@ -2078,7 +2074,6 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
       userId,
       name: sanitizeInput(name || 'Viewer').substring(0, 20),
       isHost: state.hostId === userId,
-      isWhitelisted: oldUser.isWhitelisted || false,
       strikes: oldUser.strikes || 0,
       isBanned: oldUser.isBanned || state.blacklistUsernames?.includes(username.toLowerCase()) || false,
       timeoutUntil: oldUser.timeoutUntil || undefined,
@@ -2722,41 +2717,6 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
 });
 
 // POST /sessions/:id/toggle_whitelist - Toggle user VIP state
-app.post(['/sessions/:id/toggle_whitelist', '/api/sessions/:id/toggle_whitelist'], async (req, res) => {
-  try {
-    const roomId = req.params.id;
-    const { data } = req.body;
-    const targetUserId = data;
-
-    const state: any = await getSession(roomId);
-    if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
-
-    const updatedUsers = (state.users || []).map((u: any) => {
-      if (u.userId === targetUserId) {
-        return { ...u, isWhitelisted: !u.isWhitelisted };
-      }
-      return u;
-    });
-
-    const updatedState = { ...state, users: updatedUsers };
-
-    const supabaseAdmin = getSupabaseAdmin();
-    await supabaseAdmin
-      .from('room_settings')
-      .update({ settings_json: updatedState })
-      .eq('room_id', roomId);
-
-    if (ablyRest) {
-      const channel = ablyRest.channels.get(`session:${roomId}`);
-      await channel.publish('session_state', updatedState);
-    }
-
-    res.json({ success: true, session: updatedState });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Sync Moderation Action to Twitch Real-Time Helix API Channel Moderation
 async function executeTwitchModeration(
   roomId: string, 

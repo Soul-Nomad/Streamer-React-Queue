@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { SessionState, User } from '../types';
 import { 
   ShieldCheck, AlertTriangle, ShieldAlert, Award, Star, Clock, 
-  Trash2, UserMinus, UserCheck, Flame, Plus, StickyNote, HelpCircle,
+  Trash2, UserMinus, UserCheck, Flame, HelpCircle,
   RefreshCw
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -16,7 +16,6 @@ interface HostUserProfileProps {
 }
 
 export default function HostUserProfile({ session, currentUser, twitchChatters = [], onShowFeedback }: HostUserProfileProps) {
-  const [noteText, setNoteText] = useState('');
   const [refreshingTwitch, setRefreshingTwitch] = useState(false);
 
   if (!currentUser) {
@@ -40,17 +39,12 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
 
   const handleTimeout = (minutes: number) => {
     socket.emit('timeout_user', { userId: currentUser.userId, minutes });
-    onShowFeedback('Timeout Aplicado', `@${currentUser.name} silenciado por ${minutes} minutos.`, 'warning');
+    onShowFeedback('Timeout Aplicado', `@${currentUser.name} silenciado por ${minutes} minutes.`, 'warning');
   };
 
   const handleBan = () => {
     socket.emit('ban_user', { userId: currentUser.userId, banType: 'permanent', reason: 'Banido através do painel do Host' });
     onShowFeedback('Usuário Banido', `@${currentUser.name} foi permanente banido da sala.`, 'error');
-  };
-
-  const handleToggleVIP = () => {
-    socket.emit('toggle_whitelist', currentUser.userId);
-    onShowFeedback('VIP Alterado', `Mudou o status de VIP para @${currentUser.name}.`, 'success');
   };
 
   const handleRefreshTwitch = async () => {
@@ -72,18 +66,6 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
     } finally {
       setRefreshingTwitch(false);
     }
-  };
-
-  const handleAddNote = () => {
-    if (!noteText.trim()) return;
-    // Note: server supports 'admin_action' with actions
-    socket.emit('admin_action', {
-      userId: currentUser.userId,
-      action: 'add_note',
-      note: noteText.trim()
-    });
-    setNoteText('');
-    onShowFeedback('Nota Salva', 'Nota interna do usuário adicionada com sucesso.', 'success');
   };
 
   // Safe checks & values
@@ -256,18 +238,6 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
               +1 STRIKE
             </button>
             <button
-              onClick={handleToggleVIP}
-              className={clsx(
-                "py-2 px-2 border font-bold text-[11px] rounded font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-                currentUser.twitchData?.isVip || currentUser.isWhitelisted
-                  ? "border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white"
-                  : "border-orange-500/20 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white"
-              )}
-            >
-              <Award className="w-3.5 h-3.5" />
-              {currentUser.twitchData?.isVip || currentUser.isWhitelisted ? "REMOVER VIP" : "TORNAR VIP"}
-            </button>
-            <button
               onClick={() => handleTimeout(10)}
               className="py-1.5 px-2 border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500 hover:text-black text-amber-500/90 font-bold text-[10px] rounded font-mono transition-all flex items-center justify-center gap-1 cursor-pointer"
             >
@@ -299,39 +269,88 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
           </button>
         </div>
 
-        {/* Admin Warning Notes Block */}
-        <div className="space-y-2">
+        {/* Auditoria de Segurança */}
+        <div className="space-y-2" id="security_audit_section">
           <h4 className="text-[9px] font-black uppercase text-zinc-500 tracking-wider font-mono flex items-center gap-1">
-            <StickyNote className="w-3 h-3" />
-            Notas Internas do Host
+            <ShieldCheck className="w-3 h-3 text-orange-500" />
+            Auditoria de Segurança
           </h4>
-          <div className="bg-zinc-950/60 p-3 rounded-sm border border-[#1f1f2e] space-y-2.5">
-            {currentUser.adminNotes && currentUser.adminNotes.length > 0 ? (
-              <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
-                {currentUser.adminNotes.map((note: string, idx: number) => (
-                  <p key={idx} className="text-[10px] leading-relaxed text-zinc-300 font-mono italic border-l-2 border-orange-500/40 pl-1.5">
-                    "{note}"
-                  </p>
-                ))}
+          <div className="bg-zinc-950/60 p-3.5 rounded-sm border border-[#1f1f2e] space-y-3">
+            {/* Security Metadata Grid */}
+            <div className="grid grid-cols-2 gap-2.5 text-[10.5px] font-mono border-b border-zinc-900 pb-3">
+              <div>
+                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1">IP do Usuário</span>
+                <span className="text-zinc-300 font-bold">
+                  {currentUser.ip ? currentUser.ip.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)/, '$1.$2.X.X') : 'Encriptado'}
+                </span>
               </div>
-            ) : (
-              <p className="text-[10.5px] italic text-zinc-600 font-mono">Sem anotações de aviso registradas.</p>
-            )}
-            
-            <div className="flex gap-1.5 mt-2">
-              <input
-                type="text"
-                placeholder="Adicionar nota de aviso..."
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10.5px] focus:outline-none focus:border-orange-600 placeholder-zinc-600 text-zinc-200"
-              />
-              <button
-                onClick={handleAddNote}
-                className="px-2 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold rounded flex items-center justify-center cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
+              <div>
+                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1">Reputação</span>
+                <span className={clsx(
+                  "font-black leading-none",
+                  (currentUser.reputation ?? 100) >= 80 ? "text-green-400" : (currentUser.reputation ?? 100) > 50 ? "text-amber-500" : "text-red-550"
+                )}>
+                  {currentUser.reputation ?? Math.max(0, Math.min(100, 100 - (strikes * 33) - ((currentUser.rejectedCount || 0) * 10) + ((currentUser.approvedCount || 0) * 5)))}%
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1 font-sans">Histórico Fila</span>
+                <span className="text-zinc-355 font-medium">
+                  {currentUser.approvedCount || 0} OK / {currentUser.rejectedCount || 0} Rej
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block uppercase text-[8px] tracking-wider leading-none mb-1">Estado Penal</span>
+                <span className={clsx(
+                  "font-bold leading-none",
+                  currentUser.shadowBanned ? "text-red-400" : "text-green-450"
+                )}>
+                  {currentUser.shadowBanned ? "Shadowban" : "Sem restrições"}
+                </span>
+              </div>
+            </div>
+
+            {/* Recent Incident Logs matching the user */}
+            <div className="space-y-2">
+              <span className="text-zinc-500 block font-mono uppercase text-[8.5px] tracking-widest leading-none">Ocorrências na Sessão</span>
+              {(() => {
+                const userLogs = session.auditLogs?.filter(l => 
+                  l.username?.toLowerCase() === currentUser.name?.toLowerCase()
+                ) || [];
+                const userSuspicious = session.suspiciousAlerts?.filter(a => 
+                  a.username?.toLowerCase() === currentUser.name?.toLowerCase() || a.userId === currentUser.userId
+                ) || [];
+                const mergedLogs = [...userLogs, ...userSuspicious]
+                  .sort((a, b) => b.timestamp - a.timestamp)
+                  .slice(0, 3);
+
+                if (mergedLogs.length > 0) {
+                  return (
+                    <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                      {mergedLogs.map((log: any) => (
+                        <div key={log.id} className="text-[10px] leading-tight font-mono text-zinc-300 border-l-2 border-red-500/40 pl-2.5 py-0.5 bg-zinc-900/10 rounded-r">
+                          <div className="flex items-center justify-between text-[8px] text-zinc-500 mb-0.5">
+                            <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                            <span className={clsx(
+                              "font-extrabold uppercase tracking-widest text-[7px] px-1 rounded-sm",
+                              log.severity === 'high' ? "text-red-400 bg-red-950/30" : log.severity === 'medium' ? "text-amber-400 bg-amber-950/20" : "text-zinc-500 bg-zinc-950"
+                            )}>
+                              {log.type || 'Filtro'}
+                            </span>
+                          </div>
+                          <p className="text-zinc-400 font-sans leading-relaxed text-[9.5px]">{log.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <p className="text-[10px] italic text-zinc-600 font-mono leading-relaxed pt-1">
+                      Nenhum incidente de segurança logado nesta sessão.
+                    </p>
+                  );
+                }
+              })()}
             </div>
           </div>
         </div>
