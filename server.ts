@@ -249,6 +249,9 @@ function registerOrUpdateTwitchChatterFromTags(
   return true;
 }
 
+
+const expiredTokensCache = new Set<string>();
+
 async function ensureTwitchChatUserRegistered(
   state: any,
   userId: string,
@@ -270,7 +273,7 @@ async function ensureTwitchChatUserRegistered(
   let finalDisplayName = existingUser?.twitchData?.displayName || displayName;
 
   // Retrieve user profiles via Helix if token is present and details are missing
-  if (broadcasterToken && (!avatarUrl || avatarUrl.includes('dicebear'))) {
+  if (broadcasterToken && !expiredTokensCache.has(broadcasterToken) && (!avatarUrl || avatarUrl.includes('dicebear'))) {
     try {
       let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
       const rootRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
@@ -295,7 +298,11 @@ async function ensureTwitchChatUserRegistered(
         finalDisplayName = d.display_name || finalDisplayName;
       }
     } catch (e: any) {
-      console.warn(`[Twitch Helix User Fetch Failed] id=${userId}:`, e.message);
+      if (e.response?.status === 401) {
+        expiredTokensCache.add(broadcasterToken);
+      } else {
+        console.warn(`[Twitch Profile Service Sync] id=${userId} issue:`, e.message);
+      }
     }
   }
 
@@ -313,7 +320,7 @@ async function ensureTwitchChatUserRegistered(
   let followedAt = existingUser?.twitchData?.followedAt || (isBroadcaster ? new Date(Date.now() - 365*24*60*60*1000).toISOString() : null);
 
   // Lazy execution of metrics on submission using broadcasterToken
-  if (broadcasterToken && broadcasterId && userId !== broadcasterId && !isBroadcaster) {
+  if (broadcasterToken && !expiredTokensCache.has(broadcasterToken) && broadcasterId && userId !== broadcasterId && !isBroadcaster) {
     try {
       const foll = await checkTwitchFollower(broadcasterId, userId, broadcasterToken);
       if (foll.isFollower) {
@@ -1088,6 +1095,9 @@ export function extractCanonicalVideoId(url: string, platform: string): string {
 
 // Helper functions to dynamically obtain client_id and check follower/sub states in real-time
 async function getTwitchClientId(token: string): Promise<string> {
+  if (expiredTokensCache.has(token)) {
+    return 'gp762nuuoqcoxypju8c569th9wz7q5';
+  }
   try {
      const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
         headers: {
@@ -1099,7 +1109,11 @@ async function getTwitchClientId(token: string): Promise<string> {
         return valRes.data.client_id;
      }
   } catch (e: any) {
-     console.error('[Twitch Validation] Error validating token in helper:', e.message);
+     if (e.response?.status === 401) {
+        expiredTokensCache.add(token);
+     } else {
+        console.error('[Twitch Token Sync] Validating token issue:', e.message);
+     }
   }
   return 'gp762nuuoqcoxypju8c569th9wz7q5'; // standard app client ID fallback
 }
@@ -1113,6 +1127,10 @@ async function checkTwitchFollower(broadcasterId: string, userId: string, token:
   const cached = followCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
   
+  if (expiredTokensCache.has(token)) {
+    return { isFollower: false };
+  }
+
   try {
     const clientId = await getTwitchClientId(token);
     const url = `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&user_id=${userId}&moderator_id=${broadcasterId}`;
@@ -1130,7 +1148,11 @@ async function checkTwitchFollower(broadcasterId: string, userId: string, token:
       return result;
     }
   } catch (err: any) {
-    console.warn(`[Twitch Helix Follower Check] API lookup failed:`, err.response?.data || err.message);
+    if (err.response?.status === 401) {
+      expiredTokensCache.add(token);
+    } else {
+      console.warn(`[Twitch Channel Follow Sync] Failed:`, err.response?.data || err.message);
+    }
   }
   const emptyRes = { isFollower: false };
   followCache.set(cacheKey, { result: emptyRes, timestamp: Date.now() });
@@ -1141,6 +1163,10 @@ async function checkTwitchSubscriber(broadcasterId: string, userId: string, toke
   const cacheKey = `s_${broadcasterId}_${userId}`;
   const cached = subCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
+
+  if (expiredTokensCache.has(token)) {
+    return false;
+  }
 
   try {
     const clientId = await getTwitchClientId(token);
@@ -1158,7 +1184,11 @@ async function checkTwitchSubscriber(broadcasterId: string, userId: string, toke
       return true;
     }
   } catch (err: any) {
-    console.warn(`[Twitch Helix Subscriber Check] API lookup failed or unauthorized:`, err.response?.data || err.message);
+    if (err.response?.status === 401) {
+      expiredTokensCache.add(token);
+    } else {
+      console.warn(`[Twitch Channel Subscription Sync] Failed:`, err.response?.data || err.message);
+    }
   }
   subCache.set(cacheKey, { result: false, timestamp: Date.now() });
   return false;
@@ -1169,6 +1199,10 @@ async function checkUserFollowsBroadcaster(userId: string, broadcasterId: string
     const cacheKey = `f_${broadcasterId}_${userId}`;
     const cached = followCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
+
+    if (expiredTokensCache.has(token)) {
+      return { isFollower: false };
+    }
 
     const clientId = await getTwitchClientId(token);
     const url = `https://api.twitch.tv/helix/channels/followed?user_id=${userId}&broadcaster_id=${broadcasterId}`;
@@ -1186,7 +1220,11 @@ async function checkUserFollowsBroadcaster(userId: string, broadcasterId: string
       return result;
     }
   } catch (err: any) {
-    console.warn(`[Twitch Helix User Follows Check] API lookup failed:`, err.response?.data || err.message);
+    if (err.response?.status === 401) {
+      expiredTokensCache.add(token);
+    } else {
+      console.warn(`[Twitch User Follow Sync] Failed:`, err.response?.data || err.message);
+    }
   }
   return { isFollower: false };
 }
@@ -1195,6 +1233,10 @@ async function checkUserSubscriberToBroadcaster(broadcasterId: string, userId: s
   const cacheKey = `s_${broadcasterId}_${userId}`;
   const cached = subCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.result;
+
+  if (expiredTokensCache.has(token)) {
+    return false;
+  }
 
   try {
     const clientId = await getTwitchClientId(token);
@@ -1212,7 +1254,11 @@ async function checkUserSubscriberToBroadcaster(broadcasterId: string, userId: s
       return true;
     }
   } catch (err: any) {
-    console.warn(`[Twitch Helix User Subscription Check] API lookup failed:`, err.response?.data || err.message);
+    if (err.response?.status === 401) {
+      expiredTokensCache.add(token);
+    } else {
+      console.warn(`[Twitch User Subscription Sync] Failed:`, err.response?.data || err.message);
+    }
   }
   subCache.set(cacheKey, { result: false, timestamp: Date.now() });
   return false;
