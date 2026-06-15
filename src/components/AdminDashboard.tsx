@@ -140,7 +140,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
   }, [allUsers, searchQuery]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-zinc-950 overflow-hidden text-zinc-400 animate-in fade-in" id="admin_dashboard">
+    <div className="w-full h-full flex flex-col bg-transparent overflow-hidden text-zinc-400 animate-in fade-in" id="admin_dashboard">
       
       {/* Header with Terminal look */}
       <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 p-6 border-b border-zinc-800">

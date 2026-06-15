@@ -250,8 +250,6 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       setTimeout(() => {
         setSubmitFeedback(null);
         setIsSubmitting(false);
-        setActiveTab('queue');
-        queueEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 4000);
 
     } catch (err: any) {
@@ -448,12 +446,12 @@ export default function ParticipantView({ session }: { session: SessionState }) 
           
           {/* TAB: HOME (Transmission & Player) */}
           {activeTab === 'home' && (
-            <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+            <div className="flex-1 w-full max-w-7xl lg:max-w-[94%] mx-auto p-4 md:p-6 space-y-6">
               
               {/* Twitch Embed Area */}
               {hostUser?.twitchData?.login && (
                 <div className="w-full bg-[#0d0d12] border border-[#1f1f2e] rounded-sm overflow-hidden flex flex-col lg:flex-row shadow-xl">
-                  <div className="w-full lg:w-[70%] aspect-video bg-black relative">
+                  <div className="w-full lg:w-[76%] aspect-video bg-black relative">
                     <iframe
                       src={`https://player.twitch.tv/?channel=${hostTwitchLogin}&parent=${parentHostname}&autoplay=true&muted=false`}
                       height="100%"
@@ -462,7 +460,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       className="absolute inset-0"
                     ></iframe>
                   </div>
-                  <div className="w-full lg:w-[30%] h-[250px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#1f1f2e] bg-zinc-950 p-0 m-0">
+                  <div className="w-full lg:w-[24%] h-[250px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#1f1f2e] bg-zinc-950 p-0 m-0">
                     <iframe
                       src={`https://www.twitch.tv/embed/${hostTwitchLogin}/chat?parent=${parentHostname}&darkpopout`}
                       height="100%"

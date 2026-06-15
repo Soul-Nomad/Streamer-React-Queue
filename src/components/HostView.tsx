@@ -1062,7 +1062,7 @@ export default function HostView({ session }: { session: SessionState }) {
           )}
 
           {activeTab === 'participants' && (
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-[#0a0a0f] space-y-6">
+            <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-black/10 backdrop-blur-sm space-y-6">
               
               {/* Header block with actions */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800 pb-4 gap-3">
@@ -1359,7 +1359,7 @@ export default function HostView({ session }: { session: SessionState }) {
                   )}
 
                   {!optimisticLoading && currentVideo ? (
-                    <div className={clsx("relative w-full max-h-full h-full bg-[#040406] flex items-center justify-center select-none", isFullscreen ? 'w-screen h-screen' : 'px-4 py-8')}>
+                    <div className={clsx("relative w-full max-h-full h-full flex items-center justify-center select-none", isFullscreen ? 'w-screen h-screen bg-black' : 'px-4 py-8 bg-black/20 backdrop-blur-[1px]')}>
                       {resolving && (
                         <div className="absolute inset-0 bg-zinc-950/90 backdrop-blur-md z-45 flex flex-col items-center justify-center">
                           <Loader2 className="w-8 h-8 text-orange-400 animate-spin mb-3" />

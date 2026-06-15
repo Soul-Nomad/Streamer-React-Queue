@@ -136,7 +136,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-zinc-950 overflow-hidden text-zinc-400 animate-in fade-in" id="settings_view">
+    <div className="w-full h-full flex flex-col bg-transparent overflow-hidden text-zinc-400 animate-in fade-in" id="settings_view">
         <div className="flex-1 flex flex-col min-h-0 text-left p-6 overflow-y-auto w-full">
           <div className="mb-8 border-b border-zinc-800 pb-5 flex justify-between items-end">
             <div>
