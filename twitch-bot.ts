@@ -154,6 +154,7 @@ async function ensureTwitchChatUserRegistered(
 
 let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
+const recentlyProcessedVideos = new Set<string>();
 
 export function connectBotToChannel(channelName: string) {
   if (!channelName) return;
@@ -291,6 +292,32 @@ export function initTwitchBot() {
           }
 
           const platform = result.platform || 'other';
+          const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
+          const uniqKey = `${roomId}:${canonicalId}`;
+
+          // 1. Check synchronous in-memory lock first to prevent quick-succession race conditions
+          // Silently drop duplicate fast-succession messages within 15s to avoid duplicate messages spamming the chat
+          if (recentlyProcessedVideos.has(uniqKey)) {
+            console.warn(`[Twitch Bot Ref @Deduplication] Prevented duplicate processing of video key: ${uniqKey}`);
+            continue;
+          }
+
+          // 2. Check existing queue for persistence deduplication
+          const isDuplicate = (state.queue || []).some((v: any) => 
+            v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
+          );
+          if (isDuplicate) {
+            console.warn(`[Twitch Bot Ref] Link already present in queue.`);
+            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+            continue;
+          }
+
+          // 3. Register synchronous lock immediately BEFORE any async processes occur to block duplicate incoming streams
+          recentlyProcessedVideos.add(uniqKey);
+          const timeoutId = setTimeout(() => {
+            recentlyProcessedVideos.delete(uniqKey);
+          }, 15000); // 15 seconds window
+
           const verifyState = await verifyVideoContent(
             result.normalizedUrl,
             platform,
@@ -301,16 +328,9 @@ export function initTwitchBot() {
             console.warn(`[Twitch Bot Ref] Video content verification failed. Reason: ${verifyState.error}`);
             const reason = verifyState.error || 'Falha ao analisar o vídeo';
             sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
-            continue;
-          }
-
-          const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
-          const isDuplicate = (state.queue || []).some((v: any) => 
-            v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
-          );
-          if (isDuplicate) {
-            console.warn(`[Twitch Bot Ref] Link already present in queue.`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+            // Remove the lock on verification failure so the user can re-try
+            clearTimeout(timeoutId);
+            recentlyProcessedVideos.delete(uniqKey);
             continue;
           }
 

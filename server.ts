@@ -655,21 +655,13 @@ setTimeout(() => {
             continue;
           }
           const platform = result.platform || 'other';
-          const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
-          if (!verifyState.valid) {
-            console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
-            const reason = verifyState.error || 'Falha ao analisar o vídeo';
-            sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
-            continue;
-          }
-
           const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
+          const uniqKey = `${roomId}:${canonicalId}`;
 
           // 1. Check synchronous in-memory lock first to prevent quick-succession race conditions
-          const uniqKey = `${roomId}:${canonicalId}`;
+          // Silently drop duplicate fast-succession messages within 15s to avoid duplicate messages spamming the chat
           if (recentlyProcessedVideos.has(uniqKey)) {
             console.warn(`[Twitch Bot @Deduplication] Prevented duplicate processing of video key: ${uniqKey}`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já foi enviado recentemente.`);
             continue;
           }
 
@@ -683,11 +675,22 @@ setTimeout(() => {
             continue;
           }
 
-          // 3. Register synchronous lock immediately BEFORE any async processes occur
+          // 3. Register synchronous lock immediately BEFORE any async processes occur to block duplicate incoming streams
           recentlyProcessedVideos.add(uniqKey);
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             recentlyProcessedVideos.delete(uniqKey);
-          }, 15000); // 15 seconds window is optimal to ignore Twitch duplicates and simultaneous network echoes
+          }, 15000); // 15 seconds window is optimal to ignore Twitch duplicates/echoes
+
+          const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
+          if (!verifyState.valid) {
+            console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
+            const reason = verifyState.error || 'Falha ao analisar o vídeo';
+            sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
+            // Remove the lock on verification failure so the user can re-try if they submit a corrected URL
+            clearTimeout(timeoutId);
+            recentlyProcessedVideos.delete(uniqKey);
+            continue;
+          }
 
           const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
 
