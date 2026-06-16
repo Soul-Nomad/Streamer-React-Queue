@@ -46,7 +46,7 @@ class AblySocketAdapter {
       } catch (err) {
         // Ignore network polling errors
       }
-    }, 2500);
+    }, 60000);
   }
 
   private stopPolling() {
