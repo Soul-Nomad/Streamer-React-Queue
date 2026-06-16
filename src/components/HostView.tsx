@@ -42,6 +42,7 @@ import {
   RefreshCw,
   Radio,
   CassetteTape,
+  Twitch,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -1451,16 +1452,17 @@ export default function HostView({ session }: { session: SessionState }) {
                 </div>
               </div>
 
-              {/* Two grids */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* Three grids */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start pb-20">
                 {/* COLUMN 1: Session application participants */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between bg-zinc-950/80 px-3 py-2 border-l-2 border-orange-500 rounded border border-zinc-800">
-                    <span className="text-xs font-mono font-bold uppercase text-zinc-300">
-                      Conectados na Sala ({session.users.length})
+                    <span className="text-xs font-mono font-bold uppercase text-zinc-300 flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5" />
+                      Sala do App ({session.users.length})
                     </span>
                     <span className="text-[9px] bg-orange-500/10 text-orange-400 font-mono px-2 py-0.5 rounded border border-orange-500/20">
-                      APP ACTIVE
+                      CONNECTED
                     </span>
                   </div>
 
@@ -1471,7 +1473,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[500px] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                       {session.users.map((u) => {
                         const inTwitchChat = twitchChatters.some(
                           (tc) =>
@@ -1490,7 +1492,7 @@ export default function HostView({ session }: { session: SessionState }) {
                               setSelectedUser(u);
                               setActiveTab("player");
                             }}
-                            className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-orange-500/50 rounded-sm cursor-pointer transition-all duration-200"
+                            className="flex items-center justify-between p-2.5 bg-zinc-950 border border-zinc-900 hover:border-orange-500/50 rounded-sm cursor-pointer transition-all duration-200"
                           >
                             <div className="flex items-center gap-2.5 min-w-0 text-left">
                               {renderUserAvatar(u, "w-8 h-8")}
@@ -1512,7 +1514,7 @@ export default function HostView({ session }: { session: SessionState }) {
                                       kInfo.bg,
                                     )}
                                   >
-                                    {kInfo.level} ({kScore})
+                                    {kInfo.level}
                                   </span>
                                   <span
                                     className={clsx(
@@ -1522,15 +1524,16 @@ export default function HostView({ session }: { session: SessionState }) {
                                         : "bg-zinc-900 text-zinc-600",
                                     )}
                                   >
-                                    {inTwitchChat ? "TWITCH CHAT" : "OFF CHAT"}
+                                    {inTwitchChat ? "LIVE" : "OFF"}
                                   </span>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex gap-1 shrink-0">
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded">
-                                STRIKES: {u.strikes || 0}
-                              </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                               <div className="flex flex-col items-end">
+                                 <span className="text-[10px] font-black text-white">{kScore}</span>
+                                 <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-tighter">Karma</span>
+                               </div>
                             </div>
                           </div>
                         );
@@ -1539,14 +1542,76 @@ export default function HostView({ session }: { session: SessionState }) {
                   )}
                 </div>
 
-                {/* COLUMN 2: Twitch Stream Chat Viewers */}
+                {/* COLUMN 2: Global Karma Ranking */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-zinc-950/80 px-3 py-2 border-l-2 border-emerald-500 rounded border border-zinc-800">
+                    <span className="text-xs font-mono font-bold uppercase text-zinc-300 flex items-center gap-2">
+                       <Award className="w-3.5 h-3.5 text-emerald-500" />
+                       Ranking de Karma
+                    </span>
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 font-mono px-2 py-0.5 rounded border border-emerald-500/20">
+                      COMPETITIVO
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+                     {[...session.users]
+                       .sort((a, b) => (b.karmaDetails?.karma_score ?? (b.reputation ?? 0)) - (a.karmaDetails?.karma_score ?? (a.reputation ?? 0)))
+                       .map((u, i) => {
+                         const score = u.karmaDetails?.karma_score ?? (u.reputation ?? 0);
+                         const info = getKarmaInfoHost(score);
+                         const isConnected = session.users.some(appU => appU.userId === u.userId);
+
+                         return (
+                           <div 
+                            key={`rank-${u.id}`} 
+                            className={clsx(
+                              "p-2.5 rounded-sm border flex items-center gap-3 transition-all",
+                              i === 0 ? "bg-amber-950/20 border-amber-500/30" : i === 1 ? "bg-zinc-900/40 border-zinc-400/20" : i === 2 ? "bg-orange-950/20 border-orange-700/30" : "bg-black/40 border-zinc-900"
+                            )}
+                           >
+                             <div className={clsx(
+                               "w-6 h-6 rounded flex items-center justify-center font-black text-[10px] shrink-0",
+                               i === 0 ? "bg-amber-500 text-black" : i === 1 ? "bg-zinc-300 text-black" : i === 2 ? "bg-orange-700 text-white" : "bg-zinc-800 text-zinc-500"
+                             )}>
+                               #{i + 1}
+                             </div>
+                             
+                             <div className="flex-1 min-w-0">
+                               <div className="flex items-center gap-1.5 min-w-0">
+                                 <span className="text-xs font-bold text-white truncate">@{u.name}</span>
+                               </div>
+                               <div className="flex items-center gap-1 mt-0.5">
+                                 <span className={clsx("text-[8px] font-mono font-bold uppercase", info.color)}>{info.level}</span>
+                               </div>
+                             </div>
+
+                             <div className="flex items-center gap-3 shrink-0 px-2 border-l border-white/5">
+                               <div className="flex flex-col items-center">
+                                 <span className="text-[10px] font-black text-white">{score}</span>
+                                 <span className="text-[7px] text-zinc-500 font-mono uppercase">Total</span>
+                               </div>
+                               <div className="flex flex-col items-center">
+                                 <span className="text-[10px] font-bold text-emerald-500">{u.karmaDetails?.positive_ratings || 0}</span>
+                                 <span className="text-[7px] text-zinc-600 font-mono">UP</span>
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })
+                     }
+                  </div>
+                </div>
+
+                {/* COLUMN 3: Twitch Stream Chat Viewers */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between bg-zinc-950/80 px-3 py-2 border-l-2 border-purple-500 rounded border border-zinc-800">
-                    <span className="text-xs font-mono font-bold uppercase text-zinc-300">
-                      Ao Vivo no Chat da Twitch ({twitchChatters.length})
+                    <span className="text-xs font-mono font-bold uppercase text-zinc-300 flex items-center gap-2">
+                       <Twitch className="w-3.5 h-3.5 text-purple-500" />
+                       Público na Live ({twitchChatters.length})
                     </span>
                     <span className="text-[9px] bg-purple-500/10 text-purple-400 font-mono px-2 py-0.5 rounded border border-purple-500/20">
-                      STREAM REAL-TIME
+                      IRC CHATTERS
                     </span>
                   </div>
 
@@ -1560,8 +1625,7 @@ export default function HostView({ session }: { session: SessionState }) {
                   ) : twitchChatters.length === 0 ? (
                     <div className="p-8 border border-zinc-900 bg-zinc-950/20 text-center rounded space-y-2">
                       <p className="text-xs text-zinc-600 font-mono italic">
-                        Nenhum espectador detectado no chat ou credenciais da
-                        Twitch ausentes.
+                        Ninguém detectado no chat com os privilégios da conta vinculada.
                       </p>
                       <button
                         onClick={fetchTwitchChatters}
@@ -1571,7 +1635,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[500px] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                       {twitchChatters.map((chatter) => {
                         const boundUser = session.users.find(
                           (u) =>
@@ -1590,7 +1654,7 @@ export default function HostView({ session }: { session: SessionState }) {
                               }
                             }}
                             className={clsx(
-                              "flex items-center justify-between p-3 bg-zinc-950/40 border border-zinc-900 rounded-sm transition duration-250 text-left",
+                              "flex items-center justify-between p-2.5 bg-zinc-950/40 border border-zinc-900 rounded-sm transition duration-250 text-left",
                               boundUser
                                 ? "hover:border-purple-500/50 cursor-pointer"
                                 : "opacity-75",
@@ -1601,11 +1665,11 @@ export default function HostView({ session }: { session: SessionState }) {
                                 <img
                                   src={boundUser.twitchData.avatarUrl}
                                   alt=""
-                                  className="w-8 h-8 rounded-full border border-zinc-800"
+                                  className="w-7 h-7 rounded-sm border border-zinc-800"
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-[#9146FF]/10 text-[#9146FF] border border-[#9146FF]/30 flex items-center justify-center font-black text-xs font-mono">
+                                <div className="w-7 h-7 rounded-sm bg-[#9146FF]/10 text-[#9146FF] border border-[#9146FF]/30 flex items-center justify-center font-black text-xs font-mono">
                                   T
                                 </div>
                               )}
@@ -1614,8 +1678,8 @@ export default function HostView({ session }: { session: SessionState }) {
                                 <span className="text-xs font-bold truncate text-zinc-300">
                                   @{chatter.user_name}
                                 </span>
-                                <span className="text-[8.5px] text-zinc-600 font-mono font-bold uppercase mt-0.5">
-                                  ID: {chatter.user_id}
+                                <span className="text-[8.5px] text-zinc-600 font-mono font-bold uppercase">
+                                  CHATTER
                                 </span>
                               </div>
                             </div>
@@ -1623,11 +1687,11 @@ export default function HostView({ session }: { session: SessionState }) {
                             <div className="shrink-0">
                               {boundUser ? (
                                 <span className="text-[8.5px] font-bold font-mono px-2 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 rounded">
-                                  SALA APP
+                                  NO APP
                                 </span>
                               ) : (
                                 <span className="text-[8.5px] font-medium font-mono px-2 py-0.5 bg-zinc-900 border border-zinc-850 text-zinc-500 rounded">
-                                  SÓ LIVE
+                                  LIVE ONLY
                                 </span>
                               )}
                             </div>
@@ -1804,7 +1868,7 @@ export default function HostView({ session }: { session: SessionState }) {
                         "relative w-full max-h-full h-full flex items-center justify-center select-none",
                         isFullscreen
                           ? "w-screen h-screen bg-black"
-                          : "px-4 py-8 bg-black/20 backdrop-blur-[1px]",
+                          : "p-2 bg-black/20 backdrop-blur-[1px]",
                       )}
                     >
                       {resolving && (

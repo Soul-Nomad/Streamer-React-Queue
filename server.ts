@@ -192,14 +192,14 @@ function sendBotMessage(channel: string, message: string) {
 }
 
 // Ensure Twitch chatter is registered under session active users
-function registerOrUpdateTwitchChatterFromTags(
+async function registerOrUpdateTwitchChatterFromTags(
   state: any,
   userId: string,
   username: string,
   displayName: string,
   tags: any,
   broadcasterId: string
-): boolean {
+): Promise<boolean> {
   if (!state.users) {
     state.users = [];
   }
@@ -226,10 +226,32 @@ function registerOrUpdateTwitchChatterFromTags(
                      !existingUser.lastPresenceAt ||
                      (now - existingUser.lastPresenceAt > 5 * 60 * 1000);
 
+  // If user is new to this session object, we definitely want to check DB for their karma
+  let karmaDetails = existingUser?.karmaDetails;
+  let reputation = existingUser?.reputation ?? 0;
+
+  if (!existingUser || !karmaDetails) {
+     try {
+        const supabaseAdmin = getSupabaseAdmin();
+        const { data: kd } = await supabaseAdmin
+          .from('user_karma')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        if (kd) {
+           karmaDetails = kd;
+           reputation = kd.karma_score;
+        }
+     } catch (e) {}
+  }
+
   if (!needsSave) {
     // Just quietly update timestamp of their presence in the session memory state, without forcing save
     if (existingUser) {
       existingUser.lastPresenceAt = now;
+      existingUser.reputation = reputation;
+      existingUser.karmaDetails = karmaDetails;
     }
     return false;
   }
@@ -264,6 +286,8 @@ function registerOrUpdateTwitchChatterFromTags(
     timeoutUntil: existingUser?.timeoutUntil || undefined,
     lastSubmittedAt: existingUser?.lastSubmittedAt || undefined,
     lastPresenceAt: now,
+    reputation,
+    karmaDetails,
     twitchData
   };
 
@@ -344,6 +368,26 @@ async function ensureTwitchChatUserRegistered(
     }
   }
 
+  // ALWAYS fetch Karma from DB to ensure it's not 0 or stale if not in memory
+  let karmaDetails = existingUser?.karmaDetails;
+  let reputation = existingUser?.reputation ?? 0;
+
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: kd } = await supabaseAdmin
+      .from('user_karma')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (kd) {
+       karmaDetails = kd;
+       reputation = kd.karma_score;
+    }
+  } catch (err) {
+    console.warn(`[ensureTwitchChatUserRegistered Karma Fetch Error]`, err);
+  }
+
   if (!avatarUrl) {
     avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
   }
@@ -399,6 +443,8 @@ async function ensureTwitchChatUserRegistered(
     isBanned: existingUser?.isBanned || false,
     timeoutUntil: existingUser?.timeoutUntil || undefined,
     lastSubmittedAt: Date.now(),
+    reputation,
+    karmaDetails,
     twitchData
   };
 
@@ -602,21 +648,21 @@ setTimeout(() => {
           const state: any = roomSettings.settings_json || {};
           const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
 
-          // Process Presence Update
-          if (state.settings) {
-            const username = tags['username'] || 'TwitchUser';
-            const displayName = tags['display-name'] || username;
-            const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
+            // Process Presence Update
+            if (state.settings) {
+              const username = tags['username'] || 'TwitchUser';
+              const displayName = tags['display-name'] || username;
+              const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
 
-            const changed = registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, twitchChannelId);
-            if (changed && !isLinkSubmission) {
-              await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
-              if (ablyRest) {
-                const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
-                await ablyChannel.publish('session_state', state);
+              const changed = await registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, twitchChannelId);
+              if (changed && !isLinkSubmission) {
+                await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
+                if (ablyRest) {
+                  const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+                  await ablyChannel.publish('session_state', state);
+                }
               }
             }
-          }
 
           // Process Links
           if (isLinkSubmission && state.settings) {
@@ -2076,15 +2122,32 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
 
     const oldUser = (state.users || []).find((u: any) => u.userId === userId) || {};
 
+    let karmaDetails = oldUser?.karmaDetails;
+    let reputation = oldUser?.reputation ?? 0;
+
+    try {
+      const { data: kd } = await supabaseAdmin
+        .from('user_karma')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (kd) {
+        karmaDetails = kd;
+        reputation = kd.karma_score;
+      }
+    } catch (e) {}
+
     const newUser = {
       id: userId,
       userId,
       name: sanitizeInput(name || 'Viewer').substring(0, 20),
-      isHost: state.hostId === userId,
+      isHost: state.hostId === userId || twitchData?.isBroadcaster,
       strikes: oldUser.strikes || 0,
       isBanned: oldUser.isBanned || state.blacklistUsernames?.includes(username.toLowerCase()) || false,
       timeoutUntil: oldUser.timeoutUntil || undefined,
       lastSubmittedAt: oldUser.lastSubmittedAt || undefined,
+      reputation,
+      karmaDetails,
       twitchData: finalTwitchData
     };
     cleanUsers.push(newUser);
