@@ -1712,9 +1712,9 @@ export default function HostView({ session }: { session: SessionState }) {
                 className="flex-1 flex flex-col min-w-0 h-full relative"
                 ref={containerRef}
               >
-                {/* Floating Aspect controls bar at bottom left */}
+                {/* Floating Aspect controls bar at bottom right */}
                 {currentVideo && !isFullscreen && (
-                  <div className="absolute right-5 bottom-12 z-40 flex flex-col items-center gap-3 bg-zinc-950/60 p-2 border border-zinc-800 rounded">
+                  <div className="absolute right-5 bottom-[110px] z-40 flex flex-col items-center gap-3 bg-zinc-950/60 p-2 border border-zinc-800 rounded">
                     {/* Prev & Next Controls */}
                     <button
                       onClick={playPrevious}
@@ -1808,7 +1808,7 @@ export default function HostView({ session }: { session: SessionState }) {
                       initial={{ opacity: 0, scale: 0.92 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.92 }}
-                      className="absolute right-18 bottom-28 z-50 p-3 bg-zinc-950 border border-zinc-800 rounded-sm shadow-2xl flex flex-col gap-2 font-mono text-xs text-left"
+                      className="absolute right-18 bottom-[160px] z-50 p-3 bg-zinc-950 border border-zinc-800 rounded-sm shadow-2xl flex flex-col gap-2 font-mono text-xs text-left"
                     >
                       <span className="text-zinc-500 font-bold block mb-1">
                         PROPORÇÃO TELA:
@@ -2146,7 +2146,7 @@ export default function HostView({ session }: { session: SessionState }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className={clsx(
-              "fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 border rounded-sm shadow-2xl flex flex-col gap-1.5 backdrop-blur-md max-w-sm w-full mx-4 text-left font-sans select-none",
+              "fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 border rounded-sm shadow-2xl flex flex-col gap-1.5 backdrop-blur-md max-w-sm w-full mx-4 text-left font-sans select-none",
               feedbackMsg.type === "success" &&
                 "bg-[#111116]/95 border-green-500/40 text-green-400",
               feedbackMsg.type === "warning" &&
