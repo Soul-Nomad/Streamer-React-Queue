@@ -30,7 +30,6 @@ export interface User {
 
   // Advanced Streamer Management features
   reputation?: number;         // Automatically calculated 0-100 reputation
-  karma?: number;              // Reddit-like karma score (host evaluated up/down votes)
   restrictedUntil?: number;   // Video sending prohibition expiration timestamp
   timeoutUntil?: number;      // Total participation timeout expiration timestamp
   shadowBanned?: boolean;     // Stealth shadow ban status
@@ -59,7 +58,6 @@ export interface Video {
   aspectRatio?: '16:9' | '9:16' | 'auto';
   rejectionReason?: string; // Mod rejection reason
   moderatorName?: string;   // Submitter/Mod approved
-  vote?: 'up' | 'down';     // Reddit upvote/downvote evaluated status
 }
 
 export interface ModeratorSettings {

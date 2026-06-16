@@ -164,7 +164,7 @@ export default function Lobby() {
 
   useEffect(() => {
     fetchActiveRooms();
-    const interval = setInterval(fetchActiveRooms, 60000);
+    const interval = setInterval(fetchActiveRooms, 15000);
     return () => clearInterval(interval);
   }, []);
 

@@ -76,7 +76,6 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
 
   const strikes = currentUser.strikes || 0;
   const reputation = currentUser.reputation ?? 100;
-  const karma = currentUser.karma ?? 0;
   const isSubscriber = currentUser.twitchData?.isSubscriber || currentUser.twitchData?.badges?.includes('subscriber');
   const followDate = currentUser.twitchData?.followedAt ? new Date(currentUser.twitchData.followedAt) : null;
   const isFollower = currentUser.twitchData?.isFollower || !!followDate;
@@ -155,8 +154,8 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
           </div>
         </div>
 
-        {/* Reputation & Karma Badges */}
-        <div className="w-full space-y-1.5 pt-1.5">
+        {/* Reputation Badge */}
+        <div className="w-full space-y-1 pt-1.5">
           <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
             <span>Reputação:</span>
             <span className={clsx(
@@ -172,13 +171,6 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
               )}
               style={{ width: `${reputation}%` }}
             ></div>
-          </div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 pt-1.5 border-t border-zinc-900/30">
-            <span>Reddit Karma:</span>
-            <span className={clsx(
-              "font-extrabold",
-              karma > 0 ? "text-orange-400" : karma < 0 ? "text-red-400" : "text-zinc-500"
-            )}>{karma > 0 ? `+${karma}` : karma} ★</span>
           </div>
         </div>
       </div>
@@ -277,11 +269,11 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
           </button>
         </div>
 
-        {/* Alertas de Comportamento */}
+        {/* Auditoria de Segurança */}
         <div className="space-y-2" id="security_audit_section">
           <h4 className="text-[9px] font-black uppercase text-zinc-500 tracking-wider font-mono flex items-center gap-1">
-            <ShieldAlert className="w-3 h-3 text-orange-400" />
-            Alertas de Comportamento
+            <ShieldCheck className="w-3 h-3 text-orange-500" />
+            Auditoria de Segurança
           </h4>
           <div className="bg-zinc-950/60 p-3.5 rounded-sm border border-[#1f1f2e] space-y-3">
             {/* Recent Incident Logs matching the user */}

@@ -7,7 +7,7 @@ import {
   MonitorPlay, ZoomIn, ZoomOut, Expand, Maximize, AlertCircle, SkipForward, SkipBack, 
   Check, X, ShieldCheck, Cast, Play, Pause, History, Crop, Video, VideoOff, 
   ExternalLink, Loader2, Users, Compass, Plus, Link2, Copy, LogOut, Layers, Heart, Settings, Terminal, ShieldAlert, Award, AlertTriangle, MessageSquare, Clock, RefreshCw,
-  Radio, CassetteTape, ArrowBigUp, ArrowBigDown
+  Radio, CassetteTape
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
@@ -761,15 +761,6 @@ export default function HostView({ session }: { session: SessionState }) {
     socket.emit('play_video', id);
   };
 
-  const rateVideo = (videoId: string, vote: 'up' | 'down') => {
-    socket.emit('rate_video', { videoId, vote });
-    showFeedback(
-      vote === 'up' ? 'Mídia Curtida 👍' : 'Mídia Negativada 👎',
-      vote === 'up' ? 'Karma e Reputação do espectador foram aumentados!' : 'Karma e Reputação do espectador foram reduzidos.',
-      vote === 'up' ? 'success' : 'warning'
-    );
-  };
-
   const handleDirectSubmit = () => {
     if (!directUrl.trim().startsWith('http')) return;
     socket.emit('submit_video', { url: directUrl.trim() });
@@ -1509,49 +1500,16 @@ export default function HostView({ session }: { session: SessionState }) {
                         </span>
                       </div>
                     </div>
-                    {/* Date/Time detail & Rating actions */}
-                    <div className="flex items-center gap-4 shrink-0">
-                      {/* Avaliação de Karma (Reddit-style) */}
-                      <div className="flex items-center gap-2 bg-zinc-900/90 border border-zinc-850 px-2.5 py-1.5 rounded-sm">
-                        <span className="text-[9px] font-black text-zinc-400 font-mono uppercase tracking-wider">Karma:</span>
-                        <span className={clsx(
-                          "text-[10px] font-extrabold font-mono leading-none mr-1.5 min-w-[20px] text-center",
-                          (activeSender?.karma || 0) > 0 ? "text-orange-400" : (activeSender?.karma || 0) < 0 ? "text-red-400" : "text-zinc-500"
-                        )}>
-                          {(activeSender?.karma || 0) > 0 ? `+${activeSender?.karma}` : activeSender?.karma ?? 0}
+                    {/* Date/Time detail labels */}
+                    {activeSender && (
+                      <div className="flex flex-col items-end gap-1 shrink-0 text-right text-[10px] font-mono">
+                        <span className="text-zinc-500 uppercase">Enviado em:</span>
+                        <span className="text-zinc-300 font-extrabold flex items-center gap-1 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded leading-none">
+                          <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                          {(activeSender as any).horaEnvio || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        <button
-                          onClick={() => rateVideo(currentVideo.id, 'up')}
-                          className={clsx(
-                            "p-1 rounded text-zinc-500 hover:text-orange-500 hover:bg-orange-500/10 cursor-pointer active:scale-90 transition-all",
-                            currentVideo.vote === 'up' && "text-orange-500 bg-orange-500/10"
-                          )}
-                          title="Avaliar como Positivo (Upvote)"
-                        >
-                          <ArrowBigUp className="w-4 h-4 fill-current" />
-                        </button>
-                        <button
-                          onClick={() => rateVideo(currentVideo.id, 'down')}
-                          className={clsx(
-                            "p-1 rounded text-zinc-500 hover:text-red-500 hover:bg-red-500/10 cursor-pointer active:scale-90 transition-all",
-                            currentVideo.vote === 'down' && "text-red-500 bg-red-500/10"
-                          )}
-                          title="Avaliar como Negativo (Downvote)"
-                        >
-                          <ArrowBigDown className="w-4 h-4 fill-current" />
-                        </button>
                       </div>
-
-                      {activeSender && (
-                        <div className="flex flex-col items-end gap-1 text-right text-[10px] font-mono leading-none">
-                          <span className="text-zinc-500 uppercase text-[8px] tracking-widest">Enviado em:</span>
-                          <span className="text-zinc-300 font-extrabold flex items-center gap-1 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded mt-0.5">
-                            <Clock className="w-3.5 h-3.5 text-zinc-500" />
-                            {(activeSender as any).horaEnvio || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 )}
               </div>

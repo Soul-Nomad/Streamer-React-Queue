@@ -2098,8 +2098,6 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
       isBanned: oldUser.isBanned || state.blacklistUsernames?.includes(username.toLowerCase()) || false,
       timeoutUntil: oldUser.timeoutUntil || undefined,
       lastSubmittedAt: oldUser.lastSubmittedAt || undefined,
-      reputation: oldUser.reputation !== undefined ? oldUser.reputation : 100,
-      karma: oldUser.karma !== undefined ? oldUser.karma : 0,
       twitchData: finalTwitchData
     };
     cleanUsers.push(newUser);
@@ -2464,27 +2462,10 @@ app.post(['/sessions/:id/approve_video', '/api/sessions/:id/approve_video'], asy
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    const targetVideo = (state.queue || []).find((v: any) => v.id === videoId);
-    let updatedUsers = state.users || [];
-    if (targetVideo && targetVideo.submitterId) {
-      updatedUsers = (state.users || []).map((u: any) => {
-        if (u.userId === targetVideo.submitterId) {
-          const currentRep = u.reputation !== undefined ? u.reputation : 100;
-          const currentKarma = u.karma !== undefined ? u.karma : 0;
-          return {
-            ...u,
-            reputation: Math.max(0, Math.min(100, currentRep + 5)),
-            karma: currentKarma + 5
-          };
-        }
-        return u;
-      });
-    }
-
     const updatedQueue = (state.queue || []).map((v: any) => 
       v.id === videoId ? { ...v, status: 'approved' } : v
     );
-    const updatedState = { ...state, queue: updatedQueue, users: updatedUsers };
+    const updatedState = { ...state, queue: updatedQueue };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
@@ -2496,7 +2477,7 @@ app.post(['/sessions/:id/approve_video', '/api/sessions/:id/approve_video'], asy
       .from('videos')
       .update({ status: 'approved' })
       .eq('room_id', roomId)
-      .eq('id', videoId);
+      .eq('id', videoId); // Assuming id maps, but DB has implicit UUID. We'll update by video_url
 
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
@@ -2519,25 +2500,8 @@ app.post(['/sessions/:id/reject_video', '/api/sessions/:id/reject_video'], async
     const state: any = await getSession(roomId);
     if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
 
-    const targetVideo = (state.queue || []).find((v: any) => v.id === videoId);
-    let updatedUsers = state.users || [];
-    if (targetVideo && targetVideo.submitterId) {
-      updatedUsers = (state.users || []).map((u: any) => {
-        if (u.userId === targetVideo.submitterId) {
-          const currentRep = u.reputation !== undefined ? u.reputation : 100;
-          const currentKarma = u.karma !== undefined ? u.karma : 0;
-          return {
-            ...u,
-            reputation: Math.max(0, Math.min(100, currentRep - 12)),
-            karma: currentKarma - 5
-          };
-        }
-        return u;
-      });
-    }
-
     const updatedQueue = (state.queue || []).filter((v: any) => v.id !== videoId);
-    const updatedState = { ...state, queue: updatedQueue, users: updatedUsers };
+    const updatedState = { ...state, queue: updatedQueue };
 
     const supabaseAdmin = getSupabaseAdmin();
     await supabaseAdmin
@@ -2549,83 +2513,6 @@ app.post(['/sessions/:id/reject_video', '/api/sessions/:id/reject_video'], async
       .from('rooms')
       .update({ video_queue_count: updatedQueue.length })
       .eq('id', roomId);
-
-    if (ablyRest) {
-      const channel = ablyRest.channels.get(`session:${roomId}`);
-      await channel.publish('session_state', updatedState);
-    }
-
-    res.json({ success: true, session: updatedState });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /sessions/:id/rate_video - Evaluates/Rates currently playing or played video (Reddit-like Karma & Reputation logic)
-app.post(['/sessions/:id/rate_video', '/api/sessions/:id/rate_video'], async (req, res) => {
-  try {
-    const roomId = req.params.id;
-    const { data } = req.body;
-    const { videoId, vote } = data || {};
-
-    if (!videoId || !vote || (vote !== 'up' && vote !== 'down')) {
-      return res.status(400).json({ error: 'videoId e vote (up/down) são obrigatórios.' });
-    }
-
-    const state: any = await getSession(roomId);
-    if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
-
-    let video = (state.queue || []).find((v: any) => v.id === videoId);
-    let isHistory = false;
-    if (!video) {
-      video = (state.history || []).find((v: any) => v.id === videoId);
-      isHistory = true;
-    }
-
-    if (!video) {
-       return res.status(404).json({ error: 'Vídeo não localizado.' });
-    }
-
-    const submitterId = video.submitterId;
-    if (!submitterId) {
-       return res.status(400).json({ error: 'Este vídeo não possui dados de remetente.' });
-    }
-
-    const karmaDelta = vote === 'up' ? 10 : -5;
-    const reputationDelta = vote === 'up' ? 5 : -10;
-
-    const updatedUsers = (state.users || []).map((u: any) => {
-       if (u.userId === submitterId) {
-          const currentRep = u.reputation !== undefined ? u.reputation : 100;
-          const currentKarma = u.karma !== undefined ? u.karma : 0;
-          return {
-             ...u,
-             reputation: Math.max(0, Math.min(100, currentRep + reputationDelta)),
-             karma: currentKarma + karmaDelta
-          };
-       }
-       return u;
-    });
-
-    const trackVoteOnQueue = (queue: any[]) => {
-       return queue.map((v: any) => v.id === videoId ? { ...v, vote } : v);
-    };
-
-    const updatedQueue = trackVoteOnQueue(state.queue || []);
-    const updatedHistory = trackVoteOnQueue(state.history || []);
-
-    const updatedState = {
-       ...state,
-       users: updatedUsers,
-       queue: updatedQueue,
-       history: updatedHistory
-    };
-
-    const supabaseAdmin = getSupabaseAdmin();
-    await supabaseAdmin
-      .from('room_settings')
-      .update({ settings_json: updatedState })
-      .eq('room_id', roomId);
 
     if (ablyRest) {
       const channel = ablyRest.channels.get(`session:${roomId}`);
@@ -2730,23 +2617,6 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
       return v;
     });
 
-    const completedVideo = queue.find((v: any) => v.id === currentVideoId || v.status === 'playing');
-    let updatedUsers = state.users || [];
-    if (completedVideo && completedVideo.submitterId) {
-      updatedUsers = (state.users || []).map((u: any) => {
-        if (u.userId === completedVideo.submitterId) {
-          const currentRep = u.reputation !== undefined ? u.reputation : 100;
-          const currentKarma = u.karma !== undefined ? u.karma : 0;
-          return {
-            ...u,
-            reputation: Math.max(0, Math.min(100, currentRep + 2)),
-            karma: currentKarma + 2
-          };
-        }
-        return u;
-      });
-    }
-
     const historyVideos = finalQueue.filter((v: any) => v.status === 'watched');
     updateWatchedCache(roomId, historyVideos);
 
@@ -2756,8 +2626,7 @@ app.post(['/sessions/:id/end_video', '/api/sessions/:id/end_video'], async (req,
       currentVideoId,
       isPlaying,
       currentTime: 0,
-      history: historyVideos,
-      users: updatedUsers
+      history: historyVideos
     };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -3157,17 +3026,12 @@ app.post(['/sessions/:id/give_strike', '/api/sessions/:id/give_strike'], async (
       if (u.userId === targetUserId) {
         targetUsername = u?.twitchData?.login || u?.name || 'unknown';
         const newStrikes = (u.strikes || 0) + 1;
-        const currentRep = u.reputation !== undefined ? u.reputation : 100;
-        const currentKarma = u.karma !== undefined ? u.karma : 0;
-        const nextRep = Math.max(0, Math.min(100, currentRep - 20));
-        const nextKarma = currentKarma - 20;
-
         const maxStrikes = state.settings?.maxStrikesBeforeBan || 5;
         if (newStrikes >= maxStrikes) {
            shouldBan = true;
-           return { ...u, strikes: newStrikes, isBanned: true, reputation: nextRep, karma: nextKarma };
+           return { ...u, strikes: newStrikes, isBanned: true };
         }
-        return { ...u, strikes: newStrikes, reputation: nextRep, karma: nextKarma };
+        return { ...u, strikes: newStrikes };
       }
       return u;
     });
