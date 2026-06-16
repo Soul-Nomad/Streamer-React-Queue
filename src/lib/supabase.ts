@@ -188,23 +188,13 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
  */
 export async function getSession(roomId: string) {
   const supabaseAdmin = getSupabaseAdmin();
-  const { data: roomData, error: roomError } = await supabaseAdmin
-    .from('rooms')
-    .select('is_active')
-    .eq('id', roomId)
-    .single();
-
-  if (roomError || !roomData || !roomData.is_active) {
-    return null;
-  }
-
   const { data, error } = await supabaseAdmin
     .from('room_settings')
-    .select('settings_json')
+    .select('settings_json, rooms!inner(is_active)')
     .eq('room_id', roomId)
     .single();
 
-  if (error || !data) {
+  if (error || !data || !(data.rooms as any)?.is_active) {
     return null;
   }
 

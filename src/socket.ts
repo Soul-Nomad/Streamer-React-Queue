@@ -46,7 +46,7 @@ class AblySocketAdapter {
       } catch (err) {
         // Ignore network polling errors
       }
-    }, 2500);
+    }, 30000); // 30 seconds instead of 2.5s! Let Ably handle realtime
   }
 
   private stopPolling() {

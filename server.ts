@@ -90,9 +90,47 @@ let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
 const recentlyProcessedVideos = new Set<string>();
 
+const activeRoomsCache = new Map<string, string>();
+let lastRoomsCacheTime = 0;
+
+async function getRoomIdForLogin(login: string, forceRefresh = false): Promise<string | null> {
+    const now = Date.now();
+    if (forceRefresh || now - lastRoomsCacheTime > 60000 || activeRoomsCache.size === 0) {
+        try {
+            const supabaseAdmin = getSupabaseAdmin();
+            const { data: rooms } = await supabaseAdmin
+                .from('rooms')
+                .select('id, twitch_channel_id, room_settings(settings_json)')
+                .eq('is_active', true);
+            
+            if (rooms) {
+                activeRoomsCache.clear();
+                for (const r of rooms) {
+                    const settingsRaw = Array.isArray(r.room_settings) 
+                        ? (r.room_settings[0] as any)?.settings_json 
+                        : (r.room_settings as any)?.settings_json;
+                    const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
+                        || r.twitch_channel_id?.toLowerCase();
+                    if (streamerLogin) {
+                        activeRoomsCache.set(streamerLogin, r.id);
+                    }
+                }
+            }
+            lastRoomsCacheTime = now;
+        } catch (err) {
+           console.error('[Room Cache Error]', err); 
+        }
+    }
+    return activeRoomsCache.get(login) || null;
+}
+
 export function connectBotToChannel(channelName: string) {
   if (!channelName) return;
   const login = channelName.toLowerCase();
+  
+  // ensure cache tracks the newly created active room
+  getRoomIdForLogin(login, true).catch(() => {});
+
   if (!activeChannels.has(login)) {
      activeChannels.add(login);
      console.log(`[Twitch Bot] Adding channel #${login} to queue/monitored set (Bot Ready: ${!!botClient})`);
@@ -427,64 +465,52 @@ setTimeout(() => {
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
     console.log(`[Twitch IRC Event] User @${username} was BANNED in native chat channel #${login}. Reason: ${reason}`);
     try {
+      const roomId = await getRoomIdForLogin(login);
+      if (!roomId) return;
+
       const supabaseAdmin = getSupabaseAdmin();
-      const { data: rooms } = await supabaseAdmin
-        .from('rooms')
-        .select('id, twitch_channel_id, room_settings(settings_json)')
-        .eq('is_active', true);
+      const { data: roomSettings } = await supabaseAdmin
+        .from('room_settings')
+        .select('settings_json')
+        .eq('room_id', roomId)
+        .single();
         
-      if (!rooms) return;
+      if (!roomSettings) return;
 
-      const matchedRoom = rooms.find(r => {
-        const settingsRaw = Array.isArray(r.room_settings) 
-          ? (r.room_settings[0] as any)?.settings_json 
-          : (r.room_settings as any)?.settings_json;
-        
-        const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
-          || r.twitch_channel_id?.toLowerCase();
-          
-        return streamerLogin === login;
-      });
+      const state = roomSettings.settings_json || {};
 
-      if (matchedRoom) {
-        const roomId = matchedRoom.id;
-        const state = Array.isArray(matchedRoom.room_settings) 
-          ? (matchedRoom.room_settings[0] as any)?.settings_json 
-          : (matchedRoom.room_settings as any)?.settings_json || {};
-
-        if (state) {
-          const blacklistUsernames = [...(state.blacklistUsernames || [])];
-          if (!blacklistUsernames.includes(username.toLowerCase())) {
-            blacklistUsernames.push(username.toLowerCase());
-          }
-
-          let targetUserId = '';
-          const updatedUsers = (state.users || []).map((u: any) => {
-            if (u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()) {
-              targetUserId = u.userId;
-              return { ...u, isBanned: true };
-            }
-            return u;
-          });
-
-          // Eliminate pending queue items from database as well
-          const updatedQueue = (state.queue || []).filter((v: any) => {
-            const isUserVid = v.submitter?.toLowerCase() === username.toLowerCase();
-            return !isUserVid;
-          });
-
-          const updatedState = { ...state, users: updatedUsers, queue: updatedQueue, blacklistUsernames };
-          await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
-          
-          if (ablyRest) {
-            const channelObj = ablyRest.channels.get(`session:${roomId}`);
-            await channelObj.publish('session_state', updatedState);
-            if (targetUserId) {
-              await channelObj.publish('kick', { userId: targetUserId, reason: reason || 'Banido no chat da Twitch.' });
-            }
-          }
-          console.log(`[Twitch IRC Event Sync] Applied ban for user @${username} on session card in room ${roomId}`);
+      if (state) {
+        const blacklistUsernames = [...(state.blacklistUsernames || [])];
+        if (!blacklistUsernames.includes(username.toLowerCase())) {
+          blacklistUsernames.push(username.toLowerCase());
         }
+
+        let targetUserId = '';
+        const updatedUsers = (state.users || []).map((u: any) => {
+          if (u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()) {
+            targetUserId = u.userId;
+            return { ...u, isBanned: true };
+          }
+          return u;
+        });
+
+        // Eliminate pending queue items from database as well
+        const updatedQueue = (state.queue || []).filter((v: any) => {
+          const isUserVid = v.submitter?.toLowerCase() === username.toLowerCase();
+          return !isUserVid;
+        });
+
+        const updatedState = { ...state, users: updatedUsers, queue: updatedQueue, blacklistUsernames };
+        await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+        
+        if (ablyRest) {
+          const channelObj = ablyRest.channels.get(`session:${roomId}`);
+          await channelObj.publish('session_state', updatedState);
+          if (targetUserId) {
+            await channelObj.publish('kick', { userId: targetUserId, reason: reason || 'Banido no chat da Twitch.' });
+          }
+        }
+        console.log(`[Twitch IRC Event Sync] Applied ban for user @${username} on session card in room ${roomId}`);
       }
     } catch (err: any) {
       console.error('[Twitch IRC Event Ban Sync Error]', err.message);
@@ -495,49 +521,37 @@ setTimeout(() => {
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
     console.log(`[Twitch IRC Event] User @${username} was TIMED OUT in channel #${login} for ${duration}s. Reason: ${reason}`);
     try {
+      const roomId = await getRoomIdForLogin(login);
+      if (!roomId) return;
+
       const supabaseAdmin = getSupabaseAdmin();
-      const { data: rooms } = await supabaseAdmin
-        .from('rooms')
-        .select('id, twitch_channel_id, room_settings(settings_json)')
-        .eq('is_active', true);
+      const { data: roomSettings } = await supabaseAdmin
+        .from('room_settings')
+        .select('settings_json')
+        .eq('room_id', roomId)
+        .single();
         
-      if (!rooms) return;
+      if (!roomSettings) return;
 
-      const matchedRoom = rooms.find(r => {
-        const settingsRaw = Array.isArray(r.room_settings) 
-          ? (r.room_settings[0] as any)?.settings_json 
-          : (r.room_settings as any)?.settings_json;
-        
-        const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
-          || r.twitch_channel_id?.toLowerCase();
-          
-        return streamerLogin === login;
-      });
+      const state = roomSettings.settings_json || {};
 
-      if (matchedRoom) {
-        const roomId = matchedRoom.id;
-        const state = Array.isArray(matchedRoom.room_settings) 
-          ? (matchedRoom.room_settings[0] as any)?.settings_json 
-          : (matchedRoom.room_settings as any)?.settings_json || {};
-
-        if (state) {
-          const timeoutUntil = Date.now() + (duration * 1000);
-          const updatedUsers = (state.users || []).map((u: any) => {
-            if (u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()) {
-              return { ...u, timeoutUntil };
-            }
-            return u;
-          });
-
-          const updatedState = { ...state, users: updatedUsers };
-          await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
-          
-          if (ablyRest) {
-            const channelObj = ablyRest.channels.get(`session:${roomId}`);
-            await channelObj.publish('session_state', updatedState);
+      if (state) {
+        const timeoutUntil = Date.now() + (duration * 1000);
+        const updatedUsers = (state.users || []).map((u: any) => {
+          if (u.name?.toLowerCase() === username.toLowerCase() || u.twitchData?.login?.toLowerCase() === username.toLowerCase()) {
+            return { ...u, timeoutUntil };
           }
-          console.log(`[Twitch IRC Event Sync] Applied timeout for @${username} on session card in room ${roomId} for ${duration}s.`);
+          return u;
+        });
+
+        const updatedState = { ...state, users: updatedUsers };
+        await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+        
+        if (ablyRest) {
+          const channelObj = ablyRest.channels.get(`session:${roomId}`);
+          await channelObj.publish('session_state', updatedState);
         }
+        console.log(`[Twitch IRC Event Sync] Applied timeout for @${username} on session card in room ${roomId} for ${duration}s.`);
       }
     } catch (err: any) {
       console.error('[Twitch IRC Event Timeout Sync Error]', err.message);
@@ -551,48 +565,36 @@ setTimeout(() => {
 
     // 1. Live presence registration for any chat event (highly fluid and metadata rich!)
     try {
-        const supabaseAdmin = getSupabaseAdmin();
-        const { data: rooms } = await supabaseAdmin
-          .from('rooms')
-          .select('id, twitch_channel_id, room_settings(settings_json)')
-          .eq('is_active', true);
-          
-        if (rooms && rooms.length > 0) {
-          const matchedRoom = rooms.find(r => {
-            const settingsRaw = Array.isArray(r.room_settings) 
-              ? (r.room_settings[0] as any)?.settings_json 
-              : (r.room_settings as any)?.settings_json;
-            
-            const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
-              || r.twitch_channel_id?.toLowerCase();
-              
-            return streamerLogin === login;
-          });
+        const roomId = await getRoomIdForLogin(login);
+        if (roomId) {
+            const supabaseAdmin = getSupabaseAdmin();
+            const { data: roomSettings } = await supabaseAdmin
+              .from('room_settings')
+              .select('settings_json, rooms!inner(twitch_channel_id)')
+              .eq('room_id', roomId)
+              .single();
 
-          if (matchedRoom) {
-            const roomId = matchedRoom.id;
-            const settingsRaw = Array.isArray(matchedRoom.room_settings) 
-              ? (matchedRoom.room_settings[0] as any)?.settings_json 
-              : (matchedRoom.room_settings as any)?.settings_json;
-            const state: any = settingsRaw || {};
-            
-            if (state.settings) {
-              const username = tags['username'] || 'TwitchUser';
-              const displayName = tags['display-name'] || username;
-              const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
+            if (roomSettings) {
+              const state: any = roomSettings.settings_json || {};
+              const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
 
-              const changed = registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, matchedRoom.twitch_channel_id);
-              if (changed) {
-                // Update persistent session state settings JSON
-                await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
-                
-                if (ablyRest) {
-                  const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
-                  await ablyChannel.publish('session_state', state);
+              if (state.settings) {
+                const username = tags['username'] || 'TwitchUser';
+                const displayName = tags['display-name'] || username;
+                const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
+
+                const changed = registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, twitchChannelId);
+                if (changed) {
+                  // Update persistent session state settings JSON
+                  await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
+                  
+                  if (ablyRest) {
+                    const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+                    await ablyChannel.publish('session_state', state);
+                  }
                 }
               }
             }
-          }
         }
     } catch (presenceErr: any) {
         console.error('[Twitch Bot Presence Registry Error]:', presenceErr.message);
@@ -607,41 +609,30 @@ setTimeout(() => {
     console.log(`[Twitch Bot] Scraped video link message in channel #${login} from @${tags.username}: ${message}`);
     
     try {
-        const supabaseAdmin = getSupabaseAdmin();
-        const { data: rooms } = await supabaseAdmin
-          .from('rooms')
-          .select('id, twitch_channel_id, room_settings(settings_json)')
-          .eq('is_active', true);
-          
-        if (!rooms || rooms.length === 0) {
-          console.log(`[Twitch Bot] Discarded link; no active rooms are currently running in the database.`);
-          return;
-        }
-
-        // Search case-insensitively in memory comparing with stored metadata
-        const matchedRoom = rooms.find(r => {
-          const settingsRaw = Array.isArray(r.room_settings) 
-            ? (r.room_settings[0] as any)?.settings_json 
-            : (r.room_settings as any)?.settings_json;
-          
-          const streamerLogin = settingsRaw?.twitchData?.login?.toLowerCase() 
-            || r.twitch_channel_id?.toLowerCase();
-            
-          return streamerLogin === login;
-        });
-
-        if (!matchedRoom) {
+        const roomId = await getRoomIdForLogin(login);
+        if (!roomId) {
           console.warn(`[Twitch Bot] No matching active room found in database for channel #${login}`);
           return;
         }
+
+        const supabaseAdmin = getSupabaseAdmin();
+        const { data: roomSettings } = await supabaseAdmin
+          .from('room_settings')
+          .select('settings_json, rooms!inner(twitch_channel_id)')
+          .eq('room_id', roomId)
+          .single();
+
+        if (!roomSettings) {
+          console.warn(`[Twitch Bot] Room settings state for room ${roomId} was empty.`);
+          return;
+        }
         
-        const roomId = matchedRoom.id;
-        const settingsRaw = Array.isArray(matchedRoom.room_settings) ? (matchedRoom.room_settings[0] as any)?.settings_json : (matchedRoom.room_settings as any)?.settings_json;
-        const state: any = settingsRaw || {};
+        const state: any = roomSettings.settings_json || {};
         if (!state.settings) {
           console.warn(`[Twitch Bot] Room settings state for room ${roomId} was empty.`);
           return;
         }
+        const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
 
         for (const url of urls) {
           const username = tags['username'] || 'TwitchUser';
@@ -715,11 +706,11 @@ setTimeout(() => {
 
           // Register or update active room participant record for this Twitch chat submitter
           const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
-          let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || matchedRoom.twitch_channel_id;
+          let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || twitchChannelId;
           const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
 
           if (broadcasterId && typeof broadcasterId === 'string' && broadcasterId.includes('-')) {
-             broadcasterId = matchedRoom.twitch_channel_id; // fallback
+             broadcasterId = twitchChannelId; // fallback
           }
 
           try {
@@ -808,13 +799,23 @@ app.get('/api/sessions/:id/watched_cache', (req, res) => {
 setInterval(async () => {
   try {
     const supabaseAdmin = getSupabaseAdmin();
-    const { data: settings } = await supabaseAdmin.from('room_settings').select('room_id, settings_json');
+    
+    // Global 48h cleanup to save DB storage universally
+    const cutoff48 = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    await supabaseAdmin.from('videos').delete().lt('inserted_at', cutoff48);
+
+    // For queue & watched cache, only process memory-heavy JSON for ACTIVE rooms
+    const { data: settings } = await supabaseAdmin
+        .from('room_settings')
+        .select('room_id, settings_json, rooms!inner(is_active)')
+        .eq('rooms.is_active', true);
+        
     if (!settings) return;
 
     for (const room of settings) {
-      // General video table cleanup
+      // General video table cleanup for earlier custom retentions
       const retentionHours = room.settings_json?.videoRetentionHours ?? room.settings_json?.video_retention_hours ?? 48;
-      if (retentionHours > 0 && retentionHours <= 48) {
+      if (retentionHours > 0 && retentionHours < 48) {
         const cutoffTime = new Date(Date.now() - retentionHours * 60 * 60 * 1000).toISOString();
         await supabaseAdmin.from('videos').delete().eq('room_id', room.room_id).lt('inserted_at', cutoffTime);
       }
@@ -822,7 +823,6 @@ setInterval(async () => {
       // 2h Watched Retention Policy
       if (room.settings_json) {
         const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
-        let modified = false;
         
         let newQueue = room.settings_json.queue || [];
         let newHistory = room.settings_json.history || [];
