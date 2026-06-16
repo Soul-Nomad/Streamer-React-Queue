@@ -110,8 +110,19 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     maxQueueSize: 0,
     maxStrikesBeforeBan: 5,
     domainMode: 'both',
-    domainWhitelist: [],
-    domainBlacklist: [],
+    domainWhitelist: [
+      'youtube.com', 'youtu.be', 'youtube-nocookie.com',
+      'instagram.com', 'tiktok.com', 'twitter.com', 'x.com',
+      'reddit.com', 'redditmedia.com', 'v.redd.it', 'redd.it',
+      'facebook.com', 'fb.watch', 'fb.gg', 'fbcdn.net', 'fbsbx.com',
+      'vimeo.com', 'twitch.tv', 'clips.twitch.tv', 'streamable.com',
+      'streamja.com', 'loom.com', 'dailymotion.com'
+    ],
+    domainBlacklist: [
+      'pornhub.com', 'xvideos.com', 'xnxx.com', 'onlyfans.com', 'redtube.com', 'chaturbate.com', 
+      'phncdn.com', 'livejasmin.com', 'youporn.com', 'bongacams.com', 'stripchat.com', 'tube8.com',
+      'bit.ly', 'tinyurl.com', 'is.gd', 'buff.ly', 't.co', 'lnkd.in', 'goo.gl', 'cutt.ly', 'rebrand.ly', 'ow.ly', 'shorturl.at'
+    ],
     requireFollower: false,
     requireSub: false,
     minFollowMinutes: 0
@@ -127,6 +138,16 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
   const existingSettingsJson = existingSettings?.settings_json || {};
   const existingSettingsJsonConfig = existingSettingsJson?.settings || {};
 
+  let dbCooldown = existingSettings?.cooldown_seconds;
+  let dbMaxVideos = existingSettings?.max_videos_per_user;
+  let dbMaxQueue = existingSettings?.max_queue_size;
+
+  // Since we want standard defaults to be unlimited (0) / cooldown 0s,
+  // override the database default table defaults (60, 2, 50) with 0!
+  if (dbCooldown === 60) dbCooldown = 0;
+  if (dbMaxVideos === 2) dbMaxVideos = 0;
+  if (dbMaxQueue === 50) dbMaxQueue = 0;
+
   const mergedSettings = {
     ...defaultSettings,
     ...existingSettingsJsonConfig,
@@ -134,9 +155,9 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     requireFollower: existingSettings?.require_follower ?? defaultSettings.requireFollower,
     requireSub: existingSettings?.require_sub ?? defaultSettings.requireSub,
     minFollowMinutes: existingSettings?.min_follow_minutes ?? (existingSettings?.min_follow_days ? existingSettings.min_follow_days * 1440 : defaultSettings.minFollowMinutes),
-    userCooldownSeconds: existingSettings?.cooldown_seconds ?? defaultSettings.userCooldownSeconds,
-    maxVideosPerUser: existingSettings?.max_videos_per_user ?? existingSettingsJsonConfig.maxVideosPerUser ?? defaultSettings.maxVideosPerUser,
-    maxQueueSize: existingSettings?.max_queue_size ?? existingSettingsJsonConfig.maxQueueSize ?? defaultSettings.maxQueueSize,
+    userCooldownSeconds: dbCooldown ?? defaultSettings.userCooldownSeconds,
+    maxVideosPerUser: dbMaxVideos ?? existingSettingsJsonConfig.maxVideosPerUser ?? defaultSettings.maxVideosPerUser,
+    maxQueueSize: dbMaxQueue ?? existingSettingsJsonConfig.maxQueueSize ?? defaultSettings.maxQueueSize,
     maxSubmissionsPerHour: existingSettings?.maxSubmissionsPerHour ?? existingSettingsJsonConfig.maxSubmissionsPerHour ?? defaultSettings.maxSubmissionsPerHour,
     isManualApprovalRequired: existingSettings?.isManualApprovalRequired ?? existingSettingsJsonConfig.isManualApprovalRequired ?? defaultSettings.isManualApprovalRequired,
     blockLiveStreams: existingSettings?.blockLiveStreams ?? existingSettingsJsonConfig.blockLiveStreams ?? defaultSettings.blockLiveStreams,
@@ -170,9 +191,9 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
       require_follower: existingSettings?.require_follower ?? false,
       min_follow_days: existingSettings?.min_follow_days ?? 0,
       min_account_age_days: existingSettings?.min_account_age_days ?? 0,
-      max_videos_per_user: existingSettings?.max_videos_per_user !== undefined ? existingSettings.max_videos_per_user : 0,
-      max_queue_size: existingSettings?.max_queue_size !== undefined ? existingSettings.max_queue_size : 0,
-      cooldown_seconds: existingSettings?.cooldown_seconds !== undefined ? existingSettings.cooldown_seconds : 0,
+      max_videos_per_user: dbMaxVideos !== undefined ? dbMaxVideos : 0,
+      max_queue_size: dbMaxQueue !== undefined ? dbMaxQueue : 0,
+      cooldown_seconds: dbCooldown !== undefined ? dbCooldown : 0,
     });
 
   if (settingsError) {
