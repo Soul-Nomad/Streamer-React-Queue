@@ -20,7 +20,11 @@ async function ensureTwitchChatUserRegistered(
   }
 
   // Find if user already exists
-  let userIndex = state.users.findIndex((u: any) => u.userId === userId || u.name?.toLowerCase() === username.toLowerCase());
+  let userIndex = state.users.findIndex((u: any) => 
+    u.userId === userId || 
+    (u.twitchData?.twitchUserId === userId) ||
+    u.name?.toLowerCase() === username.toLowerCase()
+  );
   let existingUser = userIndex !== -1 ? state.users[userIndex] : null;
 
   let avatarUrl = existingUser?.twitchData?.avatarUrl || '';

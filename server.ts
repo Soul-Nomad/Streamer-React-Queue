@@ -212,8 +212,12 @@ async function registerOrUpdateTwitchChatterFromTags(
   const isVip = rawBadges.includes('vip');
   const isBroadcaster = userId === broadcasterId || rawBadges.includes('broadcaster');
 
-  // Find if user already exists
-  let userIndex = state.users.findIndex((u: any) => u.userId === userId || u.name?.toLowerCase() === username.toLowerCase());
+  // Find if user already exists (Check by ID, Twitch User ID, or Name)
+  let userIndex = state.users.findIndex((u: any) => 
+    u.userId === userId || 
+    (u.twitchData?.twitchUserId === userId) ||
+    u.name?.toLowerCase() === username.toLowerCase()
+  );
   let existingUser = userIndex !== -1 ? state.users[userIndex] : null;
 
   const now = Date.now();
@@ -327,7 +331,11 @@ async function ensureTwitchChatUserRegistered(
     state.users = [];
   }
 
-  let userIndex = state.users.findIndex((u: any) => u.userId === userId || u.name?.toLowerCase() === username.toLowerCase());
+  let userIndex = state.users.findIndex((u: any) => 
+    u.userId === userId || 
+    (u.twitchData?.twitchUserId === userId) || 
+    u.name?.toLowerCase() === username.toLowerCase()
+  );
   let existingUser = userIndex !== -1 ? state.users[userIndex] : null;
 
   let avatarUrl = existingUser?.twitchData?.avatarUrl || '';
@@ -2085,11 +2093,17 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
       return res.status(404).json({ error: 'Sala solicitar não foi encontrada.' });
     }
 
-    const cleanUsers = (state.users || []).filter((u: any) => u.userId !== userId);
+    const incomingTwitchUserId = twitchData?.twitchUserId;
+    const cleanUsers = (state.users || []).filter((u: any) => {
+      const isSameId = u.userId === userId;
+      const isSameTwitchId = incomingTwitchUserId && u.twitchData?.twitchUserId === incomingTwitchUserId;
+      const isSameName = (twitchData?.displayName || name || u.name)?.toLowerCase() === u.name?.toLowerCase();
+      return !isSameId && !isSameTwitchId && !isSameName;
+    });
     
     // Persistent Ban Check
     const username = twitchData?.login || name || 'Viewer';
-    if (state.blacklistUsernames?.includes(username.toLowerCase())) {
+    if (state.blacklistUsernames?.find((bn: string) => bn.toLowerCase() === username.toLowerCase())) {
       return res.status(403).json({ error: 'Você está permanentemente banido desta sala.' });
     }
 
@@ -2120,7 +2134,11 @@ app.post(['/sessions/:id/join', '/api/sessions/:id/join'], async (req, res) => {
        }
     } catch(err) { }
 
-    const oldUser = (state.users || []).find((u: any) => u.userId === userId) || {};
+    const oldUser = (state.users || []).find((u: any) => 
+      u.userId === userId || 
+      (incomingTwitchUserId && u.twitchData?.twitchUserId === incomingTwitchUserId) ||
+      (u.name?.toLowerCase() === (twitchData?.displayName || name || '').toLowerCase())
+    ) || {};
 
     let karmaDetails = oldUser?.karmaDetails;
     let reputation = oldUser?.reputation ?? 0;
