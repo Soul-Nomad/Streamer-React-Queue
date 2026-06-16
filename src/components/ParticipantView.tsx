@@ -690,7 +690,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                         </div>
                         <div className="bg-[#0a0a0f] p-4 rounded-sm border border-zinc-800/50">
                           <span className="text-[9px] uppercase text-zinc-500 tracking-widest font-mono block mb-1">Reputação</span>
-                          <span className={clsx("text-2xl font-black", me.reputation && me.reputation >= 80 ? "text-emerald-400" : "text-yellow-500")}>{me.reputation || 100}%</span>
+                          <span className={clsx("text-2xl font-black", me.reputation && me.reputation >= 80 ? "text-emerald-400" : "text-yellow-500")}>{me.reputation ?? 0}%</span>
                         </div>
                       </div>
 

@@ -271,7 +271,7 @@ function registerOrUpdateTwitchChatterFromTags(
     state.users[userIndex] = {
       ...existingUser,
       ...formattedUser,
-      reputation: existingUser.reputation ?? 100,
+      reputation: existingUser.reputation ?? 0,
       strikes: existingUser.strikes || 0,
       isBanned: existingUser.isBanned || false,
       timeoutUntil: existingUser.timeoutUntil || undefined,
@@ -406,7 +406,7 @@ async function ensureTwitchChatUserRegistered(
     state.users[userIndex] = {
       ...existingUser,
       ...formattedUser,
-      reputation: existingUser.reputation ?? 100,
+      reputation: existingUser.reputation ?? 0,
       strikes: existingUser.strikes || 0,
       isBanned: existingUser.isBanned || false,
       timeoutUntil: existingUser.timeoutUntil || undefined,
@@ -2595,6 +2595,47 @@ app.post(['/sessions/:id/reject_video', '/api/sessions/:id/reject_video'], async
     await supabaseAdmin
       .from('rooms')
       .update({ video_queue_count: updatedQueue.length })
+      .eq('id', roomId);
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    res.json({ success: true, session: updatedState });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /sessions/:id/unwatch_video - Mark a watched video as approved again (unwatch)
+app.post(['/sessions/:id/unwatch_video', '/api/sessions/:id/unwatch_video'], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { data } = req.body;
+    const videoId = data;
+
+    const state: any = await getSession(roomId);
+    if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
+
+    const updatedQueue = (state.queue || []).map((v: any) => 
+      v.id === videoId ? { ...v, status: 'approved', watchedAt: undefined } : v
+    );
+    
+    const historyVideos = updatedQueue.filter((v: any) => v.status === 'watched');
+    updateWatchedCache(roomId, historyVideos);
+
+    const updatedState = { ...state, queue: updatedQueue, history: historyVideos };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', roomId);
+
+    await supabaseAdmin
+      .from('rooms')
+      .update({ video_queue_count: updatedQueue.filter((v: any) => v.status !== 'watched').length })
       .eq('id', roomId);
 
     if (ablyRest) {

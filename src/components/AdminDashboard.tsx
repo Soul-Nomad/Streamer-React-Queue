@@ -85,7 +85,7 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
     return (session.users || []).map((u: any) => ({
       userId: u.userId || u.id,
       username: u.twitchData?.login || u.name,
-      reputation: u.reputation ?? 100,
+      reputation: u.reputation ?? 0,
       strikes: u.strikes ?? 0,
       totalSubmitted: u.totalSubmitted ?? 0,
       approvedCount: u.approvedCount ?? 0,

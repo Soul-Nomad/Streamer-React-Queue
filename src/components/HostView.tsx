@@ -1030,6 +1030,15 @@ export default function HostView({ session }: { session: SessionState }) {
     );
   };
 
+  const unwatchVideo = (id: string) => {
+    socket.emit("unwatch_video", id);
+    showFeedback(
+      "Vídeo Restaurado",
+      "Vídeo movido de volta para a fila de reprodução.",
+      "info",
+    );
+  };
+
   const reject = (id: string) => {
     socket.emit("reject_video", id);
     showFeedback("Vídeo Removido", "Vídeo descartado do sistema.", "info");
@@ -1358,6 +1367,7 @@ export default function HostView({ session }: { session: SessionState }) {
             playVideo={playVideo}
             reject={reject}
             approve={approve}
+            unwatchVideo={unwatchVideo}
           />
         </aside>
 
@@ -1471,7 +1481,7 @@ export default function HostView({ session }: { session: SessionState }) {
                               u.name?.toLowerCase(),
                         );
                         const kScore =
-                          u.karmaDetails?.karma_score ?? u.reputation ?? 50;
+                          u.karmaDetails?.karma_score ?? u.reputation ?? 0;
                         const kInfo = getKarmaInfoHost(kScore);
                         return (
                           <div

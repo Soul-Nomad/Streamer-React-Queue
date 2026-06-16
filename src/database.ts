@@ -174,7 +174,7 @@ class PersistentDataStore {
         strikes: 0,
         allTimeStrikes: 0,
         allTimeBans: 0,
-        reputation: 50, // default neutral score
+        reputation: 0, // default starts at 0
         submitSecondsDiffs: [],
         adminNotes: [],
         lastKnownIp: ip,

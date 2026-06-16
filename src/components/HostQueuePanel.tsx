@@ -11,9 +11,10 @@ interface HostQueuePanelProps {
   playVideo: (id: string) => void;
   reject: (id: string) => void;
   approve: (id: string) => void;
+  unwatchVideo: (id: string) => void;
 }
 
-export default function HostQueuePanel({ session, playVideo, reject, approve }: HostQueuePanelProps) {
+export default function HostQueuePanel({ session, playVideo, reject, approve, unwatchVideo }: HostQueuePanelProps) {
   const [tab, setTab] = useState<'pending' | 'watched' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [badgeFilter, setBadgeFilter] = useState<string>('all');
@@ -381,6 +382,15 @@ export default function HostQueuePanel({ session, playVideo, reject, approve }: 
                         title="Tocar Agora"
                       >
                         <Play className="w-3 h-3 fill-current" />
+                      </button>
+                    )}
+                    {vid.status === 'watched' && (
+                      <button 
+                        onClick={() => unwatchVideo(vid.id)} 
+                        className="p-1 items-center justify-center bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-white border border-cyan-500/20 rounded transition-all cursor-pointer" 
+                        title="Restaurar para Fila"
+                      >
+                        <Clock className="w-3 h-3" />
                       </button>
                     )}
                     <button 

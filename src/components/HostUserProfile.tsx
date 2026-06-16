@@ -138,7 +138,7 @@ export default function HostUserProfile({
   };
 
   const strikes = currentUser.strikes || 0;
-  const reputation = currentUser.reputation ?? 100;
+  const reputation = currentUser.reputation ?? 0;
   const isSubscriber =
     currentUser.twitchData?.isSubscriber ||
     currentUser.twitchData?.badges?.includes("subscriber");
@@ -173,7 +173,7 @@ export default function HostUserProfile({
 
   // Calculate follow duration description
   const karmaScore =
-    currentUser.karmaDetails?.karma_score ?? currentUser.reputation ?? 50;
+    currentUser.karmaDetails?.karma_score ?? currentUser.reputation ?? 0;
   const pos = currentUser.karmaDetails?.positive_ratings ?? 0;
   const neg = currentUser.karmaDetails?.negative_ratings ?? 0;
   const totalRate = currentUser.karmaDetails?.total_rated_submissions ?? 0;
