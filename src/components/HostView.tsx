@@ -153,6 +153,14 @@ const renderTwitchBadgesHost = (user: any) => {
   );
 };
 
+const getKarmaInfoHost = (score: number) => {
+  if (score >= 1000) return { level: 'Lenda Analógica', color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10' };
+  if (score >= 500) return { level: 'Arquivista', color: 'text-orange-400', bg: 'bg-orange-500/10' };
+  if (score >= 200) return { level: 'Curador', color: 'text-amber-400', bg: 'bg-amber-500/10' };
+  if (score >= 50) return { level: 'Colecionador', color: 'text-emerald-400', bg: 'bg-emerald-500/10' };
+  return { level: 'Fita Nova', color: 'text-zinc-400', bg: 'bg-zinc-500/10' };
+};
+
 interface CustPlayerProps {
   url: string;
   getRatioClass: () => string;
@@ -761,6 +769,12 @@ export default function HostView({ session }: { session: SessionState }) {
     socket.emit('play_video', id);
   };
 
+  const rateKarma = (videoId: string, targetUserId: string | undefined, hostId: string | undefined, videoUrl: string, ratingType: 'positive' | 'negative') => {
+    if (!targetUserId || !hostId) return;
+    socket.emit('rate_karma', { videoId, targetUserId, hostId, videoUrl, ratingType });
+    showFeedback('Reconhecimento', `Karma ${ratingType === 'positive' ? 'positivo' : 'negativo'} atribuído ao espectador!`, ratingType === 'positive' ? 'success' : 'alert');
+  };
+
   const handleDirectSubmit = () => {
     if (!directUrl.trim().startsWith('http')) return;
     socket.emit('submit_video', { url: directUrl.trim() });
@@ -1104,6 +1118,8 @@ export default function HostView({ session }: { session: SessionState }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[500px] overflow-y-auto pr-1">
                       {session.users.map(u => {
                         const inTwitchChat = twitchChatters.some(tc => tc.user_login?.toLowerCase() === u.twitchData?.login?.toLowerCase() || tc.user_name?.toLowerCase() === u.name?.toLowerCase());
+                        const kScore = u.karmaDetails?.karma_score ?? (u.reputation ?? 50);
+                        const kInfo = getKarmaInfoHost(kScore);
                         return (
                           <div 
                             key={u.id} 
@@ -1118,6 +1134,9 @@ export default function HostView({ session }: { session: SessionState }) {
                                 </span>
                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                   {renderTwitchBadgesHost(u)}
+                                  <span className={clsx("text-[8px] font-mono font-bold uppercase tracking-widest rounded px-1", kInfo.color, kInfo.bg)}>
+                                    {kInfo.level} ({kScore})
+                                  </span>
                                   <span className={clsx(
                                     "text-[8px] font-mono font-bold uppercase rounded px-1",
                                     inTwitchChat ? "bg-green-500/10 text-green-400" : "bg-zinc-900 text-zinc-600"
@@ -1502,10 +1521,27 @@ export default function HostView({ session }: { session: SessionState }) {
                     </div>
                     {/* Date/Time detail labels */}
                     {activeSender && (
-                      <div className="flex flex-col items-end gap-1 shrink-0 text-right text-[10px] font-mono">
-                        <span className="text-zinc-500 uppercase">Enviado em:</span>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 text-right text-[10px] font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <button 
+                             onClick={() => rateKarma(currentVideo.id, activeSender?.userId, session?.hostId, currentVideo.url, 'positive')}
+                             className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold uppercase transition-colors"
+                             title="Karma Positivo"
+                          >
+                             <CassetteTape className="w-3 h-3" />
+                             ▲ Karma
+                          </button>
+                          <button 
+                             onClick={() => rateKarma(currentVideo.id, activeSender?.userId, session?.hostId, currentVideo.url, 'negative')}
+                             className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold uppercase transition-colors"
+                             title="Karma Negativo"
+                          >
+                             ▼ Karma
+                          </button>
+                        </div>
+                        <span className="text-zinc-500 uppercase mt-1 text-[9px]">Enviado em:</span>
                         <span className="text-zinc-300 font-extrabold flex items-center gap-1 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded leading-none">
-                          <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                          <Clock className="w-3 h-3 text-zinc-500" />
                           {(activeSender as any).horaEnvio || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>

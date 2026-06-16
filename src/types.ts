@@ -41,6 +41,12 @@ export interface User {
   lastAccess?: number;        // Date of last join
   adminNotes?: string[];      // Host-written internal warning/general notes
   lastPresenceAt?: number;    // UTC timestamp of last live chat typing or presence event
+  karmaDetails?: {
+    karma_score: number;
+    positive_ratings: number;
+    negative_ratings: number;
+    total_rated_submissions: number;
+  };
 }
 
 export type VideoStatus = 'pending' | 'approved' | 'rejected' | 'playing' | 'watched' | 'ignored';

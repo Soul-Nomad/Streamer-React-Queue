@@ -3,7 +3,7 @@ import { socket, getBackendUrl } from '../socket';
 import { SessionState, Video } from '../types';
 import { 
   Send, LogOut, Clock, Play, Users, Copy, Check, ExternalLink, X, Shield, Crown, Radio, CheckCircle2, AlertCircle, Menu, Info, Link2, MonitorPlay, History, Smartphone, XOctagon, Loader2, PlayCircle, Eye, ThumbsUp, Activity,
-  CassetteTape, BoomBox, AudioLines, Music
+  CassetteTape, BoomBox, AudioLines, Music, Award, TrendingUp, TrendingDown, Minus
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
@@ -56,6 +56,14 @@ const getPlatformIcon = (url: string) => {
   if (url.includes('tiktok.com')) return '🎵 TikTok';
   if (url.includes('youtube.com') || url.includes('youtu.be')) return '📺 YouTube';
   return '🔗 Link Externo';
+};
+
+const getKarmaInfo = (score: number) => {
+  if (score >= 1000) return { level: 'Lenda Analógica', color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/30' };
+  if (score >= 500) return { level: 'Arquivista', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30' };
+  if (score >= 200) return { level: 'Curador', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' };
+  if (score >= 50) return { level: 'Colecionador', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
+  return { level: 'Fita Nova', color: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/30' };
 };
 
 const StatusBadge = ({ status }: { status: Video['status'] | 'playing' }) => {
@@ -122,7 +130,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
   const [submitFeedback, setSubmitFeedback] = useState<{type: 'success' | 'info' | 'error', msg: string, position?: number, estimate?: number} | null>(null);
   
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'home' | 'queue' | 'users' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'queue' | 'users' | 'profile' | 'ranking'>('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Captcha & Submission constraints
@@ -408,6 +416,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
           <NavItem active={activeTab === 'home'} onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} icon={<img src={logoTransparent} alt="" className="w-4 h-4 object-contain opacity-70" referrerPolicy="no-referrer" />} label="Transmissão" />
           <NavItem active={activeTab === 'queue'} onClick={() => { setActiveTab('queue'); setMobileMenuOpen(false); }} icon={<CassetteTape className="w-4 h-4"/>} label="Fila de Vídeos" badge={approvedVideos.length} />
           <NavItem active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} icon={<Users className="w-4 h-4"/>} label="Participantes" badge={session.users.length} />
+          <NavItem active={activeTab === 'ranking'} onClick={() => { setActiveTab('ranking'); setMobileMenuOpen(false); }} icon={<Award className="w-4 h-4 text-emerald-400"/>} label="Karma Global" />
           <NavItem active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }} icon={<Crown className="w-4 h-4"/>} label="Meu Perfil" />
         </div>
 
@@ -693,6 +702,60 @@ export default function ParticipantView({ session }: { session: SessionState }) 
 
                   </div>
                 </div>
+             </div>
+          )}
+
+          {/* TAB: RANKING */}
+          {activeTab === 'ranking' && (
+             <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 pb-24">
+               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
+                  <h2 className="text-sm font-extrabold uppercase font-mono tracking-widest text-white flex items-center gap-2">
+                    <Award className="w-4 h-4 text-emerald-400" /> Karma Global
+                  </h2>
+               </div>
+               
+               <div className="space-y-2">
+                 {[...session.users]
+                   .sort((a, b) => (b.karmaDetails?.karma_score ?? (b.reputation ?? 50)) - (a.karmaDetails?.karma_score ?? (a.reputation ?? 50)))
+                   .map((u, i) => {
+                     const kScore = u.karmaDetails?.karma_score ?? (u.reputation ?? 50);
+                     const kInfo = getKarmaInfo(kScore);
+                     return (
+                       <div key={u.id} className={clsx("p-3 rounded-sm border flex flex-col md:flex-row md:items-center gap-3 transition-colors", kInfo.bg, kInfo.border)}>
+                         <div className="flex items-center gap-3 w-full md:w-auto">
+                           <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center font-black text-sm", i === 0 ? "bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]" : i === 1 ? "bg-zinc-300 text-black" : i === 2 ? "bg-orange-700 text-white" : "bg-zinc-900 text-zinc-500 border border-zinc-800")}>
+                             #{i + 1}
+                           </div>
+                           {renderUserAvatarDesktop(u)}
+                           <div className="flex-1 min-w-0">
+                             <div className="flex items-center gap-2">
+                               <span className="font-bold text-sm text-white truncate block">@{u.name}</span>
+                               {u.id === socket.id && <span className="text-[8px] font-black px-1 py-0.5 bg-orange-500/20 text-orange-400 rounded-sm uppercase tracking-wider">Você</span>}
+                             </div>
+                             <div className="flex items-center gap-1.5 mt-0.5">
+                               {renderTwitchBadges(u)}
+                               <span className={clsx("text-[9px] uppercase tracking-widest font-mono font-bold", kInfo.color)}>{kInfo.level}</span>
+                             </div>
+                           </div>
+                         </div>
+                         <div className="ml-0 md:ml-auto flex items-center gap-4 mt-3 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 border-zinc-800 px-1">
+                           <div className="flex flex-col items-center">
+                              <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Total</span>
+                              <span className="text-xs font-black text-white">{kScore}</span>
+                           </div>
+                           <div className="flex flex-col items-center">
+                              <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Positivos</span>
+                              <span className="text-xs font-black text-emerald-500 flex items-center gap-0.5"><TrendingUp className="w-3 h-3"/> {u.karmaDetails?.positive_ratings ?? 0}</span>
+                           </div>
+                           <div className="flex flex-col items-center">
+                              <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Negativos</span>
+                              <span className="text-xs font-black text-rose-500 flex items-center gap-0.5"><TrendingDown className="w-3 h-3"/> {u.karmaDetails?.negative_ratings ?? 0}</span>
+                           </div>
+                         </div>
+                       </div>
+                     );
+                 })}
+               </div>
              </div>
           )}
         </div>

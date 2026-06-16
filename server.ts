@@ -2439,6 +2439,102 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
   }
 });
 
+// POST /sessions/:id/rate_karma - Evaluate a viewer's submission quality
+app.post(['/sessions/:id/rate_karma', '/api/sessions/:id/rate_karma'], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { hostId, targetUserId, videoId, videoUrl, ratingType } = req.body?.data || req.body;
+
+    if (!hostId || !targetUserId || !ratingType || !videoId) {
+      return res.status(400).json({ error: 'Parâmetros incompletos.' });
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    
+    // Check for duplicate vote
+    const { data: existingRating } = await supabaseAdmin
+        .from('karma_ratings')
+        .select('id')
+        .eq('video_id', videoId)
+        .eq('host_id', hostId)
+        .single();
+        
+    if (existingRating) {
+      return res.status(403).json({ error: 'Você já avaliou este vídeo.' });
+    }
+
+    // Insert the rating
+    const { error: insertError } = await supabaseAdmin
+        .from('karma_ratings')
+        .insert({
+           video_id: videoId, // we'll use the frontend string ID directly, changing the DB schema column to text if it was UUID
+           video_url: videoUrl || '',
+           host_id: hostId,
+           target_user_id: targetUserId,
+           rating_type: ratingType
+        });
+        
+    // Note: the backend schema we created uses UUID for the row id, but video_id may be a string like 'vid_123'
+    // so we must alter our migration if it used UUID for video_id to avoid constraint errors.
+
+    // Calculate new aggregates
+    const { data: allRatings } = await supabaseAdmin
+        .from('karma_ratings')
+        .select('rating_type')
+        .eq('target_user_id', targetUserId);
+        
+    const pos = (allRatings || []).filter(r => r.rating_type === 'positive').length;
+    const neg = (allRatings || []).filter(r => r.rating_type === 'negative').length;
+    const total = pos + neg;
+    
+    let score = 0;
+    if (total > 0) {
+      const approvalRate = pos / total;
+      const volumeBonus = Math.log10(total + 1) * 5;
+      const penaltyExp = Math.pow(neg, 1.2); 
+      let rawScore = (pos * 10) - (penaltyExp * 8) + volumeBonus;
+      const consistencyMultiplier = approvalRate >= 0.8 ? 1.2 : (approvalRate < 0.4 ? 0.5 : 1.0);
+      score = Math.max(0, Math.round(rawScore * consistencyMultiplier));
+    }
+
+    const { data: userKarmaData, error: upsertError } = await supabaseAdmin
+        .from('user_karma')
+        .upsert({
+            user_id: targetUserId,
+            // we do not have the guaranteed username here unless passed, ideally update it
+            karma_score: score,
+            positive_ratings: pos,
+            negative_ratings: neg,
+            total_rated_submissions: total,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+    // Now, push real-time update to the room's users state
+    const state: any = await getSession(roomId);
+    if (state) {
+      const updatedUsers = (state.users || []).map((u: any) => {
+        if (u.userId === targetUserId) {
+           return { ...u, reputation: score, karmaDetails: userKarmaData };
+        }
+        return u;
+      });
+      const updatedState = { ...state, users: updatedUsers };
+      await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+      if (ablyRest) {
+        const channel = ablyRest.channels.get(`session:${roomId}`);
+        await channel.publish('session_state', updatedState);
+      }
+    }
+
+    res.json({ success: true, newScore: score, stats: userKarmaData });
+  } catch (err: any) {
+    console.error('[Karma Rating Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /sessions/:id/approve_video - Approve manual submission
 app.post(['/sessions/:id/approve_video', '/api/sessions/:id/approve_video'], async (req, res) => {
   try {

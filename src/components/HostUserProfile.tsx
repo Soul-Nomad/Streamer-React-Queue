@@ -80,12 +80,6 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
   const followDate = currentUser.twitchData?.followedAt ? new Date(currentUser.twitchData.followedAt) : null;
   const isFollower = currentUser.twitchData?.isFollower || !!followDate;
 
-  const isOnlineOnTwitch = (twitchChatters?.some((tc: any) => 
-    tc.user_login?.toLowerCase() === currentUser.twitchData?.login?.toLowerCase() || 
-    tc.user_name?.toLowerCase() === currentUser.name?.toLowerCase()
-  ) || (currentUser.lastPresenceAt && (Date.now() - currentUser.lastPresenceAt) < 5 * 60 * 1000)) || false;
-
-  // Calculate follow duration description
   let followDurationDesc = 'Não segue o canal';
   if (followDate) {
     const diffMs = Date.now() - followDate.getTime();
@@ -98,6 +92,28 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
       followDurationDesc = `Seguidor há ${diffMonths} ${diffMonths === 1 ? 'mês' : 'meses'}`;
     }
   }
+
+  const isOnlineOnTwitch = (twitchChatters?.some((tc: any) => 
+    tc.user_login?.toLowerCase() === currentUser.twitchData?.login?.toLowerCase() || 
+    tc.user_name?.toLowerCase() === currentUser.name?.toLowerCase()
+  ) || (currentUser.lastPresenceAt && (Date.now() - currentUser.lastPresenceAt) < 5 * 60 * 1000)) || false;
+
+  // Calculate follow duration description
+  const karmaScore = currentUser.karmaDetails?.karma_score ?? (currentUser.reputation ?? 50);
+  const pos = currentUser.karmaDetails?.positive_ratings ?? 0;
+  const neg = currentUser.karmaDetails?.negative_ratings ?? 0;
+  const totalRate = currentUser.karmaDetails?.total_rated_submissions ?? 0;
+  const approvalRate = totalRate > 0 ? Math.round((pos / totalRate) * 100) : null;
+
+  const getKarmaInfo = (score: number) => {
+    if (score >= 1000) return { level: 'Lenda Analógica', color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/30' };
+    if (score >= 500) return { level: 'Arquivista', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30' };
+    if (score >= 200) return { level: 'Curador', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' };
+    if (score >= 50) return { level: 'Colecionador', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
+    return { level: 'Fita Nova', color: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/30' };
+  };
+
+  const karmaInfo = getKarmaInfo(karmaScore);
 
   return (
     <div className="flex flex-col h-full bg-[#111116] text-zinc-100 font-sans border-l border-[#1f1f2e] select-none" id="host_user_profile">
@@ -134,7 +150,7 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
 
         <div className="space-y-0.5">
           <h3 
-            className="text-sm font-extrabold tracking-wide"
+            className="text-sm font-extrabold tracking-wide flex items-center justify-center gap-1"
             style={{ color: currentUser.twitchData?.color || '#FFFFFF' }}
           >
             @{currentUser.name}
@@ -142,7 +158,6 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
           <p className="text-[10px] text-zinc-500 font-medium font-mono">
             {currentUser.twitchData?.login ? 'Autenticado' : 'Convidado Local'}
           </p>
-          {/* Real-time Twitch online status indicator */}
           <div className="flex items-center gap-1.5 mt-1 justify-center bg-zinc-900/80 px-2 py-0.5 rounded border border-zinc-800/50">
             <span className={clsx(
               "w-2 h-2 rounded-full",
@@ -154,23 +169,30 @@ export default function HostUserProfile({ session, currentUser, twitchChatters =
           </div>
         </div>
 
-        {/* Reputation Badge */}
-        <div className="w-full space-y-1 pt-1.5">
-          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-            <span>Reputação:</span>
-            <span className={clsx(
-              "font-bold",
-              reputation >= 80 ? "text-green-400" : reputation > 50 ? "text-amber-500" : "text-red-500"
-            )}>{reputation}%</span>
+        {/* Karma System Section */}
+        <div className="w-full mt-3 flex flex-col">
+          <div className={clsx("flex items-center justify-between p-2 rounded-t border-t border-x", karmaInfo.bg, karmaInfo.border)}>
+             <div className="flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-200">
+                <CassetteTape className={clsx("w-3 h-3", karmaInfo.color)} />
+                Karma Total: {karmaScore}
+             </div>
+             <div className={clsx("text-[9px] font-black uppercase px-2 py-0.5 rounded border border-zinc-500/20 bg-zinc-950/40", karmaInfo.color)}>
+                {karmaInfo.level}
+             </div>
           </div>
-          <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden border border-zinc-800">
-            <div 
-              className={clsx(
-                "h-full rounded-full transition-all duration-300",
-                reputation >= 80 ? "bg-green-500" : reputation > 50 ? "bg-amber-500" : "bg-red-500"
-              )}
-              style={{ width: `${reputation}%` }}
-            ></div>
+          <div className="grid grid-cols-3 divide-x divide-[#1f1f2e] border border-[#1f1f2e] rounded-b bg-zinc-950/20 overflow-hidden">
+             <div className="flex flex-col items-center py-1.5 px-1 group hover:bg-zinc-900/50 transition-colors">
+                <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Aprovação</span>
+                <span className="text-xs font-black text-amber-500">{typeof approvalRate === 'number' ? `${approvalRate}%` : '--'}</span>
+             </div>
+             <div className="flex flex-col items-center py-1.5 px-1 group hover:bg-zinc-900/50 transition-colors">
+                <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Upvotes</span>
+                <span className="text-xs font-black text-emerald-500">▲ {pos}</span>
+             </div>
+             <div className="flex flex-col items-center py-1.5 px-1 group hover:bg-zinc-900/50 transition-colors">
+                <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Downvotes</span>
+                <span className="text-xs font-black text-rose-500">▼ {neg}</span>
+             </div>
           </div>
         </div>
       </div>
