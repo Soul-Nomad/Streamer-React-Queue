@@ -303,12 +303,15 @@ export function initTwitchBot() {
           }
 
           // 2. Check existing queue for persistence deduplication
-          const isDuplicate = (state.queue || []).some((v: any) => 
+          const duplicateVideo = (state.queue || []).find((v: any) => 
             v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
           );
-          if (isDuplicate) {
+          if (duplicateVideo) {
             console.warn(`[Twitch Bot Ref] Link already present in queue.`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+            const isRecent = duplicateVideo.timestamp && (Date.now() - duplicateVideo.timestamp < 60000);
+            if (!isRecent) {
+              sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+            }
             continue;
           }
 

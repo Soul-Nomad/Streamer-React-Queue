@@ -639,11 +639,16 @@ setTimeout(() => {
                 continue;
               }
 
-              const isDuplicate = (state.queue || []).some((v: any) => 
+              const duplicateVideo = (state.queue || []).find((v: any) => 
                 v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
               );
-              if (isDuplicate) {
-                sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+              if (duplicateVideo) {
+                const isRecent = duplicateVideo.timestamp && (Date.now() - duplicateVideo.timestamp < 60000);
+                if (!isRecent) {
+                  sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+                } else {
+                  console.warn(`[Twitch Bot] Silently dropped duplicated duplicate message for ${canonicalId} (added recently to DB)`);
+                }
                 continue;
               }
 
