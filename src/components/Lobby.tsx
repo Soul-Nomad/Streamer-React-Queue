@@ -489,6 +489,18 @@ export default function Lobby() {
     setRequestedQueues((prev) => [...prev, streamerLogin]);
   };
 
+  const userActiveRoom = useMemo(() => {
+    if (!supabaseUser || !discoveredRooms) return null;
+    const meta = supabaseUser.user_metadata || {};
+    const twitchUserId = meta.provider_id || meta.sub || "";
+    const username = (meta.user_name || meta.name || "").toLowerCase();
+    
+    return discoveredRooms.find(r => 
+      r.hostTwitchUserId === twitchUserId || 
+      r.hostLogin?.toLowerCase() === username
+    );
+  }, [supabaseUser, discoveredRooms]);
+
   const recentHistoryList = getRecentHistory();
 
   // Merge sever rooms with follow lists
@@ -680,11 +692,11 @@ export default function Lobby() {
               </button>
 
               <button
-                onClick={() => setIsHostConfirmOpen(true)}
+                onClick={() => userActiveRoom ? handleJoin(userActiveRoom.roomId) : setIsHostConfirmOpen(true)}
                 className="h-9 px-3 bg-[#9146FF] hover:bg-[#772ce8] text-[10px] font-black text-white rounded-lg flex items-center gap-1.5 transition-all cursor-pointer font-mono uppercase shadow-md shadow-[#9146FF]/20 border border-white/10"
               >
                 <Crown className="w-3.5 h-3.5 text-[#FFEA00]" />
-                <span>MEU HOST</span>
+                <span>{userActiveRoom ? "SINTONIZAR" : "MEU HOST"}</span>
               </button>
             </div>
           )}
@@ -779,6 +791,8 @@ export default function Lobby() {
               handleLoginTwitch={handleLoginTwitch}
               setIsJoinModalOpen={setIsJoinModalOpen}
               setIsHostConfirmOpen={setIsHostConfirmOpen}
+              userActiveRoom={userActiveRoom}
+              handleJoin={handleJoin}
             />
           </div>
 
