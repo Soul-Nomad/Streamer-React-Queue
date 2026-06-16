@@ -161,11 +161,11 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       const lastSub = myself.lastSubmitted || 0;
       const now = Date.now();
       
-      const userCooldownTrack = (session.settings?.userCooldownSeconds || 60) * 1000;
+      const userCooldownTrack = (session.settings?.userCooldownSeconds ?? 0) * 1000;
       const userRemaining = Math.max(0, Math.ceil((lastSub + userCooldownTrack - now) / 1000));
       
       const sessionLastGlobal = (session as any).lastGlobalSubmitted || 0;
-      const globalCooldownTrack = sessionLastGlobal + (session.settings?.globalCooldownSeconds || 5) * 1000;
+      const globalCooldownTrack = sessionLastGlobal + (session.settings?.globalCooldownSeconds ?? 0) * 1000;
       const globalRemaining = Math.max(0, Math.ceil((globalCooldownTrack - now) / 1000));
       
       setRemainingCooldown(Math.max(userRemaining, globalRemaining));

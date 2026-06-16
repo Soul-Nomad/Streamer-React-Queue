@@ -581,9 +581,9 @@ export default function HostView({ session }: { session: SessionState }) {
               requireSub: merged.require_sub,
               isManualApprovalRequired: merged.isManualApprovalRequired,
               blockLiveStreams: merged.blockLiveStreams,
-              globalCooldownSeconds: merged.globalCooldownSeconds ?? 5,
-              userCooldownSeconds: merged.cooldown_seconds ?? 30,
-              maxSubmissionsPerHour: merged.maxSubmissionsPerHour ?? 60
+              globalCooldownSeconds: merged.globalCooldownSeconds ?? 0,
+              userCooldownSeconds: merged.cooldown_seconds ?? 0,
+              maxSubmissionsPerHour: merged.maxSubmissionsPerHour ?? 0
             });
           }
         }

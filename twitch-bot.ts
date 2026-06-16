@@ -349,8 +349,8 @@ export function initTwitchBot() {
               continue;
             }
             const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
-            const maxVideos = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 2;
-            if (userActive >= maxVideos) {
+            const maxVideos = state.settings?.maxVideosPerUser || state.settings?.max_videos_per_user || 0;
+            if (maxVideos > 0 && userActive >= maxVideos) {
               console.warn(`[Twitch Bot Ref] User @${username} has reached limits.`);
               sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`);
               continue;

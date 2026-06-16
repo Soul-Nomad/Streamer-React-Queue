@@ -2739,9 +2739,9 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
         settings_json: updatedState,
         require_sub: data.requireSub ?? state.settings?.requireSub ?? false,
         require_follower: data.requireFollower ?? state.settings?.requireFollower ?? false,
-        cooldown_seconds: data.userCooldownSeconds ?? state.settings?.userCooldownSeconds ?? 60,
-        max_videos_per_user: data.maxVideosPerUser ?? state.settings?.maxVideosPerUser ?? 2,
-        max_queue_size: data.maxQueueSize ?? state.settings?.maxQueueSize ?? 50,
+        cooldown_seconds: data.userCooldownSeconds ?? state.settings?.userCooldownSeconds ?? 0,
+        max_videos_per_user: data.maxVideosPerUser ?? state.settings?.maxVideosPerUser ?? 0,
+        max_queue_size: data.maxQueueSize ?? state.settings?.maxQueueSize ?? 0,
         min_follow_days: data.minFollowMinutes ? Math.ceil(data.minFollowMinutes / 1440) : (state.settings?.minFollowMinutes ? Math.ceil(state.settings.minFollowMinutes / 1440) : 0)
       })
       .eq('room_id', roomId);

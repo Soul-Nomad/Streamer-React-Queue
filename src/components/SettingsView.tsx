@@ -216,7 +216,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                       <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-wider">Cooldown Workspace (s)</label>
                       <input 
                         type="number" min="0" 
-                        value={roomSettings.globalCooldownSeconds ?? 5} 
+                        value={roomSettings.globalCooldownSeconds ?? 0} 
                         onChange={e => setRoomSettings({...roomSettings, globalCooldownSeconds: Math.max(0, parseInt(e.target.value) || 0)})}
                         className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-orange-500 outline-none font-mono text-xs"
                       />
@@ -278,7 +278,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                       <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-wider">Whitelist (Permitidos)</label>
                       <input 
                         type="text" 
-                        value={(roomSettings.domain_whitelist || ["youtube.com", "youtu.be", "instagram.com", "tiktok.com"]).join(", ")} 
+                        value={(roomSettings.domain_whitelist || ["youtube.com", "youtu.be", "twitch.tv", "clips.twitch.tv", "tiktok.com", "vm.tiktok.com", "instagram.com", "x.com", "twitter.com", "reddit.com"]).join(", ")} 
                         onChange={e => setRoomSettings({...roomSettings, domain_whitelist: e.target.value.split(",").map((s) => s.trim()).filter(Boolean)})} 
                         placeholder="youtube.com, tiktok.com" 
                         className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2.5 text-zinc-100 outline-none font-mono text-xs focus:border-orange-500" 

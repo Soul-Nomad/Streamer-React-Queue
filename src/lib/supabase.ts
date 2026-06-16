@@ -110,7 +110,13 @@ export async function createSession(roomId: string, hostId: string, twitchData: 
     maxQueueSize: 0,
     maxStrikesBeforeBan: 5,
     domainMode: 'both',
-    domainWhitelist: [],
+    domainWhitelist: [
+      "youtube.com", "youtu.be",
+      "twitch.tv", "clips.twitch.tv",
+      "tiktok.com", "vm.tiktok.com",
+      "instagram.com", "x.com", "twitter.com",
+      "reddit.com"
+    ],
     domainBlacklist: [],
     requireFollower: false,
     requireSub: false,
