@@ -15,6 +15,8 @@ interface LobbyHeroProps {
   handleLoginTwitch: () => void;
   setIsJoinModalOpen: (open: boolean) => void;
   setIsHostConfirmOpen: (open: boolean) => void;
+  userActiveRoom?: any;
+  handleJoin: (roomId: string) => void;
 }
 
 export default function LobbyHero({
@@ -25,6 +27,8 @@ export default function LobbyHero({
   handleLoginTwitch,
   setIsJoinModalOpen,
   setIsHostConfirmOpen,
+  userActiveRoom,
+  handleJoin,
 }: LobbyHeroProps) {
   // Stagger configurations for items inside the right column
   const containerVariants = {
@@ -89,17 +93,23 @@ export default function LobbyHero({
               id="lobby_hero_cta_twitch_login"
             >
               <Twitch className="w-4 h-4 fill-current animate-pulse" />
-              <span>Criar minha fila</span>
+              <span>{userActiveRoom ? "Sintonizar" : "Criar minha fila"}</span>
             </button>
           ) : (
             <button
-              onClick={() => setIsHostConfirmOpen(true)}
+              onClick={() => userActiveRoom ? handleJoin(userActiveRoom.roomId) : setIsHostConfirmOpen(true)}
               disabled={submittingHost}
               className="px-8 py-4 bg-[#9146FF] hover:bg-[#772ce8] text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#9146FF]/30 cursor-pointer active:scale-95 transition-all duration-150 transform hover:scale-[1.02] shrink-0"
               id="lobby_hero_cta_create_queue"
             >
               <Crown className="w-4 h-4 text-[#FFEA00]" />
-              <span>{submittingHost ? "Iniciando..." : "Criar minha fila"}</span>
+              <span>
+                {submittingHost 
+                  ? "Iniciando..." 
+                  : userActiveRoom 
+                    ? "Sintonizar" 
+                    : "Criar minha fila"}
+              </span>
             </button>
           )}
         </div>
