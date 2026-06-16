@@ -387,7 +387,7 @@ function CustomInstagramPlayer({
       >
         <video
           src={`/api/proxy-video?url=${encodeURIComponent(videoUrl)}`}
-          className="w-full h-full min-h-screen h-screen max-h-screen rounded-sm bg-[#0A0A0A] object-contain z-10"
+          className="w-full h-full rounded-sm bg-[#0A0A0A] object-contain z-10"
           controls
           autoPlay
           loop
@@ -513,7 +513,7 @@ function CustomExtractorPlayer({
       >
         <video
           src={`/api/proxy-video?url=${encodeURIComponent(videoUrl)}`}
-          className="w-full h-full min-h-screen h-screen max-h-screen rounded-sm bg-[#0A0A0A] object-contain z-10"
+          className="w-full h-full rounded-sm bg-[#0A0A0A] object-contain z-10"
           controls
           autoPlay
           loop
@@ -561,7 +561,7 @@ function CustomYouTubeShortsPlayer({
       >
         <iframe
           src={embedUrl}
-          className="w-full h-full min-h-screen h-screen max-h-screen border-0 rounded-sm bg-[#0A0A0A]"
+          className="w-full h-full border-0 rounded-sm bg-[#0A0A0A]"
           allowFullScreen
           allow="autoplay; encrypted-media; picture-in-picture"
         ></iframe>
@@ -1153,13 +1153,13 @@ export default function HostView({ session }: { session: SessionState }) {
   const getRatioClass = () => {
     switch (aspectRatio) {
       case "9:16":
-        return "aspect-[9/16] h-full h-screen max-h-screen !max-h-screen w-auto !w-auto shadow-2xl transition-all duration-300";
+        return "aspect-[9/16] h-full max-h-full w-auto shadow-2xl transition-all duration-300";
       case "4:5":
-        return "aspect-[4/5] w-full max-w-[620px] md:max-w-[660px] xl:max-w-[700px] max-h-[80vh] md:max-h-[84vh] xl:max-h-[88vh]";
+        return "aspect-[4/5] h-full max-h-full w-auto max-w-full";
       case "1:1":
-        return "aspect-square w-full max-w-[720px] md:max-w-[760px] xl:max-w-[800px] max-h-[76vh] md:max-h-[80vh] xl:max-h-[84vh]";
+        return "aspect-square h-full max-h-full w-auto max-w-full";
       case "16:9":
-        return "aspect-video w-full max-w-[98%] xl:max-w-[98%] max-h-[86vh] md:max-h-[88vh] xl:max-h-[90vh]";
+        return "aspect-video w-full max-w-[98%] max-h-full";
       case "auto":
       default:
         if (currentVideo) {
@@ -1168,10 +1168,10 @@ export default function HostView({ session }: { session: SessionState }) {
             currentVideo.url.includes("tiktok.com") ||
             isYouTubeShort(currentVideo.url)
           ) {
-            return "aspect-[9/16] h-full h-screen max-h-screen !max-h-screen w-auto !w-auto shadow-2xl transition-all duration-300";
+            return "aspect-[9/16] h-full max-h-full w-auto shadow-2xl transition-all duration-300";
           }
         }
-        return "aspect-video w-full max-w-[98%] xl:max-w-[98%] max-h-[86vh] md:max-h-[88vh] xl:max-h-[90vh]";
+        return "aspect-video w-full max-w-[98%] max-h-full";
     }
   };
 
@@ -1773,7 +1773,7 @@ export default function HostView({ session }: { session: SessionState }) {
 
                 {/* Main scale canvas viewport */}
                 <div
-                  className="flex-1 relative w-full h-full flex flex-col items-center justify-center transition-transform duration-300 ease-out z-10"
+                  className="flex-1 relative w-full flex flex-col items-center justify-center transition-transform duration-300 ease-out z-10 min-h-0"
                   style={{ transform: `scale(${zoom})` }}
                 >
                   {optimisticLoading && (
