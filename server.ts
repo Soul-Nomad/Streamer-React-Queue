@@ -89,6 +89,7 @@ import tmi from 'tmi.js';
 let botClient: tmi.Client | null = null;
 const activeChannels = new Set<string>();
 const recentlyProcessedVideos = new Set<string>();
+const urlSpamCache = new Map<string, number>();
 
 const activeRoomsCache = new Map<string, string>();
 let lastRoomsCacheTime = 0;
@@ -562,58 +563,33 @@ setTimeout(() => {
     if (self) return;
 
     const login = (channel.startsWith('#') ? channel.slice(1) : channel).toLowerCase();
-
-    // 1. Live presence registration for any chat event (highly fluid and metadata rich!)
-    try {
-        const roomId = await getRoomIdForLogin(login);
-        if (roomId) {
-            const supabaseAdmin = getSupabaseAdmin();
-            const { data: roomSettings } = await supabaseAdmin
-              .from('room_settings')
-              .select('settings_json, rooms!inner(twitch_channel_id)')
-              .eq('room_id', roomId)
-              .single();
-
-            if (roomSettings) {
-              const state: any = roomSettings.settings_json || {};
-              const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
-
-              if (state.settings) {
-                const username = tags['username'] || 'TwitchUser';
-                const displayName = tags['display-name'] || username;
-                const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
-
-                const changed = registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, twitchChannelId);
-                if (changed) {
-                  // Update persistent session state settings JSON
-                  await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
-                  
-                  if (ablyRest) {
-                    const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
-                    await ablyChannel.publish('session_state', state);
-                  }
-                }
-              }
-            }
-        }
-    } catch (presenceErr: any) {
-        console.error('[Twitch Bot Presence Registry Error]:', presenceErr.message);
+    
+    // 1. Early URL check + Memory duplicate lock to eliminate DB reads on spam/echoes
+    const urls = message.match(/https?:\/\/[^\s]+/g);
+    const isLinkSubmission = urls && urls.length > 0;
+    
+    // Fast-path memory cache for exact URLs + user across all instances
+    if (isLinkSubmission) {
+       let hasNewUniqueLinks = false;
+       for (const url of urls) {
+         const fastKey = `spam_lock:${login}:${tags['username']}:${url}`;
+         const now = Date.now();
+         const lastSeen = urlSpamCache.get(fastKey) || 0;
+         if (now - lastSeen < 60000) { continue; } // Silent drop exact URL from same user <60s
+         urlSpamCache.set(fastKey, now);
+         hasNewUniqueLinks = true;
+       }
+       if (!hasNewUniqueLinks) return; // Silent discard to avoid double ⚠️ feedback
     }
 
-    // 2. Process link submissions if message contains URL
-    if (!message.includes('http://') && !message.includes('https://')) return;
-    
-    const urls = message.match(/https?:\/\/[^\s]+/g);
-    if (!urls || urls.length === 0) return;
-
-    console.log(`[Twitch Bot] Scraped video link message in channel #${login} from @${tags.username}: ${message}`);
-    
     try {
         const roomId = await getRoomIdForLogin(login);
-        if (!roomId) {
-          console.warn(`[Twitch Bot] No matching active room found in database for channel #${login}`);
-          return;
-        }
+        if (!roomId) return;
+
+        // Skip chat presence registration completely if it's NOT a link and channel is busy
+        // or just apply a basic throttle? We will only proceed if it is a link OR we implement a presence lottery to save DB
+        const isPresenceSample = Math.random() < 0.05; // 5% sample rate for normal chatters
+        if (!isLinkSubmission && !isPresenceSample) return;
 
         const supabaseAdmin = getSupabaseAdmin();
         const { data: roomSettings } = await supabaseAdmin
@@ -622,144 +598,141 @@ setTimeout(() => {
           .eq('room_id', roomId)
           .single();
 
-        if (!roomSettings) {
-          console.warn(`[Twitch Bot] Room settings state for room ${roomId} was empty.`);
-          return;
-        }
-        
-        const state: any = roomSettings.settings_json || {};
-        if (!state.settings) {
-          console.warn(`[Twitch Bot] Room settings state for room ${roomId} was empty.`);
-          return;
-        }
-        const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
+        if (roomSettings) {
+          const state: any = roomSettings.settings_json || {};
+          const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
 
-        for (const url of urls) {
-          const username = tags['username'] || 'TwitchUser';
-          const displayName = tags['display-name'] || username;
+          // Process Presence Update
+          if (state.settings) {
+            const username = tags['username'] || 'TwitchUser';
+            const displayName = tags['display-name'] || username;
+            const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
 
-          const result = sanitizeAndValidateUrl(url, state.settings);
-          if (!result.valid || !result.normalizedUrl) {
-            console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
-            const reason = result.error || 'Mala formatação ou plataforma não suportada';
-            sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`);
-            continue;
-          }
-          const platform = result.platform || 'other';
-          const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
-          const uniqKey = `${roomId}:${canonicalId}`;
-
-          // 1. Check synchronous in-memory lock first to prevent quick-succession race conditions
-          // Silently drop duplicate fast-succession messages within 15s to avoid duplicate messages spamming the chat
-          if (recentlyProcessedVideos.has(uniqKey)) {
-            console.warn(`[Twitch Bot @Deduplication] Prevented duplicate processing of video key: ${uniqKey}`);
-            continue;
-          }
-
-          // 2. Check existing queue for persistence deduplication
-          const isDuplicate = (state.queue || []).some((v: any) => 
-            v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
-          );
-          if (isDuplicate) {
-            console.warn(`[Twitch Bot] Link already present in queue as ${canonicalId}`);
-            sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
-            continue;
-          }
-
-          // 3. Register synchronous lock immediately BEFORE any async processes occur to block duplicate incoming streams
-          recentlyProcessedVideos.add(uniqKey);
-          const timeoutId = setTimeout(() => {
-            recentlyProcessedVideos.delete(uniqKey);
-          }, 15000); // 15 seconds window is optimal to ignore Twitch duplicates/echoes
-
-          const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
-          if (!verifyState.valid) {
-            console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
-            const reason = verifyState.error || 'Falha ao analisar o vídeo';
-            sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
-            // Remove the lock on verification failure so the user can re-try if they submit a corrected URL
-            clearTimeout(timeoutId);
-            recentlyProcessedVideos.delete(uniqKey);
-            continue;
-          }
-
-          const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
-
-          const rawBadges = tags.badges || {};
-          const actualBadges = Object.keys(rawBadges);
-
-          const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
-          if (!isHost) {
-            if (state.blacklistUsernames?.includes(username.toLowerCase())) {
-              console.warn(`[Twitch Bot] User @${username} is blacklisted.`);
-              // We intentionally skip chat feedback for blacklisted accounts to prevent troll spamming.
-              continue;
-            }
-            const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
-            const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
-            if (maxVideos > 0 && userActive >= maxVideos) {
-              console.warn(`[Twitch Bot] User @${username} has reached the limit of ${maxVideos} videos.`);
-              sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`);
-              continue;
+            const changed = registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, twitchChannelId);
+            if (changed && !isLinkSubmission) {
+              await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
+              if (ablyRest) {
+                const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+                await ablyChannel.publish('session_state', state);
+              }
             }
           }
 
-          // Register or update active room participant record for this Twitch chat submitter
-          const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
-          let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || twitchChannelId;
-          const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+          // Process Links
+          if (isLinkSubmission && state.settings) {
+            for (const url of urls) {
+              const username = tags['username'] || 'TwitchUser';
+              const displayName = tags['display-name'] || username;
 
-          if (broadcasterId && typeof broadcasterId === 'string' && broadcasterId.includes('-')) {
-             broadcasterId = twitchChannelId; // fallback
+              const result = sanitizeAndValidateUrl(url, state.settings);
+              if (!result.valid || !result.normalizedUrl) {
+                console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
+                const reason = result.error || 'Mala formatação ou plataforma não suportada';
+                sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`);
+                continue;
+              }
+              const platform = result.platform || 'other';
+              const canonicalId = extractCanonicalVideoId(result.normalizedUrl, platform);
+              const uniqKey = `${roomId}:${canonicalId}`;
+
+              if (recentlyProcessedVideos.has(uniqKey)) {
+                continue;
+              }
+
+              const isDuplicate = (state.queue || []).some((v: any) => 
+                v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
+              );
+              if (isDuplicate) {
+                sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+                continue;
+              }
+
+              recentlyProcessedVideos.add(uniqKey);
+              const timeoutId = setTimeout(() => {
+                recentlyProcessedVideos.delete(uniqKey);
+              }, 15000);
+
+              const verifyState = await verifyVideoContent(result.normalizedUrl, platform, state.settings?.blockLiveStreams ?? true);
+              if (!verifyState.valid) {
+                console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
+                const reason = verifyState.error || 'Falha ao analisar o vídeo';
+                sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
+                clearTimeout(timeoutId);
+                recentlyProcessedVideos.delete(uniqKey);
+                continue;
+              }
+
+              const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
+              const rawBadges = tags.badges || {};
+              const actualBadges = Object.keys(rawBadges);
+
+              const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
+              if (!isHost) {
+                if (state.blacklistUsernames?.includes(username.toLowerCase())) {
+                  continue;
+                }
+                const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
+                const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
+                if (maxVideos > 0 && userActive >= maxVideos) {
+                  sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`);
+                  continue;
+                }
+              }
+
+              const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
+              let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || twitchChannelId;
+              const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+
+              if (broadcasterId && typeof broadcasterId === 'string' && broadcasterId.includes('-')) {
+                 broadcasterId = twitchChannelId;
+              }
+
+              try {
+                await ensureTwitchChatUserRegistered(
+                  state,
+                  userId,
+                  username,
+                  displayName,
+                  tags,
+                  broadcasterId || '',
+                  broadcasterToken
+                );
+              } catch (regErr: any) {}
+
+              const newVideo = {
+                id: `vid_${canonicalId}_${Date.now()}`,
+                submitter: displayName,
+                submitterId: userId,
+                url: result.normalizedUrl,
+                platform,
+                title: verifyState.title || 'Vídeo do Chat',
+                status: state.settings?.isManualApprovalRequired ? 'pending' : 'approved',
+                timestamp: Date.now()
+              };
+
+              const updatedQueue = [...(state.queue || []), newVideo];
+              const updatedState = { ...state, queue: updatedQueue, users: state.users };
+
+              await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
+              console.log(`[Twitch Bot] Added new video "${newVideo.title}" (${platform}) to room ${roomId} submitted by Chat user @${displayName}`);
+
+              if (ablyRest) {
+                const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+                await ablyChannel.publish('session_state', updatedState);
+              }
+
+              if (newVideo.status === 'pending') {
+                sendBotMessage(channel, `@${displayName} 📝 Vídeo enviado para moderação.`);
+              } else {
+                const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
+                sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Posição: #${approvedCount}`);
+              }
+              break;
+            }
           }
-
-          try {
-            await ensureTwitchChatUserRegistered(
-              state,
-              userId,
-              username,
-              displayName,
-              tags,
-              broadcasterId || '',
-              broadcasterToken
-            );
-          } catch (regErr: any) {
-            console.error(`[ensureTwitchChatUserRegistered Error]`, regErr.message);
-          }
-
-          const newVideo = {
-            id: `vid_${canonicalId}_${Date.now()}`,
-            submitter: displayName,
-            submitterId: userId,
-            url: result.normalizedUrl,
-            platform,
-            title: verifyState.title || 'Vídeo do Chat',
-            status: state.settings?.isManualApprovalRequired ? 'pending' : 'approved',
-            timestamp: Date.now()
-          };
-
-          const updatedQueue = [...(state.queue || []), newVideo];
-          const updatedState = { ...state, queue: updatedQueue, users: state.users };
-
-          await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
-          console.log(`[Twitch Bot] Added new video "${newVideo.title}" (${platform}) to room ${roomId} submitted by Chat user @${displayName}`);
-
-          if (ablyRest) {
-            const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
-            await ablyChannel.publish('session_state', updatedState);
-          }
-
-          // Success chat notifications
-          if (newVideo.status === 'pending') {
-            sendBotMessage(channel, `@${displayName} 📝 Vídeo enviado para moderação.`);
-          } else {
-            const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
-            sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Posição: #${approvedCount}`);
-          }
-          break;
         }
     } catch(err: any) {
-      console.error('[Twitch Bot] Exception encountered while parsing message link:', err.message);
+      console.error('[Twitch Bot] Exception encountered:', err.message);
     }
   });
 }, 2000);
@@ -844,6 +817,15 @@ setInterval(async () => {
     console.error('[Cleanup Interval Error]:', err);
   }
 }, 1000 * 60 * 10);
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of urlSpamCache.entries()) {
+    if (now - v > 60000) {
+      urlSpamCache.delete(k);
+    }
+  }
+}, 60000);
 
 app.set('trust proxy', 1);
 app.use(express.json());
