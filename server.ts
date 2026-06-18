@@ -3012,6 +3012,67 @@ app.get('/api/auth/discord/url', (req, res) => {
   res.json({ success: true, url: authUrl });
 });
 
+// POST /api/sessions/:id/link_discord - Link Discord Guild directly (useful as frontend fallback)
+app.post(['/api/sessions/:id/link_discord', '/sessions/:id/link_discord'], async (req, res) => {
+  const roomId = req.params.id;
+  const { guildId } = req.body;
+
+  if (!roomId || !guildId) {
+    return res.status(400).json({ error: 'Parâmetros roomId e guildId são obrigatórios.' });
+  }
+
+  try {
+    const state: any = await getSession(roomId);
+    if (!state) {
+      return res.status(404).json({ error: 'Sessão/Sala não encontrada.' });
+    }
+
+    const guildIdStr = String(guildId);
+    const channels = await discordBot.getGuildChannels(guildIdStr);
+    
+    let selectedChannelId = '';
+    if (channels && channels.length > 0) {
+      const match = channels.find(c => 
+        c.name.toLowerCase().includes('pedidos') || 
+        c.name.toLowerCase().includes('fila') || 
+        c.name.toLowerCase().includes('videos') || 
+        c.name.toLowerCase().includes('live') || 
+        c.name.toLowerCase().includes('geral') || 
+        c.name.toLowerCase().includes('general')
+      );
+      selectedChannelId = match ? match.id : channels[0].id;
+    }
+
+    const updatedState = {
+      ...state,
+      settings: {
+        ...(state.settings || {}),
+        discordEnabled: true,
+        discordGuildId: guildIdStr,
+        discordChannelId: selectedChannelId
+      }
+    };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ 
+        settings_json: updatedState
+      })
+      .eq('room_id', roomId);
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    res.json({ success: true, guildId: guildIdStr, channelId: selectedChannelId });
+  } catch (err: any) {
+    console.error('[Discord Direct Link Error]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/auth/discord/callback - Callback redirected after Discord Authorization
 app.get(['/api/auth/discord/callback', '/api/auth/discord/callback/'], async (req, res) => {
   const { code, guild_id, state: roomId } = req.query;

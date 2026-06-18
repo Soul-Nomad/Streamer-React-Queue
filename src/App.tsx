@@ -153,6 +153,44 @@ export default function App() {
     return () => window.removeEventListener('openModal', handleOpenModal as EventListener);
   }, []);
 
+  // Handle fallback root-level Discord bot invitation redirects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const guildId = params.get('guild_id');
+    const stateRoomId = params.get('state');
+
+    const activeRoomId = stateRoomId || localStorage.getItem('active_room_id') || session?.id;
+
+    if (guildId && activeRoomId) {
+      // Direct Link API call
+      fetch(`/api/sessions/${activeRoomId}/link_discord`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guildId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showToast(`🛸 Discord integrado com sucesso ao servidor (${guildId})!`, 'success');
+          // Ask server to refresh room state
+          socket.emit('get_session_state', { roomId: activeRoomId });
+        } else {
+          showToast(`Erro ao sincronizar Discord: ${data.error || 'Erro desconhecido'}`, 'error');
+        }
+      })
+      .catch(err => {
+        showToast(`Erro na integração direta do Discord: ${err.message}`, 'error');
+      })
+      .finally(() => {
+        // Clean up URL query parameters instantly to maintain a clean address bar and avoid re-triggers
+        try {
+          const newUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+          window.history.replaceState({ path: newUrl }, '', newUrl);
+        } catch (_) {}
+      });
+    }
+  }, [session?.id]);
+
   return (
     <div className="relative min-h-screen bg-[#121212]">
       {/* Reconnection Banner Badge */}
