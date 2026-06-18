@@ -1427,27 +1427,20 @@ export default function HostView({ session }: { session: SessionState }) {
 
         {/* WORKSPACE AREA: Center & Right sections loaded conditionally */}
         <main className="flex-1 flex min-w-0 h-full relative overflow-hidden bg-transparent">
-          {activeTab === "moderation" && (
-            <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
-              <AdminDashboard session={session} />
-            </div>
-          )}
+          <div style={{ display: activeTab === "moderation" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <AdminDashboard session={session} />
+          </div>
 
-          {activeTab === "settings" && (
-            <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
-              <SettingsView session={session} />
-            </div>
-          )}
+          <div style={{ display: activeTab === "settings" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <SettingsView session={session} />
+          </div>
 
-          {activeTab === "discord" && (
-            <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
-              <DiscordView session={session} />
-            </div>
-          )}
+          <div style={{ display: activeTab === "discord" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <DiscordView session={session} />
+          </div>
 
-          {activeTab === "submit" && (
-            <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
-              <div className="w-full max-w-sm bg-black/60 border border-white/10 p-6 space-y-4 rounded shadow-2xl backdrop-blur-md">
+          <div style={{ display: activeTab === "submit" ? "flex" : "none" }} className="flex-1 items-center justify-center p-6 bg-transparent w-full">
+            <div className="w-full max-w-sm bg-black/60 border border-white/10 p-6 space-y-4 rounded shadow-2xl backdrop-blur-md">
                 <div className="space-y-1">
                   <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">
                     Injeção Manual de Mídias
@@ -1475,11 +1468,9 @@ export default function HostView({ session }: { session: SessionState }) {
                 </div>
               </div>
             </div>
-          )}
 
-          {activeTab === "participants" && (
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto bg-black/10 backdrop-blur-sm space-y-6">
-              {/* Header block with actions */}
+          <div style={{ display: activeTab === "participants" ? "flex" : "none" }} className="flex-1 flex-col p-6 overflow-y-auto bg-black/10 backdrop-blur-sm space-y-6">
+            {/* Header block with actions */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800 pb-4 gap-3">
                 <div className="space-y-1 text-left">
                   <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400 flex items-center gap-2">
@@ -1763,11 +1754,9 @@ export default function HostView({ session }: { session: SessionState }) {
                 </div>
               </div>
             </div>
-          )}
 
-          {activeTab === "player" && (
-            <div className="flex-1 flex overflow-hidden min-w-0 relative h-full">
-              {/* CENTER COLUMN: Central visual Video Player Workspace */}
+          <div style={{ display: activeTab === "player" ? "flex" : "none" }} className="flex-1 overflow-hidden min-w-0 relative h-full">
+            {/* CENTER COLUMN: Central visual Video Player Workspace */}
               <div
                 className="flex-1 flex flex-col min-w-0 h-full relative"
                 ref={containerRef}
@@ -2204,7 +2193,6 @@ export default function HostView({ session }: { session: SessionState }) {
                 </div>
               </aside>
             </div>
-          )}
         </main>
       </div>
 
