@@ -2993,7 +2993,10 @@ app.get('/api/auth/discord/url', (req, res) => {
   }
 
   // Construct standard Discord OAuth2 client bot invitation URL
-  const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+  let appUrl = process.env.APP_URL;
+  if (!appUrl || appUrl === 'MY_APP_URL' || appUrl === 'YOUR_APP_URL' || !appUrl.startsWith('http')) {
+    appUrl = `${req.protocol}://${req.get('host')}`;
+  }
   const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/discord/callback`;
 
   const params = new URLSearchParams({

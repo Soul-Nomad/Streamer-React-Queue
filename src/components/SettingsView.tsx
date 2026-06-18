@@ -79,7 +79,12 @@ export default function SettingsView({ session }: { session: SessionState }) {
     try {
       const response = await fetch(`/api/auth/discord/url?roomId=${roomSettings.room_id}`);
       if (!response.ok) {
-        throw new Error('Falha ao obter URL de integração');
+        let errMsg = 'Falha ao obter URL de integração';
+        try {
+          const errData = await response.json();
+          if (errData && errData.error) errMsg = errData.error;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
       const data = await response.json();
       if (data.url) {
@@ -99,7 +104,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
         }
       }
     } catch (err: any) {
-      alert(`Erro ao iniciar autenticação: ${err.message}`);
+      alert(`⚠️ Erro de Configuração:\n\n${err.message}\n\nPara consertar isso, configure a variável de ambiente DISCORD_BOT_TOKEN no painel de controle do seu servidor (ex: Railway, Vercel ou AI Studio Secrets) com o token do seu bot criado na plataforma de desenvolvedores do Discord.`);
     }
   };
 
