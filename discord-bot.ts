@@ -227,9 +227,38 @@ export class DiscordBotService {
       try {
         const supabaseAdmin = getSupabaseAdmin();
         
-        // Anti-Race Jitter: Desyncs simultaneous container replicas from fetching identical stale states
-        const multiInstanceJitter = Math.floor(Math.random() * 800) + 10;
-        await new Promise(res => setTimeout(res, multiInstanceJitter));
+        // --- Multi-Instance Distributed Lock / Idempotency ---
+        // Instead of randomized jitter, we use a deterministic leader election via the Supabase database.
+        // We write our message intent into the table, wait a bit, then fetch to see who was the earliest.
+        const lockUUID = crypto.randomUUID();
+        const globalMessageLockKey = `lock_discord_${message.id}`;
+        
+        try {
+          await supabaseAdmin.from('videos').insert({
+            id: lockUUID,
+            twitch_user_id: 'system_lock',
+            video_url: globalMessageLockKey,
+            status: 'pending'
+          });
+          
+          // Wait to allow concurrent containers to insert their lock attempts
+          await new Promise(res => setTimeout(res, 600));
+          
+          const { data: lockRows } = await supabaseAdmin.from('videos')
+            .select('id')
+            .eq('video_url', globalMessageLockKey)
+            .order('inserted_at', { ascending: true })
+            .order('id', { ascending: true })
+            .limit(1);
+            
+          if (lockRows && lockRows.length > 0 && lockRows[0].id !== lockUUID) {
+            // We are not the leader. Another container is already processing this.
+            return;
+          }
+        } catch (lockError: any) {
+          console.warn('[Discord Bot] Distributed lock fallback:', lockError.message);
+        }
+        // --- End of Lock ---
 
         const nowMs = Date.now();
         
