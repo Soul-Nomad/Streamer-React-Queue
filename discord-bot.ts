@@ -16,8 +16,12 @@ export class DiscordBotService {
     return this.client;
   }
 
-  public decodeClientId(): string | null {
-    const token = process.env.DISCORD_BOT_TOKEN;
+  public getBotToken(): string | null {
+    return process.env.DISCORD_BOT_TOKEN || null;
+  }
+
+  public decodeClientId(customToken?: string): string | null {
+    const token = customToken || process.env.DISCORD_BOT_TOKEN;
     if (!token) return null;
     const parts = token.split('.');
     if (parts.length > 0) {
@@ -31,6 +35,23 @@ export class DiscordBotService {
       }
     }
     return null;
+  }
+
+  public async getGuilds(): Promise<{ id: string; name: string }[]> {
+    if (!this.client || !this.client.isReady()) {
+      console.warn('[Discord Bot] Client not ready when listing guilds.');
+      return [];
+    }
+    try {
+      const guilds = await this.client.guilds.fetch();
+      return Array.from(guilds.values()).map((g: any) => ({
+        id: g.id,
+        name: g.name
+      }));
+    } catch (err: any) {
+      console.error('[Discord Bot] Error listing guilds:', err.message);
+      return [];
+    }
   }
 
   public async getGuildChannels(guildId: string): Promise<{ id: string; name: string }[]> {
@@ -68,19 +89,19 @@ export class DiscordBotService {
     }
   }
 
-  public async start(): Promise<void> {
-    const token = process.env.DISCORD_BOT_TOKEN;
+  public async start(customToken?: string): Promise<void> {
+    const token = customToken || process.env.DISCORD_BOT_TOKEN;
     if (!token) {
-      console.warn('[Discord Bot] DISCORD_BOT_TOKEN environment variable is missing. Running in standby mode (Discord bot integration disabled).');
+      console.warn('[Discord Bot] DISCORD_BOT_TOKEN is missing. Booting in standby mode.');
       return;
     }
 
     if (this.client || this.isInitializing) {
-      return;
+      this.shutdown();
     }
 
     this.isInitializing = true;
-    console.log('[Discord Bot] Initializing Discord bot client...');
+    console.log('[Discord Bot] Initializing client...');
 
     try {
       this.client = new Client({
@@ -94,7 +115,7 @@ export class DiscordBotService {
       this.setupHandlers();
       await this.client.login(token);
     } catch (err: any) {
-      console.error('[Discord Bot] Critical login failures occurred:', err.message);
+      console.error('[Discord Bot] Login failed:', err.message);
       this.client = null;
     } finally {
       this.isInitializing = false;

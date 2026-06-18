@@ -2980,16 +2980,91 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
   }
 });
 
+// POST /api/auth/discord/config - Update bot token + client ID on the fly
+app.post(['/api/auth/discord/config', '/api/sessions/:id/discord_config'], async (req, res) => {
+  const { botToken, clientId, roomId } = req.body;
+  const room_id = roomId || req.params.id;
+
+  if (!room_id) {
+    return res.status(400).json({ error: 'Parâmetro roomId é obrigatório.' });
+  }
+
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const state: any = await getSession(room_id);
+    if (!state) {
+      return res.status(404).json({ error: 'Sala não encontrada.' });
+    }
+
+    const updatedState = {
+      ...state,
+      settings: {
+        ...(state.settings || {}),
+        discordBotToken: botToken || '',
+        discordClientId: clientId || ''
+      }
+    };
+
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ settings_json: updatedState })
+      .eq('room_id', room_id);
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${room_id}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    // Dynamic boot up of discord bot service
+    if (botToken) {
+      console.log('[Discord Bot Config] Dynamic starting of bot token...');
+      await discordBot.start(botToken);
+    }
+
+    res.json({ success: true, message: 'Configuração salva com êxito!' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/auth/discord/guilds - Get servers list currently joined by the Discord bot
+app.get(['/api/auth/discord/guilds', '/api/sessions/:id/discord_guilds'], async (req, res) => {
+  try {
+    const guilds = await discordBot.getGuilds();
+    res.json({ success: true, guilds });
+  } catch (err: any) {
+    console.error('[Discord guilds fetch error]:', err.message);
+    res.json({ success: false, guilds: [], error: err.message });
+  }
+});
+
 // GET /api/auth/discord/url - Generate the Discord Bot Invite OAuth URL
-app.get('/api/auth/discord/url', (req, res) => {
+app.get('/api/auth/discord/url', async (req, res) => {
   const roomId = req.query.roomId;
   if (!roomId) {
     return res.status(400).json({ error: 'Parâmetro roomId é obrigatório.' });
   }
 
-  const clientId = process.env.DISCORD_CLIENT_ID || discordBot.decodeClientId();
+  let clientId = '';
+  // Check room state first for a custom client id
+  try {
+    const state: any = await getSession(String(roomId));
+    if (state && state.settings?.discordClientId) {
+      clientId = state.settings.discordClientId;
+    }
+  } catch (_) {}
+
+  // If not found, use system env or decoder
   if (!clientId) {
-    return res.status(500).json({ error: 'Erro de configuração: DISCORD_BOT_TOKEN ou DISCORD_CLIENT_ID ausente no servidor.' });
+    clientId = process.env.DISCORD_CLIENT_ID || discordBot.decodeClientId() || '';
+  }
+
+  if (!clientId) {
+    return res.json({ 
+      success: false, 
+      errorType: 'MISSING_CONFIG',
+      error: 'DISCORD_BOT_TOKEN ou DISCORD_CLIENT_ID não configurados no servidor.' 
+    });
   }
 
   // Construct standard Discord OAuth2 client bot invitation URL
@@ -2999,6 +3074,7 @@ app.get('/api/auth/discord/url', (req, res) => {
   }
   const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/discord/callback`;
 
+  // Standard Discord auth URL
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: '8', // Request Administrator
@@ -3008,8 +3084,22 @@ app.get('/api/auth/discord/url', (req, res) => {
     state: String(roomId)
   });
 
+  // Simple clean fallback invite link (no redirect, works perfectly matching callback failures)
+  const fallbackParams = new URLSearchParams({
+    client_id: clientId,
+    permissions: '8',
+    scope: 'bot applications.commands'
+  });
+
   const authUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`;
-  res.json({ success: true, url: authUrl });
+  const inviteOnlyUrl = `https://discord.com/api/oauth2/authorize?${fallbackParams.toString()}`;
+
+  res.json({ 
+    success: true, 
+    url: authUrl, 
+    inviteOnlyUrl: inviteOnlyUrl, 
+    clientId 
+  });
 });
 
 // POST /api/sessions/:id/link_discord - Link Discord Guild directly (useful as frontend fallback)
