@@ -125,7 +125,9 @@ export default function SettingsView({ session }: { session: SessionState }) {
          userCooldownSeconds: roomSettings.cooldown_seconds ?? 0,
          maxSubmissionsPerHour: roomSettings.maxSubmissionsPerHour ?? 0, // 0 = unlimited
          maxVideosPerUser: roomSettings.max_videos_per_user ?? 0,
-         maxQueueSize: roomSettings.max_queue_size ?? 0
+         maxQueueSize: roomSettings.max_queue_size ?? 0,
+         discordEnabled: roomSettings.discordEnabled ?? false,
+         discordChannelId: roomSettings.discordChannelId ?? ""
        });
        alert("Configurações salvas e aplicadas com sucesso!");
     } else {
@@ -416,6 +418,36 @@ export default function SettingsView({ session }: { session: SessionState }) {
                             onChange={e => setRoomSettings({...roomSettings, channel_point_reward_id: e.target.value.trim()})}
                             placeholder="ex: a1b2c3d4-..."
                             className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-orange-500 outline-none text-xs font-mono font-bold"
+                          />
+                        </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="space-y-5">
+                   <div className="flex items-center gap-2 border-b border-zinc-800/50 pb-2 mb-4">
+                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                    <h3 className="text-zinc-100 font-black uppercase tracking-wider text-[11px] font-mono">Integração com o Discord</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <label className="flex items-start gap-4 text-zinc-300 group cursor-pointer">
+                      <input type="checkbox" checked={!!roomSettings.discordEnabled} onChange={e => setRoomSettings({...roomSettings, discordEnabled: e.target.checked})} className="mt-0.5 rounded-sm bg-zinc-900 border-zinc-700 text-indigo-500 focus:ring-indigo-500 w-4 h-4" />
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 group-hover:text-indigo-400 transition-colors">Habilitar Robô do Discord</span>
+                        <span className="text-[10px] text-zinc-500 leading-relaxed font-mono uppercase tracking-tight">Permitir recebimento de mídias enviadas em canais autorizados do Discord.</span>
+                      </div>
+                    </label>
+                    
+                    {roomSettings.discordEnabled && (
+                        <div className="ml-8 space-y-2 p-4 bg-zinc-900 border border-zinc-800 rounded-sm">
+                          <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest">Discord ID do Canal</label>
+                          <input 
+                            type="text" 
+                            value={roomSettings.discordChannelId || ''} 
+                            onChange={e => setRoomSettings({...roomSettings, discordChannelId: e.target.value ?? ''})}
+                            placeholder="ex: 123456789012345678"
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-indigo-500 outline-none text-xs font-mono font-bold"
                           />
                         </div>
                     )}

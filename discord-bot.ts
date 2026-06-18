@@ -1,0 +1,424 @@
+import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { getSupabaseAdmin } from './src/lib/supabase.js';
+import { ablyRest } from './src/lib/ably.js';
+import { sanitizeAndValidateUrl, extractCanonicalVideoId, verifyVideoContent } from './server.js';
+import crypto from 'crypto';
+
+export class DiscordBotService {
+  private client: Client | null = null;
+  private isInitializing = false;
+
+  constructor() {
+    // Initialized as a singleton service
+  }
+
+  public async start(): Promise<void> {
+    const token = process.env.DISCORD_BOT_TOKEN;
+    if (!token) {
+      console.warn('[Discord Bot] DISCORD_BOT_TOKEN environment variable is missing. Running in standby mode (Discord bot integration disabled).');
+      return;
+    }
+
+    if (this.client || this.isInitializing) {
+      return;
+    }
+
+    this.isInitializing = true;
+    console.log('[Discord Bot] Initializing Discord bot client...');
+
+    try {
+      this.client = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent
+        ]
+      });
+
+      this.setupHandlers();
+      await this.client.login(token);
+    } catch (err: any) {
+      console.error('[Discord Bot] Critical login failures occurred:', err.message);
+      this.client = null;
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
+  private setupHandlers(): void {
+    if (!this.client) return;
+
+    this.client.on('ready', () => {
+      console.log(`[Discord Bot] Online and listening! Authenticated as @${this.client?.user?.tag}`);
+    });
+
+    this.client.on('messageCreate', async (message) => {
+      // Ignore self-messages and other bots to avoid loop recursion
+      if (message.author.bot) return;
+
+      const channelId = message.channel.id;
+      const content = message.content || '';
+      
+      // Look for links in message content
+      const urls = content.match(/https?:\/\/[^\s]+/g) || [];
+      const attachments = Array.from(message.attachments.values());
+
+      // If no URLs and no attachments, ignore message immediately
+      if (urls.length === 0 && attachments.length === 0) {
+        return;
+      }
+
+      try {
+        const supabaseAdmin = getSupabaseAdmin();
+        
+        // 1. Fetch all active sessions to map the sender channel to its streamer room
+        const { data: activeRooms, error } = await supabaseAdmin
+          .from('room_settings')
+          .select('room_id, settings_json, rooms!inner(is_active)')
+          .eq('rooms.is_active', true);
+
+        if (error || !activeRooms || activeRooms.length === 0) {
+          return; // No active sessions on the server
+        }
+
+        // Find match where discord is enabled and channel matches
+        const matchedRoom = activeRooms.find((r: any) => {
+          const s = r.settings_json?.settings || {};
+          return s.discordEnabled === true && s.discordChannelId === channelId;
+        });
+
+        if (!matchedRoom) {
+          return; // This channel is not mapped/paired to any active room
+        }
+
+        const roomId = matchedRoom.room_id;
+        const state = matchedRoom.settings_json || {};
+        const settings = state.settings || {};
+
+        console.log(`[Discord Bot] Processing submission on registered channel #${channelId} for Room ID "${roomId}"`);
+
+        // Resolve or default active lists
+        if (!state.users) state.users = [];
+        if (!state.queue) state.queue = [];
+
+        // 2. Map Discord identity to persistent user state block
+        const userId = `discord_${message.author.id}`;
+        let userIndex = state.users.findIndex((u: any) => u.userId === userId);
+        let userRecord = userIndex !== -1 ? state.users[userIndex] : null;
+
+        // Security check: If blacklisted in the room
+        if (state.blacklistUsernames?.includes(message.author.username.toLowerCase())) {
+          await message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('❌ Acesso Negado')
+                .setDescription('Seu usuário está banido das submissões nesta sala.')
+                .setColor('#EF4444')
+            ]
+          });
+          return;
+        }
+
+        // Security check: If timed out
+        if (userRecord && userRecord.timeoutUntil && Date.now() < userRecord.timeoutUntil) {
+          const remaining = Math.ceil((userRecord.timeoutUntil - Date.now()) / 1000);
+          await message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('⏳ Em Timeout')
+                .setDescription(`Você está em timeout nesta sala. Aguarde mais ${remaining} segundos.`)
+                .setColor('#F59E0B')
+            ]
+          });
+          return;
+        }
+
+        // 3. User Cooldown Checks
+        if (settings.userCooldownSeconds > 0 && userRecord?.lastSubmittedAt) {
+          const elapsed = (Date.now() - userRecord.lastSubmittedAt) / 1000;
+          if (elapsed < settings.userCooldownSeconds) {
+            const remaining = Math.ceil(settings.userCooldownSeconds - elapsed);
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('⏳ Cooldown Individual')
+                  .setDescription(`Por favor, aguarde mais ${remaining} segundo(s) antes de enviar outro link.`)
+                  .setColor('#F59E0B')
+              ]
+            });
+            return;
+          }
+        }
+
+        // 4. Global Cooldown Checks
+        if (settings.globalCooldownSeconds > 0) {
+          let lastGlobalTime = state.lastGlobalSubmissionAt || 0;
+          (state.queue || []).forEach((v: any) => {
+            if (v.timestamp && v.timestamp > lastGlobalTime) {
+              lastGlobalTime = v.timestamp;
+            }
+          });
+          const elapsed = (Date.now() - lastGlobalTime) / 1000;
+          if (elapsed < settings.globalCooldownSeconds) {
+            const remaining = Math.ceil(settings.globalCooldownSeconds - elapsed);
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('⏳ Cooldown Geral')
+                  .setDescription(`As submissões estão sob cooldown coletivo. Aguarde mais ${remaining} segundo(s).`)
+                  .setColor('#F59E0B')
+              ]
+            });
+            return;
+          }
+        }
+
+        // 5. Build list of media links or file attachments to process
+        const itemsToProcess: { url: string; platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other'; title?: string }[] = [];
+
+        // Parse explicit links
+        for (const url of urls) {
+          const validation = sanitizeAndValidateUrl(url, settings);
+          if (!validation.valid || !validation.normalizedUrl) {
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('❌ Link Recusado')
+                  .setDescription(`O link \`${url}\` foi invalidado pelas políticas de origens autorizadas:\n**${validation.error || 'Não suportado'}**`)
+                  .setColor('#EF4444')
+              ]
+            });
+            continue;
+          }
+          itemsToProcess.push({
+            url: validation.normalizedUrl,
+            platform: validation.platform || 'other'
+          });
+        }
+
+        // Parse direct attachments (uploaded video files)
+        for (const attachment of attachments) {
+          const isVideoFile = attachment.contentType?.startsWith('video/') || attachment.name.match(/\.(mp4|webm|mov|ogg)$/i);
+          if (isVideoFile) {
+            itemsToProcess.push({
+              url: attachment.url,
+              platform: 'other',
+              title: attachment.name
+            });
+          } else {
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('❌ Arquivo Inválido')
+                  .setDescription(`O arquivo \`${attachment.name}\` não possui um formato de mídia suportado (use MP4, WebM ou MOV).`)
+                  .setColor('#EF4444')
+              ]
+            });
+          }
+        }
+
+        // Stop if nothing was accumulated to submit
+        if (itemsToProcess.length === 0) return;
+
+        // Process each item in turn
+        for (const item of itemsToProcess) {
+          // Check limits
+          const maxVideosPerUser = settings.maxVideosPerUser || 0;
+          const userActiveVideos = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
+          if (maxVideosPerUser > 0 && userActiveVideos >= maxVideosPerUser) {
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('❌ Limite Atingido')
+                  .setDescription(`Você atingiu o limite de ${maxVideosPerUser} mídias ativas simultaneamente na fila. Próximos envios pausados.`)
+                  .setColor('#F59E0B')
+              ]
+            });
+            break;
+          }
+
+          const maxQueueSize = settings.maxQueueSize || 0;
+          if (maxQueueSize > 0 && (state.queue || []).length >= maxQueueSize) {
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('❌ Canal de Fila Cheia')
+                  .setDescription(`A fila está cheia com o limite de de mídias total da sala (${maxQueueSize}). Tente novamente mais tarde.`)
+                  .setColor('#EF4444')
+              ]
+            });
+            break;
+          }
+
+          // Extract unique canonical ID
+          const canonicalId = item.platform === 'other'
+            ? crypto.createHash('md5').update(item.url).digest('hex').substring(0, 10)
+            : extractCanonicalVideoId(item.url, item.platform);
+
+          // Check duplicate content
+          const duplicateVideo = (state.queue || []).some((v: any) => {
+            const vCanon = v.platform === 'other'
+              ? crypto.createHash('md5').update(v.url).digest('hex').substring(0, 10)
+              : extractCanonicalVideoId(v.url, v.platform);
+            return vCanon === canonicalId || v.url === item.url;
+          });
+
+          if (duplicateVideo) {
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('⚠️ Duplicado Detectado')
+                  .setDescription(`Esta mídia já foi enviada e está na fila.`)
+                  .setColor('#F59E0B')
+              ]
+            });
+            continue;
+          }
+
+          // 6. Availability and oEmbed Check
+          const verification = await verifyVideoContent(item.url, item.platform, settings.blockLiveStreams ?? true);
+          if (!verification.valid) {
+            await message.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('❌ Indisponibilidade')
+                  .setDescription(`Falha ao conectar ou carregar a mídia:\n**${verification.error || 'Mídia privada ou indisponível'}**`)
+                  .setColor('#EF4444')
+              ]
+            });
+            continue;
+          }
+
+          const resolvedTitle = verification.title || item.title || 'Vídeo do Discord';
+
+          // 7. Save candidate parameters
+          const discordData = {
+            avatarUrl: message.author.displayAvatarURL() || `https://api.dicebear.com/7.x/identicon/svg?seed=${message.author.username}`,
+            login: message.author.username,
+            displayName: message.author.globalName || message.author.username,
+            color: '#5865F2'
+          };
+
+          const formattedUser = {
+            id: userId,
+            userId,
+            name: message.author.globalName || message.author.username,
+            isHost: false,
+            strikes: userRecord ? userRecord.strikes || 0 : 0,
+            isBanned: false,
+            lastSubmittedAt: Date.now(),
+            discordData
+          };
+
+          // Append or merge user record
+          if (userIndex !== -1) {
+            state.users[userIndex] = {
+              ...state.users[userIndex],
+              ...formattedUser
+            };
+          } else {
+            state.users.push(formattedUser);
+          }
+
+          const newVideo = {
+            id: `vid_discord_${canonicalId}_${Date.now()}`,
+            submitter: message.author.globalName || message.author.username,
+            submitterId: userId,
+            url: item.url,
+            platform: item.platform,
+            title: resolvedTitle,
+            status: settings.isManualApprovalRequired ? 'pending' : 'approved',
+            timestamp: Date.now()
+          };
+
+          state.queue = [...(state.queue || []), newVideo];
+          state.lastGlobalSubmissionAt = Date.now();
+
+          // Write updated persistent state JSON
+          const { error: updateError } = await supabaseAdmin
+            .from('room_settings')
+            .update({ settings_json: state })
+            .eq('room_id', roomId);
+
+          if (updateError) {
+            console.error('[Discord Bot] Failed to update session settings in database:', updateError);
+            throw updateError;
+          }
+
+          // Relational direct syncer
+          try {
+            await supabaseAdmin
+              .from('videos')
+              .insert({
+                room_id: roomId,
+                twitch_user_id: userId,
+                video_url: item.url,
+                status: newVideo.status,
+                priority_score: 0
+              });
+          } catch (syncErr) {
+            // Relational constraints are optionally bypassed
+          }
+
+          // Real-time updates pushed symmetrically to Ably channel
+          if (ablyRest) {
+            const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+            await ablyChannel.publish('session_state', state);
+          }
+
+          // Response rich Embed
+          const feedbackEmbed = new EmbedBuilder();
+          if (newVideo.status === 'pending') {
+            feedbackEmbed
+              .setTitle('📝 Fila de Moderação')
+              .setDescription(`O vídeo **"${resolvedTitle}"** foi enviado com sucesso e está pendente na aprovação expressa do Streamer!`)
+              .addFields(
+                { name: 'Canal', value: item.platform.toUpperCase(), inline: true },
+                { name: 'Remetente', value: message.author.toString(), inline: true }
+              )
+              .setColor('#F59E0B')
+              .setThumbnail(discordData.avatarUrl)
+              .setFooter({ text: 'Acesse streamer-react-queue' });
+          } else {
+            const approvedCount = state.queue.filter((v: any) => v.status === 'approved').length;
+            feedbackEmbed
+              .setTitle('✅ Mídia Adicionada à Fila!')
+              .setDescription(`O vídeo **"${resolvedTitle}"** foi validado e adicionado com sucesso.`)
+              .addFields(
+                { name: 'Posição da Fila', value: `#${approvedCount}`, inline: true },
+                { name: 'Canal', value: item.platform.toUpperCase(), inline: true },
+                { name: 'Remetente', value: message.author.toString(), inline: true }
+              )
+              .setColor('#10B981')
+              .setThumbnail(discordData.avatarUrl)
+              .setFooter({ text: 'Divirta-se na transmissão!' });
+          }
+
+          await message.reply({ embeds: [feedbackEmbed] });
+          console.log(`[Discord Bot] Content successfully registered and broadcasted: "${resolvedTitle}" in room ${roomId}`);
+        }
+
+      } catch (err: any) {
+        console.error('[Discord Bot] Interaction crash during message parsing:', err.message);
+        await message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle('❌ Erro no Processamento')
+              .setDescription('Desculpe, ocorreu uma instabilidade temporária ao registrar o seu vídeo. Tente novamente.')
+              .setColor('#EF4444')
+          ]
+        });
+      }
+    });
+  }
+
+  public shutdown(): void {
+    if (this.client) {
+      console.log('[Discord Bot] Shutting down Discord bot client gracefully.');
+      this.client.destroy();
+      this.client = null;
+    }
+  }
+}
+
+export const discordBot = new DiscordBotService();

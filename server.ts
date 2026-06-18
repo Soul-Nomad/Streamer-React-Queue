@@ -13,6 +13,7 @@ import { dbStore } from './src/database.js';
 import { getSupabaseAdmin, createSession, getSession, endSession } from './src/lib/supabase.js';
 import { generateAblyTokenRequest, ablyRest } from './src/lib/ably.js';
 import youtubedl from 'youtube-dl-exec';
+import { discordBot } from './discord-bot.js';
 
 const __filename = typeof import.meta !== 'undefined' && import.meta.url
   ? fileURLToPath(import.meta.url)
@@ -3563,6 +3564,9 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
+    discordBot.start().catch((err: any) => {
+      console.error('[Discord Bot Boot Failure]', err);
+    });
   });
 }
 

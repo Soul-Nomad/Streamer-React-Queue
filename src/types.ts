@@ -12,6 +12,13 @@ export interface TwitchData {
   badges?: string[]; // e.g. ["broadcaster", "moderator", "vip", "subscriber"]
 }
 
+export interface DiscordData {
+  avatarUrl?: string;
+  login?: string;
+  displayName?: string;
+  color?: string;
+}
+
 export interface User {
   id: string; // Socket ID
   userId: string; // Persistent Unique ID (Saved in client localStorage)
@@ -27,6 +34,9 @@ export interface User {
 
   // Twitch Integrated Metadata
   twitchData?: TwitchData;
+
+  // Discord Integrated Metadata
+  discordData?: DiscordData;
 
   // Advanced Streamer Management features
   reputation?: number;         // Automatically calculated 0-100 reputation
