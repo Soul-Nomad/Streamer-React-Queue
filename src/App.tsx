@@ -162,7 +162,23 @@ export default function App() {
     const activeRoomId = stateRoomId || localStorage.getItem('active_room_id') || session?.id;
 
     if (guildId && activeRoomId) {
-      // Direct Link API call
+      // Check if we are inside a popup/new tab with an opener window
+      if (window.opener) {
+        try {
+          window.opener.postMessage({
+            type: 'DISCORD_AUTH_SUCCESS',
+            guildId,
+            roomId: activeRoomId
+          }, '*');
+          
+          window.close();
+          return;
+        } catch (err) {
+          console.error("Failed to notify opener window:", err);
+        }
+      }
+
+      // If we don't have window.opener (same window or redirect fallback)
       fetch(`/api/sessions/${activeRoomId}/link_discord`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,21 +189,19 @@ export default function App() {
         if (data.success) {
           showToast(`🛸 Discord integrado com sucesso ao servidor (${guildId})!`, 'success');
           localStorage.setItem('discord_channel_select_pending', 'true');
+          
           // Ask server to refresh room state
           socket.emit('get_session_state', { roomId: activeRoomId });
+
+          // Redirect this window directly to the host's session, opening the discord integration tab
+          const newUrl = `${window.location.protocol}//${window.location.host}/?room=${activeRoomId}&tab=discord`;
+          window.history.replaceState({ path: newUrl }, '', newUrl);
         } else {
           showToast(`Erro ao sincronizar Discord: ${data.error || 'Erro desconhecido'}`, 'error');
         }
       })
       .catch(err => {
         showToast(`Erro na integração direta do Discord: ${err.message}`, 'error');
-      })
-      .finally(() => {
-        // Clean up URL query parameters instantly to maintain a clean address bar and avoid re-triggers
-        try {
-          const newUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-          window.history.replaceState({ path: newUrl }, '', newUrl);
-        } catch (_) {}
       });
     }
   }, [session?.id]);

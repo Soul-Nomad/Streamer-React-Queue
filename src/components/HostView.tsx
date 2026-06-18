@@ -56,6 +56,7 @@ import { supabase } from "../lib/supabase";
 
 import AdminDashboard from "./AdminDashboard";
 import SettingsView from "./SettingsView";
+import DiscordView from "./DiscordView";
 import HostQueuePanel from "./HostQueuePanel";
 import HostUserProfile from "./HostUserProfile";
 import HostAuditLogs from "./HostAuditLogs";
@@ -737,9 +738,30 @@ export default function HostView({ session }: { session: SessionState }) {
 
   // App Navigation and Main tab
   const [activeTab, setActiveTab] = useState<
-    "player" | "submit" | "participants" | "moderation" | "settings"
+    "player" | "submit" | "participants" | "moderation" | "settings" | "discord"
   >("player");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Sync activeTab with URL 'tab' parameter for deep linking
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const tabFromUrl = url.searchParams.get('tab');
+    if (tabFromUrl) {
+      const validTabs = ["player", "submit", "participants", "moderation", "settings", "discord"];
+      if (validTabs.includes(tabFromUrl)) {
+        setActiveTab(tabFromUrl as any);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('tab') !== activeTab) {
+      url.searchParams.set('room', session.id);
+      url.searchParams.set('tab', activeTab);
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [activeTab, session.id]);
 
   // Twitch Chatters states
   const [twitchChatters, setTwitchChatters] = useState<any[]>([]);
@@ -1355,6 +1377,19 @@ export default function HostView({ session }: { session: SessionState }) {
             <Settings className="w-3.5 h-3.5" />
             CONFIGURAÇÕES
           </button>
+
+          <button
+            onClick={() => setActiveTab("discord")}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
+              activeTab === "discord"
+                ? "bg-[#5865F2]/15 text-[#5865F2] border border-[#5865F2]/25 shadow-[0_0_15px_rgba(88,101,242,0.12)]"
+                : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent",
+            )}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            DISCORD
+          </button>
         </nav>
 
         {/* Global actions: Copy link & Log out */}
@@ -1401,6 +1436,12 @@ export default function HostView({ session }: { session: SessionState }) {
           {activeTab === "settings" && (
             <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
               <SettingsView session={session} />
+            </div>
+          )}
+
+          {activeTab === "discord" && (
+            <div className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+              <DiscordView session={session} />
             </div>
           )}
 
