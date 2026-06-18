@@ -1988,10 +1988,10 @@ export default function HostView({ session }: { session: SessionState }) {
                     </div>
                   ) : !optimisticLoading ? (
                     <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 lg:p-12 relative min-h-[500px]">
-                      {/* Title Section */}
-                      <div className="mb-10 text-center w-full max-w-3xl mx-auto bg-black/60 backdrop-blur-lg border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+                      {/* Title & Cards Section */}
+                      <div className="mb-10 text-center w-full max-w-4xl mx-auto bg-black/60 backdrop-blur-lg border border-white/10 rounded-2xl p-6 lg:p-10 shadow-2xl relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-                        <div className="relative z-10">
+                        <div className="relative z-10 flex flex-col items-center">
                           <div className="inline-flex items-center justify-center bg-red-500/15 border border-red-500/30 px-3 py-1 rounded-sm mb-4">
                             <span className="w-2 h-2 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
                             <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
@@ -2002,7 +2002,7 @@ export default function HostView({ session }: { session: SessionState }) {
                             Aguardando Mídias
                           </h2>
                           
-                          <div className="flex items-start justify-center gap-4 sm:gap-8 text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-widest max-w-2xl mx-auto">
+                          <div className="flex items-start justify-center gap-4 sm:gap-8 text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-widest max-w-2xl mx-auto mb-12">
                             <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
                               <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-600 rounded-sm flex items-center justify-center text-white font-black shadow-inner">
                                 1
@@ -2033,11 +2033,9 @@ export default function HostView({ session }: { session: SessionState }) {
                               </span>
                             </div>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Cards Container */}
-                      <div className="flex flex-col md:flex-row items-stretch justify-center w-full gap-4 max-w-3xl">
+                          {/* Cards Container */}
+                          <div className="flex flex-col md:flex-row items-stretch justify-center w-full gap-4 max-w-4xl text-left">
                         {/* CH 1: TWITCH (High Priority) */}
                         <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#9146ff]/60 group rounded-sm p-4">
                           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
@@ -2163,6 +2161,8 @@ export default function HostView({ session }: { session: SessionState }) {
                           </div>
 
                           <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-600 to-emerald-400 opacity-80 z-10"></div>
+                        </div>
+                      </div>
                         </div>
                       </div>
                     </div>
