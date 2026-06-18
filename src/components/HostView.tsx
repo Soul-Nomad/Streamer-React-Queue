@@ -43,6 +43,8 @@ import {
   Radio,
   CassetteTape,
   Twitch,
+  Plug,
+  Globe,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -1985,80 +1987,180 @@ export default function HostView({ session }: { session: SessionState }) {
                       )}
                     </div>
                   ) : !optimisticLoading ? (
-                    <div className="flex flex-col items-stretch text-center p-8 bg-[#13131a] border border-[#1f1f2e] max-w-sm mx-4 select-none rounded-none shadow-2xl relative overflow-hidden pb-16">
-                      {/* Animated Top Gradient Strip */}
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-purple-400 to-emerald-400 animate-gradient-x" />
-
-                      <div className="flex flex-col items-center mb-8">
-                        <div className="p-3 bg-orange-500/10 border border-orange-500/20 mb-4 rounded">
-                          <Cast className="w-8 h-8 text-orange-400 animate-pulse" />
+                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 lg:p-12 relative min-h-[500px]">
+                      {/* Title Section */}
+                      <div className="mb-10 text-center w-full">
+                        <div className="inline-flex items-center justify-center bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-sm mb-4">
+                          <span className="w-2 h-2 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
+                          <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
+                            NO SIGNAL DETECTED
+                          </span>
                         </div>
-                        <h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-100 font-mono">
+                        <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter font-sans text-white mb-8 mix-blend-screen opacity-90">
                           Aguardando Mídias
                         </h2>
+                        
+                        <div className="flex items-start justify-center gap-4 sm:gap-8 text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-widest max-w-2xl mx-auto">
+                          <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
+                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
+                              1
+                            </span>
+                            <span className="text-center leading-tight">
+                              <strong className="text-zinc-300 block mb-0.5">Conectar</strong>
+                              Discord (Opcional)
+                            </span>
+                          </div>
+                          <div className="w-6 sm:w-12 h-[1px] bg-zinc-800 mt-3"></div>
+                          <div className="flex flex-col items-center gap-2.5 max-w-[140px]">
+                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
+                              2
+                            </span>
+                            <span className="text-center leading-tight">
+                              <strong className="text-zinc-300 block mb-0.5">Enviar Mídias</strong>
+                              Via Twitch ou Discord
+                            </span>
+                          </div>
+                          <div className="w-6 sm:w-12 h-[1px] bg-zinc-800 mt-3"></div>
+                          <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
+                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
+                              3
+                            </span>
+                            <span className="text-center leading-tight">
+                              <strong className="text-zinc-300 block mb-0.5">Acompanhar</strong>
+                              Fila à Esquerda
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="space-y-5 mb-6 text-left py-2 font-sans text-xs">
-                        <div className="flex gap-3 items-start">
-                          <span className="w-6 h-6 bg-[#5865F2]/10 text-[#5865F2] border border-[#5865F2]/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full mt-0.5">
-                            1
-                          </span>
-                          <div className="leading-tight flex-1">
-                            <h4 className="font-bold text-zinc-300">
-                              Conecte o Discord{" "}
-                              <span className="text-zinc-500 font-normal">
-                                (Opcional)
-                              </span>
-                            </h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-1 mb-2.5">
-                              Vincule o bot ao seu servidor para receber mídias.
+                      {/* Cards Container */}
+                      <div className="flex flex-col md:flex-row items-stretch justify-center w-full gap-4 max-w-3xl">
+                        {/* CH 1: TWITCH (High Priority) */}
+                        <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#9146ff]/60 group rounded-sm p-4">
+                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                          
+                          <div className="flex justify-between items-start mb-6 z-10">
+                            <div>
+                              <div className="text-[9px] font-black font-mono text-[#9146ff] uppercase tracking-[0.2em] mb-1">
+                                HQ RATED
+                              </div>
+                              <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                                CH 1: TWITCH
+                              </h3>
+                            </div>
+                            <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                            </div>
+                          </div>
+
+                          <div className="flex-1 z-10 pr-2">
+                            <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase max-w-[90%]">
+                              Monitoramento de chat ativo.
+                              <br />
+                              <br />
+                              Espectadores enviam links de vídeos (TikTok, YT, IG) diretamente pelo bate-papo da live.
                             </p>
+                          </div>
+
+                          <div className="mt-auto z-10 flex items-center gap-2 mb-8 pt-4">
+                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
+                              V-SYNC
+                            </span>
+                            <span className="text-[8px] font-mono text-zinc-600 uppercase tracking-widest border border-zinc-700/50 px-1.5 py-0.5 rounded-sm">
+                              SP: ∞ HRS
+                            </span>
+                          </div>
+
+                          <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90">
+                            <div className="flex-1 bg-[#4b14a3]"></div>
+                            <div className="flex-1 bg-[#641bd9]"></div>
+                            <div className="flex-1 bg-[#7b2bf0]"></div>
+                            <div className="flex-1 bg-[#9146ff]"></div>
+                            <div className="flex-1 bg-[#a366ff]"></div>
+                          </div>
+                          
+                          <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                        </div>
+
+                        {/* CH 2: DISCORD (High Priority) */}
+                        <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#5865F2]/60 group rounded-sm p-4">
+                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                          
+                          <div className="flex justify-between items-start mb-6 z-10">
+                            <div>
+                              <div className="text-[9px] font-black font-mono text-[#5865F2] uppercase tracking-[0.2em] mb-1">
+                                HQ RATED
+                              </div>
+                              <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                                CH 2: DISCORD
+                              </h3>
+                            </div>
+                            <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                            </div>
+                          </div>
+
+                          <div className="flex-1 z-10 flex flex-col">
+                            <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase max-w-[95%] mb-4">
+                              Recepção via servidor dedicado.
+                              <br />
+                              <br />
+                              Comunidade envia mídias em um canal pré-configurado. Sincronização centralizada.
+                            </p>
+
                             <button
                               onClick={() => setActiveTab("discord")}
-                              className="w-full flex items-center justify-center gap-1.5 py-2 bg-[#5865F2]/10 hover:bg-[#5865F2]/20 text-[#5865F2] border border-[#5865F2]/30 font-bold text-[10.5px] uppercase tracking-wider transition-all rounded-sm"
+                              className="group/btn relative mt-auto mb-2 w-max px-4 h-7 bg-transparent border border-[#5865F2]/40 hover:border-[#5865F2] transition-colors overflow-hidden flex items-center justify-center cursor-pointer"
                             >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              Configurar Discord
+                              <div className="absolute inset-0 bg-[#5865F2]/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
+                              <span className="relative z-10 text-[8px] font-black font-mono text-[#5865F2] uppercase tracking-widest group-hover/btn:text-white transition-colors flex items-center gap-1.5">
+                                <Plug className="w-3 h-3" />
+                                CONECTAR BOT
+                              </span>
                             </button>
                           </div>
-                        </div>
 
-                        <div className="flex gap-3 items-start">
-                          <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full mt-0.5">
-                            2
-                          </span>
-                          <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300">
-                              Envie Mídias
-                            </h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-1">
-                              Pelo chat da <strong>Twitch</strong> ou canal configurado no <strong>Discord</strong>.
-                            </p>
+                          <div className="mt-auto z-10 flex items-center gap-2 mb-8">
+                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
+                              V-SYNC
+                            </span>
+                            <span className="text-[8px] font-mono text-zinc-600 uppercase tracking-widest border border-zinc-700/50 px-1.5 py-0.5 rounded-sm">
+                              OPTIONAL
+                            </span>
                           </div>
-                        </div>
 
-                        <div className="flex gap-3 items-start">
-                          <span className="w-6 h-6 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full mt-0.5">
-                            3
-                          </span>
-                          <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300">
-                              Acompanhe a Fila
-                            </h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-1">
-                              Acesse a coluna à esquerda para moderar e
-                              reproduzir.
-                            </p>
+                          <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90">
+                            <div className="flex-1 bg-[#1e2353]"></div>
+                            <div className="flex-1 bg-[#2d347d]"></div>
+                            <div className="flex-1 bg-[#3b45a6]"></div>
+                            <div className="flex-1 bg-[#4a56d0]"></div>
+                            <div className="flex-1 bg-[#5865F2]"></div>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Development Banner Strip */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-orange-500/10 border-t border-orange-500/20 py-2.5 px-4 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]">
-                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#e2531b] flex items-center justify-center gap-2">
-                          <AlertTriangle className="w-3 h-3 animate-pulse" />
-                          Ambiente de Desenvolvimento • Instabilidade Possível
-                        </p>
+                          <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                        </div>
+
+                        {/* AUX / SITE (Low Priority) */}
+                        <div className="w-full md:w-[130px] shrink-0 bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:border-emerald-500/50 group rounded-sm p-4">
+                          {/* Header */}
+                          <div className="flex md:flex-col items-center justify-between md:justify-start mb-4 z-10 md:text-center w-full">
+                            <div className="text-[8px] font-black font-mono text-emerald-500 uppercase tracking-[0.2em] md:mb-1 w-full text-left md:text-center">
+                              AUX IN
+                            </div>
+                            <h3 className="text-xs font-bold font-sans text-zinc-400 uppercase tracking-widest md:mt-4 md:writing-vertical-rl md:text-orientation-mixed">
+                              PAINEL WEB
+                            </h3>
+                          </div>
+
+                          <div className="flex-1 z-10 flex md:flex-col items-center justify-end md:pb-4 gap-3 md:gap-0 mt-2 md:mt-0">
+                            <Globe className="w-4 h-4 text-zinc-600 md:mb-4 shrink-0" />
+                            <span className="text-[8px] font-mono text-zinc-600 uppercase tracking-[0.2em] md:writing-vertical-rl md:text-orientation-mixed opacity-80 whitespace-nowrap">
+                              MANUAL ENTRY
+                            </span>
+                          </div>
+
+                          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-600 to-emerald-400 opacity-80 z-10"></div>
+                        </div>
                       </div>
                     </div>
                   ) : null}
