@@ -850,30 +850,65 @@ setInterval(async () => {
     if (!settings) return;
 
     for (const room of settings) {
-      // General video table cleanup for earlier custom retentions
       const retentionHours = room.settings_json?.videoRetentionHours ?? room.settings_json?.video_retention_hours ?? 48;
       if (retentionHours > 0 && retentionHours < 48) {
         const cutoffTime = new Date(Date.now() - retentionHours * 60 * 60 * 1000).toISOString();
         await supabaseAdmin.from('videos').delete().eq('room_id', room.room_id).lt('inserted_at', cutoffTime);
       }
 
-      // 2h Watched Retention Policy
+      // Unified Video Retention Policy:
+      // 1. Max 48h from submission time.
+      // 2. Max 1h after marked as watched.
       if (room.settings_json) {
-        const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+        const now = Date.now();
+        const oneHourAgo = now - (1 * 60 * 60 * 1000);
+        const fortyEightHoursAgo = now - (48 * 60 * 60 * 1000);
         
+        let customRetentionLimit = fortyEightHoursAgo;
+        if (retentionHours > 0 && retentionHours < 48) {
+             customRetentionLimit = now - (retentionHours * 60 * 60 * 1000);
+        }
+        
+        const isExpired = (v: any) => {
+             // Expired by marked as watched > 1h ago
+             if (v.status === 'watched' && v.watchedAt && v.watchedAt < oneHourAgo) {
+                 return true;
+             }
+             // Expired by submission time > 48h
+             const submissionTimestamp = typeof v.timestamp === 'number' ? v.timestamp : 0;
+             if (submissionTimestamp > 0 && submissionTimestamp < customRetentionLimit) {
+                 return true;
+             }
+             return false;
+        };
+
         let newQueue = room.settings_json.queue || [];
         let newHistory = room.settings_json.history || [];
 
         const initialQ = newQueue.length;
         const initialH = newHistory.length;
 
-        newQueue = newQueue.filter((v: any) => !(v.status === 'watched' && v.watchedAt && v.watchedAt < twoHoursAgo));
-        newHistory = newHistory.filter((v: any) => !(v.status === 'watched' && v.watchedAt && v.watchedAt < twoHoursAgo));
+        const expiredVideos: string[] = [];
+
+        for (const v of newQueue) if (isExpired(v)) expiredVideos.push(v.id);
+        for (const v of newHistory) if (isExpired(v) && !expiredVideos.includes(v.id)) expiredVideos.push(v.id);
+
+        newQueue = newQueue.filter((v: any) => !isExpired(v));
+        newHistory = newHistory.filter((v: any) => !isExpired(v));
 
         if (newQueue.length !== initialQ || newHistory.length !== initialH) {
            await supabaseAdmin.from('room_settings').update({
              settings_json: { ...room.settings_json, queue: newQueue, history: newHistory }
            }).eq('room_id', room.room_id);
+           
+           if (expiredVideos.length > 0) {
+               // Optimize Supabase query dynamically
+               const chunkSize = 100;
+               for (let i = 0; i < expiredVideos.length; i += chunkSize) {
+                   const chunk = expiredVideos.slice(i, i + chunkSize);
+                   await supabaseAdmin.from('videos').delete().in('id', chunk);
+               }
+           }
         }
       }
     }
@@ -887,6 +922,17 @@ setInterval(() => {
   for (const [k, v] of urlSpamCache.entries()) {
     if (now - v > 60000) {
       urlSpamCache.delete(k);
+    }
+  }
+  
+  // Cleanup watched cache memory
+  const oneHourAgo = now - 3600000;
+  for (const [roomId, cache] of sessionWatchedCache.entries()) {
+    const freshCache = cache.filter(v => v.timestamp_reproducao >= oneHourAgo);
+    if (freshCache.length === 0) {
+      sessionWatchedCache.delete(roomId);
+    } else if (freshCache.length !== cache.length) {
+      sessionWatchedCache.set(roomId, freshCache);
     }
   }
 }, 60000);
