@@ -172,6 +172,7 @@ export default function App() {
       .then(data => {
         if (data.success) {
           showToast(`🛸 Discord integrado com sucesso ao servidor (${guildId})!`, 'success');
+          localStorage.setItem('discord_channel_select_pending', 'true');
           // Ask server to refresh room state
           socket.emit('get_session_state', { roomId: activeRoomId });
         } else {
