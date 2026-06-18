@@ -716,6 +716,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                
                <div className="space-y-2">
                  {[...session.users]
+                   .filter(u => !u.isHost && u.userId !== session.hostId && u.id !== session.hostId)
                    .sort((a, b) => (b.karmaDetails?.karma_score ?? (b.reputation ?? 50)) - (a.karmaDetails?.karma_score ?? (a.reputation ?? 50)))
                    .map((u, i) => {
                      const kScore = u.karmaDetails?.karma_score ?? (u.reputation ?? 50);

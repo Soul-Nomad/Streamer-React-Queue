@@ -308,7 +308,10 @@ export function initTwitchBot() {
 
           // 2. Check existing queue for persistence deduplication
           const duplicateVideo = (state.queue || []).find((v: any) => 
-            v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
+            v.id.includes(canonicalId) ||
+            extractCanonicalVideoId(v.url, v.platform) === canonicalId ||
+            v.url === result.normalizedUrl ||
+            v.url === url
           );
           if (duplicateVideo) {
             console.warn(`[Twitch Bot Ref] Link already present in queue.`);

@@ -157,6 +157,23 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const activeQueue = queue.filter((v: Video) => v.status !== 'watched');
+  const totalVideos = queue.length;
+  const watchedVideos = queue.filter((v: Video) => v.status === 'watched').length;
+  const currentProgressNum = session.currentVideoId ? watchedVideos + 1 : watchedVideos;
+  
+  const totalDurationSecs = activeQueue.reduce((acc, v) => acc + (v.duration || 0), 0);
+  const fallbackDurationSecs = activeQueue.reduce((acc, v) => acc + (v.duration || 180), 0);
+
+  const formatQueueDuration = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+
   return (
     <div className="flex flex-col h-full bg-black/30 border-r border-white/10 text-zinc-100 font-sans backdrop-blur-md" id="host_queue_panel">
       {/* Session/Header statistics */}
@@ -172,6 +189,17 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
           <span className="text-[10px] font-mono bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded text-orange-400">
             ATULA: {queue.filter(v => v.status !== 'watched').length}
           </span>
+        </div>
+      </div>
+
+      {/* Progresso e Estimativa Banner */}
+      <div className="px-3 py-2 bg-gradient-to-r from-orange-500/10 to-purple-500/10 border-b border-white/10 flex items-center justify-between text-[10.5px] font-mono">
+        <div className="text-zinc-300 font-bold">
+          Progresso: <span className="text-orange-400">{currentProgressNum} de {totalVideos}</span>
+        </div>
+        <div className="text-zinc-300 font-bold flex items-center gap-1" title="Soma das durações dos vídeos restantes">
+          <Clock className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+          <span>Fila: {formatQueueDuration(totalDurationSecs || fallbackDurationSecs)}</span>
         </div>
       </div>
 

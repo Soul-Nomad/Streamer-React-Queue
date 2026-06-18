@@ -764,6 +764,24 @@ export default function HostView({ session }: { session: SessionState }) {
   const [optimisticLoading, setOptimisticLoading] = useState<boolean>(false);
   const [directUrl, setDirectUrl] = useState("");
 
+  // Fila metrics calculations
+  const hostQueue = session.queue || [];
+  const hostActiveQueue = hostQueue.filter((v: any) => v.status !== "watched");
+  const hostTotalVideos = hostQueue.length;
+  const hostWatchedVideos = hostQueue.filter((v: any) => v.status === "watched").length;
+  const hostCurrentProgressNum = session.currentVideoId ? hostWatchedVideos + 1 : hostWatchedVideos;
+  const hostTotalDurationSecs = hostActiveQueue.reduce((acc: number, v: any) => acc + (v.duration || 0), 0);
+  const hostFallbackDurationSecs = hostActiveQueue.reduce((acc: number, v: any) => acc + (v.duration || 180), 0);
+
+  const formatHostQueueDuration = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+
   const fetchTwitchChatters = async () => {
     if (!session?.id) return;
     setLoadingChatters(true);
@@ -1556,6 +1574,7 @@ export default function HostView({ session }: { session: SessionState }) {
 
                   <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                      {[...session.users]
+                       .filter(u => !u.isHost && u.userId !== session.hostId && u.id !== session.hostId)
                        .sort((a, b) => (b.karmaDetails?.karma_score ?? (b.reputation ?? 0)) - (a.karmaDetails?.karma_score ?? (a.reputation ?? 0)))
                        .map((u, i) => {
                          const score = u.karmaDetails?.karma_score ?? (u.reputation ?? 0);
@@ -2062,6 +2081,16 @@ export default function HostView({ session }: { session: SessionState }) {
                         >
                           {currentVideo.url}
                         </span>
+
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-[10px] font-mono bg-[#9146FF]/10 border border-[#9146FF]/20 px-2 py-0.5 rounded text-orange-400 font-bold">
+                            Vídeo {hostCurrentProgressNum} de {hostTotalVideos}
+                          </span>
+                          <span className="text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-400 font-medium flex items-center gap-1" title="Tempo total restante estimado da fila de vídeos">
+                            <Clock className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                            Tempo Fila: {formatHostQueueDuration(hostTotalDurationSecs || hostFallbackDurationSecs)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     {/* Date/Time detail labels */}

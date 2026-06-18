@@ -694,7 +694,10 @@ setTimeout(() => {
               }
 
               const duplicateVideo = (state.queue || []).find((v: any) => 
-                v.id.includes(canonicalId) && (v.status === 'pending' || v.status === 'approved' || !v.status)
+                v.id.includes(canonicalId) ||
+                extractCanonicalVideoId(v.url, v.platform) === canonicalId ||
+                v.url === result.normalizedUrl ||
+                v.url === url
               );
               if (duplicateVideo) {
                 const isRecent = duplicateVideo.timestamp && (Date.now() - duplicateVideo.timestamp < 60000);
@@ -2414,13 +2417,14 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
       return res.status(400).json({ error: 'Este vídeo já está sendo processado ou foi enviado recentemente.' });
     }
 
-    // 2. Check DB state queue duplication
+    // 2. Check DB state queue duplication (prevent duplicates completely, including watched ones)
     const isDuplicate = (state.queue || []).some((v: any) => 
-      (v.status === 'pending' || v.status === 'approved' || !v.status) && 
-      extractCanonicalVideoId(v.url, v.platform) === canonId
+      extractCanonicalVideoId(v.url, v.platform) === canonId ||
+      v.url === cleanUrl ||
+      v.url === url
     );
     if (isDuplicate) {
-      return res.status(400).json({ error: 'Este vídeo já está na fila.' });
+      return res.status(400).json({ error: 'Este vídeo já foi enviado ou já está na fila.' });
     }
 
     // 3. Register synchronous cache lock immediately
