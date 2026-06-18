@@ -5,16 +5,16 @@ import { sanitizeAndValidateUrl, extractCanonicalVideoId, verifyVideoContent } f
 import crypto from 'crypto';
 
 const processedDiscordMessages = new Set<string>();
-const discordUrlSpamCache = new Map<string, number>();
+const idempotencyCache = new Map<string, number>();
 const discordChannelMapCache = new Map<string, { roomId: string | null, cachedAt: number }>();
 const recentlyProcessedDiscordVideos = new Set<string>();
 
 // Interval to clean up spam cache
 setInterval(() => {
   const now = Date.now();
-  for (const [k, v] of discordUrlSpamCache.entries()) {
-    if (now - v > 60000) {
-      discordUrlSpamCache.delete(k);
+  for (const [k, v] of idempotencyCache.entries()) {
+    if (now - v > 5000) {
+      idempotencyCache.delete(k);
     }
   }
   for (const [k, v] of discordChannelMapCache.entries()) {
@@ -22,7 +22,7 @@ setInterval(() => {
       discordChannelMapCache.delete(k);
     }
   }
-}, 60000);
+}, 5000);
 
 export class DiscordBotService {
   private client: Client | null = null;
@@ -197,22 +197,32 @@ export class DiscordBotService {
       processedDiscordMessages.add(message.id);
       setTimeout(() => processedDiscordMessages.delete(message.id), 15000);
 
-      // Fast-path memory cache for URLs to prevent identical spam from same user
+      // Fast-path idempotency cache for URLs to prevent duplicate feedback loops within 5 seconds
       const spamUserId = message.author.id;
-      let hasNewUniqueLinks = false;
+      const uniqueUrls: string[] = [];
       for (const url of urls) {
-        // basic normalization for spam check
-        const canonicalUrl = url.split('?')[0];
-        const fastKey = `${spamUserId}:${canonicalUrl}`;
+        const urlHash = crypto.createHash('md5').update(url).digest('hex');
+        const idempotencyKey = `idemp_${spamUserId}_${urlHash}`;
         const now = Date.now();
-        const lastSeen = discordUrlSpamCache.get(fastKey) || 0;
-        if (now - lastSeen < 15000) { continue; } // Ignore exact URL from same user < 15s
-        discordUrlSpamCache.set(fastKey, now);
-        hasNewUniqueLinks = true;
+        const lastSeen = idempotencyCache.get(idempotencyKey) || 0;
+        if (now - lastSeen < 5000) { continue; } // Ignore duplicate exact URL within 5s
+        idempotencyCache.set(idempotencyKey, now);
+        uniqueUrls.push(url);
       }
       
-      // If none of the links are new, and there are no attachments, drop to prevent duplicates
-      if (!hasNewUniqueLinks && attachments.length === 0) return;
+      const uniqueAttachments = [];
+      for (const att of attachments) {
+        const attHash = crypto.createHash('md5').update(`${att.name}_${att.size}`).digest('hex');
+        const idempotencyKey = `idemp_${spamUserId}_${attHash}`;
+        const now = Date.now();
+        const lastSeen = idempotencyCache.get(idempotencyKey) || 0;
+        if (now - lastSeen < 5000) { continue; }
+        idempotencyCache.set(idempotencyKey, now);
+        uniqueAttachments.push(att);
+      }
+      
+      // If none of the links or attachments are new unique requests, drop to prevent duplicates
+      if (uniqueUrls.length === 0 && uniqueAttachments.length === 0) return;
 
       try {
         const supabaseAdmin = getSupabaseAdmin();
@@ -368,7 +378,7 @@ export class DiscordBotService {
         const itemsToProcess: { url: string; platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other'; title?: string }[] = [];
 
         // Parse explicit links
-        for (const url of urls) {
+        for (const url of uniqueUrls) {
           const validation = sanitizeAndValidateUrl(url, settings);
           if (!validation.valid || !validation.normalizedUrl) {
             await message.reply({
@@ -388,7 +398,7 @@ export class DiscordBotService {
         }
 
         // Parse direct attachments (uploaded video files)
-        for (const attachment of attachments) {
+        for (const attachment of uniqueAttachments) {
           const isVideoFile = attachment.contentType?.startsWith('video/') || attachment.name.match(/\.(mp4|webm|mov|ogg)$/i);
           if (isVideoFile) {
             itemsToProcess.push({
