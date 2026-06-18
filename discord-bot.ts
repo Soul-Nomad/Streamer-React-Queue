@@ -109,6 +109,9 @@ export class DiscordBotService {
     }
   }
 
+  private currentToken: string | null = null;
+  private initPromise: Promise<void> | null = null;
+
   public async start(customToken?: string): Promise<void> {
     const token = customToken || process.env.DISCORD_BOT_TOKEN;
     if (!token) {
@@ -116,30 +119,54 @@ export class DiscordBotService {
       return;
     }
 
-    if (this.client || this.isInitializing) {
-      this.shutdown();
+    // Do not restart if the token is exactly the same and we are already connected/connecting
+    if (this.client?.isReady() && this.currentToken === token) {
+       console.log('[Discord Bot] Already running with the same token, skipping start.');
+       return;
     }
 
-    this.isInitializing = true;
-    console.log('[Discord Bot] Initializing client...');
-
-    try {
-      this.client = new Client({
-        intents: [
-          GatewayIntentBits.Guilds,
-          GatewayIntentBits.GuildMessages,
-          GatewayIntentBits.MessageContent
-        ]
-      });
-
-      this.setupHandlers();
-      await this.client.login(token);
-    } catch (err: any) {
-      console.error('[Discord Bot] Login failed:', err.message);
-      this.client = null;
-    } finally {
-      this.isInitializing = false;
+    // If another start() is currently in progress, wait for it to finish first
+    if (this.initPromise) {
+      console.log('[Discord Bot] Waiting for existing initialization to complete...');
+      await this.initPromise;
+      // After waiting, check if we still need to initialize (token could have changed)
+      if (this.currentToken === token && this.client?.isReady()) {
+         return;
+      }
     }
+
+    // Wrap initialization in a promise to prevent concurrent executions
+    this.initPromise = (async () => {
+      if (this.client || this.isInitializing) {
+        this.shutdown();
+      }
+
+      this.isInitializing = true;
+      this.currentToken = token;
+      console.log('[Discord Bot] Initializing client...');
+
+      try {
+        this.client = new Client({
+          intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.MessageContent
+          ]
+        });
+
+        this.setupHandlers();
+        await this.client.login(token);
+      } catch (err: any) {
+        console.error('[Discord Bot] Login failed:', err.message);
+        this.client = null;
+        this.currentToken = null;
+      } finally {
+        this.isInitializing = false;
+        this.initPromise = null;
+      }
+    })();
+
+    return this.initPromise;
   }
 
   private setupHandlers(): void {
@@ -189,6 +216,11 @@ export class DiscordBotService {
 
       try {
         const supabaseAdmin = getSupabaseAdmin();
+        
+        // Anti-Race Jitter: Desyncs simultaneous container replicas from fetching identical stale states
+        const multiInstanceJitter = Math.floor(Math.random() * 800) + 10;
+        await new Promise(res => setTimeout(res, multiInstanceJitter));
+
         const nowMs = Date.now();
         
         // 1. Map the sender channel to its streamer room using local fast cache
@@ -222,7 +254,6 @@ export class DiscordBotService {
           }
         } else {
           // Cache miss: find which active room is bound to this channel
-          // To reduce egress payload size, we fetch using JSONB contains operator provided by Supabase
           const { data: matchedRooms, error } = await supabaseAdmin
             .from('room_settings')
             .select('room_id, settings_json, rooms!inner(is_active)')
@@ -243,6 +274,16 @@ export class DiscordBotService {
         if (!roomId || !matchedRoomState) return;
 
         const state = matchedRoomState;
+
+        // DB-level Processed Message Lock Check (catches Multi-Instance duplicates!)
+        if (!state.discord_processed_messages) {
+          state.discord_processed_messages = [];
+        }
+        if (state.discord_processed_messages.includes(message.id)) {
+           // Another instance already successfully completed processing this exact message id and saved it
+           return;
+        }
+
         const settings = state.settings || {};
 
         console.log(`[Discord Bot] Processing submission on registered channel #${channelId} for Room ID "${roomId}"`);
@@ -493,6 +534,15 @@ export class DiscordBotService {
 
           state.queue = [...(state.queue || []), newVideo];
           state.lastGlobalSubmissionAt = Date.now();
+
+          // Append to lock array so external concurrent replicas will yield early (Jitter lock technique)
+          if (!state.discord_processed_messages) state.discord_processed_messages = [];
+          if (!state.discord_processed_messages.includes(message.id)) {
+            state.discord_processed_messages.push(message.id);
+            if (state.discord_processed_messages.length > 30) {
+              state.discord_processed_messages.shift();
+            }
+          }
 
           // Write updated persistent state JSON
           const { error: updateError } = await supabaseAdmin
