@@ -231,7 +231,41 @@ export default function DiscordView({ session }: { session: SessionState }) {
 
       if (targetUrl) {
         // Open with specified popup size to trigger standard popup window bounds
-        window.open(targetUrl, 'discord_auth_popup', 'width=650,height=800,menubar=no,toolbar=no,status=no,resizable=yes,scrollbars=yes');
+        const popup = window.open(targetUrl, 'discord_auth_popup', 'width=650,height=800,menubar=no,toolbar=no,status=no,resizable=yes,scrollbars=yes');
+        
+        if (popup) {
+          const timer = setInterval(async () => {
+            if (popup.closed) {
+              clearInterval(timer);
+              
+              // Direct Supabase refresh fallback when popup closes
+              try {
+                let targetRoomId = session.id;
+                let { data: settingsData } = await supabase
+                  .from('room_settings')
+                  .select('*')
+                  .eq('room_id', targetRoomId)
+                  .single();
+
+                if (settingsData) {
+                  const merged = {
+                     ...settingsData,
+                     ...(settingsData.settings_json?.settings || {}),
+                     ...(settingsData.settings_json || {})
+                  };
+                  setRoomSettings(merged);
+                  if (merged.discordGuildId) {
+                    await fetchDiscordChannels(merged.discordGuildId);
+                    setModalSelectedChannelId(merged.discordChannelId || '');
+                    setShowChannelModal(true);
+                  }
+                }
+              } catch (dbErr) {
+                console.error("Erro ao sincronizar após fechar popup:", dbErr);
+              }
+            }
+          }, 1000);
+        }
       }
     } catch (err: any) {
       alert(`⚠️ Erro de Configuração:\n\n${err.message}`);
