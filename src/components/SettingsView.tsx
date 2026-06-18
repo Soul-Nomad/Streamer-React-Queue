@@ -15,7 +15,6 @@ export default function SettingsView({ session }: { session: SessionState }) {
 
   const [discordGuilds, setDiscordGuilds] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingGuilds, setIsLoadingGuilds] = useState(false);
-  const [showDevSettings, setShowDevSettings] = useState(false);
 
   const fetchDiscordGuilds = async () => {
     setIsLoadingGuilds(true);
@@ -91,7 +90,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
     return () => window.removeEventListener('message', handleMessage);
   }, [roomSettings?.room_id]);
 
-  const handleConnectDiscord = async (useFallback: boolean = false) => {
+  const handleConnectDiscord = async () => {
     if (!roomSettings?.room_id) {
       alert("Aguarde o carregamento das configurações.");
       return;
@@ -110,31 +109,17 @@ export default function SettingsView({ session }: { session: SessionState }) {
       const data = await response.json();
       
       if (!data.success && data.errorType === 'MISSING_CONFIG') {
-        alert("⚠️ Discord Bot não configurado!\n\nPor favor, insira o Token do Bot do Discord e o Client ID nas 'Configurações de Desenvolvedor' no final da seção para ativar o bot.");
-        setShowDevSettings(true);
+        alert("⚠️ Discord Bot não configurado no servidor!");
         return;
       }
 
-      const targetUrl = useFallback ? data.inviteOnlyUrl : data.url;
+      const targetUrl = data.url;
 
       if (targetUrl) {
-        const width = 600;
-        const height = 750;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-        
-        const popup = window.open(
-          targetUrl,
-          'discord_auth_popup',
-          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-        );
-        
-        if (!popup) {
-          alert("O bloqueador de popups impediu a janela do Discord. Por favor, libere popups neste site.");
-        }
+        window.open(targetUrl, '_blank');
       }
     } catch (err: any) {
-      alert(`⚠️ Erro de Configuração:\n\n${err.message}\n\nInsira os dados do seu bot nas 'Configurações de Desenvolvedor' ou configure os Secrets do servidor.`);
+      alert(`⚠️ Erro de Configuração:\n\n${err.message}`);
     }
   };
 
@@ -627,32 +612,22 @@ export default function SettingsView({ session }: { session: SessionState }) {
                     {!roomSettings.discordGuildId ? (
                       <div className="space-y-4">
                         <p className="text-[10px] text-zinc-400 leading-relaxed font-mono uppercase tracking-tight">
-                          Conecte o bot do Discord com 1 clique. Escolha o método padrão (com retorno de popup) ou o método livre de erros (sem redirecionamento).
+                          Integre seu servidor do Discord com 1 clique para capturar links de vídeos enviados no chat de texto.
                         </p>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           <button
                             type="button"
-                            onClick={() => handleConnectDiscord(false)}
-                            className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-3 py-2.5 rounded font-bold uppercase tracking-wider text-[9px] flex items-center justify-center gap-1.5 transition-all cursor-pointer font-mono"
-                            title="Conecta e tenta selecionar o servidor automaticamente de volta na sala"
+                            onClick={() => handleConnectDiscord()}
+                            className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-3 py-2.5 rounded font-bold uppercase tracking-wider text-[9px] flex items-center justify-center gap-1.5 transition-all cursor-pointer font-mono h-10 w-full"
                           >
-                            <Link className="w-3 h-3" /> Metodo Auto-Retorno
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => handleConnectDiscord(true)}
-                            className="bg-zinc-800 hover:bg-zinc-700 text-[#a5b4fc] border border-[#5865F2]/30 px-3 py-2.5 rounded font-bold uppercase tracking-wider text-[9px] flex items-center justify-center gap-1.5 transition-all cursor-pointer font-mono"
-                            title="Convite simples do Discord. Sem erros de redirect_uri ou domínio inválido"
-                          >
-                            <span className="text-[12px]">✨</span> Convite Livre de Erros
+                            <Link className="w-3.5 h-3.5" /> Conectar Bot via OAuth2
                           </button>
                         </div>
 
                         {discordGuilds.length > 0 ? (
                           <div className="space-y-2 pt-3 border-t border-zinc-800/60">
-                            <label className="block text-zinc-400 font-mono uppercase text-[9px] font-bold tracking-widest">Escolha no menu de servidores onde o Bot já está:</label>
+                            <label className="block text-zinc-400 font-mono uppercase text-[9px] font-bold tracking-widest">Selecione o servidor onde o Bot foi adicionado:</label>
                             <div className="flex gap-2">
                               <select
                                 value={roomSettings.discordGuildId || ''}
@@ -678,7 +653,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                                 type="button"
                                 onClick={fetchDiscordGuilds}
                                 className="bg-zinc-900 border border-zinc-800 p-2 rounded text-zinc-400 hover:text-zinc-200"
-                                title="Atualizar servidores"
+                                title="Atualizar Lista"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                               </button>
@@ -692,32 +667,10 @@ export default function SettingsView({ session }: { session: SessionState }) {
                               disabled={isLoadingGuilds}
                               className="text-[#93c5fd] hover:text-white text-[9px] font-mono uppercase font-bold flex items-center gap-1.5 cursor-pointer"
                             >
-                              <RefreshCw className={`w-3 h-3 ${isLoadingGuilds ? 'animate-spin' : ''}`} /> Deseja verificar se o Bot já entrou em algum servidor?
+                              <RefreshCw className={`w-3 h-3 ${isLoadingGuilds ? 'animate-spin' : ''}`} /> Atualizar servidores disponíveis
                             </button>
                           </div>
                         )}
-
-                        <div className="space-y-1.5 pt-2">
-                          <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest">Manual: ID do Servidor (Guild ID)</label>
-                          <input
-                            type="text"
-                            placeholder="ex: 1517173597318414356"
-                            value={roomSettings.discordGuildId || ''}
-                            onChange={async (e) => {
-                              const val = e.target.value.trim();
-                              setRoomSettings({
-                                ...roomSettings,
-                                discordGuildId: val,
-                                discordEnabled: val.length > 0 ? true : roomSettings.discordEnabled
-                              });
-                              if (val.length >= 15) {
-                                await fetchDiscordChannels(val);
-                              }
-                            }}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-[#5865F2] outline-none text-xs font-mono font-bold"
-                          />
-                        </div>
-
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -797,7 +750,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleConnectDiscord(true)}
+                                    onClick={() => handleConnectDiscord()}
                                     className="bg-[#5865F2]/20 hover:bg-[#5865F2]/30 text-[#818cf8] px-3 py-1.5 text-[9px] uppercase font-mono rounded cursor-pointer"
                                   >
                                     Reautorizar Bot
@@ -809,50 +762,6 @@ export default function SettingsView({ session }: { session: SessionState }) {
                         )}
                       </div>
                     )}
-
-                    {/* Developer settings expansion */}
-                    <div className="pt-3 border-t border-zinc-800/80 mt-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowDevSettings(!showDevSettings)}
-                        className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 hover:text-zinc-300 font-bold flex items-center justify-between w-full"
-                      >
-                        <span>⚙️ Ajustes de Desenvolvedor (Opcional)</span>
-                        <span>{showDevSettings ? '[-]' : '[+]'}</span>
-                      </button>
-
-                      {showDevSettings && (
-                        <div className="space-y-3 pt-3 mt-3 bg-zinc-900/40 p-3 rounded border border-zinc-800/50">
-                          <p className="text-[9px] text-zinc-400 font-mono uppercase leading-normal">
-                            Deseja hospedar o bot usando suas próprias credenciais ou configurar manualmente o client ID? Insira-as abaixo (as alterações serão hot-reloaded instantaneamente no servidor backend):
-                          </p>
-                          <div className="space-y-1">
-                            <label className="block text-[8px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Discord Client ID (ID de Aplicação)</label>
-                            <input
-                              type="text"
-                              placeholder="ID obtido na Discord Developer dashboard"
-                              value={roomSettings.discordClientId || ''}
-                              onChange={e => setRoomSettings({...roomSettings, discordClientId: e.target.value.trim()})}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-zinc-200 focus:border-[#5865F2] outline-none text-[10px] font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-[8px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Bot Token Privado</label>
-                            <input
-                              type="password"
-                              placeholder="MTIzNzY5... Token secreto do bot do Discord"
-                              value={roomSettings.discordBotToken || ''}
-                              onChange={e => setRoomSettings({...roomSettings, discordBotToken: e.target.value.trim()})}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-zinc-200 focus:border-[#5865F2] outline-none text-[10px] font-mono"
-                            />
-                          </div>
-                          <p className="text-[8px] text-zinc-600 font-mono uppercase">
-                            *Lembre-se de clicar em "Salvar Políticas" no canto superior direito para gravar estas credenciais de forma segura em seu banco.*
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
                   </div>
                 </section>
 

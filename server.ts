@@ -3054,9 +3054,9 @@ app.get('/api/auth/discord/url', async (req, res) => {
     }
   } catch (_) {}
 
-  // If not found, use system env or decoder
+  // If not found, use system env, decoder, or fallback client ID
   if (!clientId) {
-    clientId = process.env.DISCORD_CLIENT_ID || discordBot.decodeClientId() || '';
+    clientId = process.env.DISCORD_CLIENT_ID || discordBot.decodeClientId() || '1517173597318414356';
   }
 
   if (!clientId) {
@@ -3067,17 +3067,18 @@ app.get('/api/auth/discord/url', async (req, res) => {
     });
   }
 
-  // Construct standard Discord OAuth2 client bot invitation URL
+  // Construct standard Discord OAuth2 client bot invitation URL returning to root route
   let appUrl = process.env.APP_URL;
   if (!appUrl || appUrl === 'MY_APP_URL' || appUrl === 'YOUR_APP_URL' || !appUrl.startsWith('http')) {
     appUrl = `${req.protocol}://${req.get('host')}`;
   }
-  const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/discord/callback`;
+  const redirectUri = `${appUrl.replace(/\/$/, '')}/`;
 
-  // Standard Discord auth URL
+  // Standard Discord auth URL - request permissions '248832' instead of full Admin '8'
+  // and scope bot + applications.commands, matching exactly what the user tested
   const params = new URLSearchParams({
     client_id: clientId,
-    permissions: '8', // Request Administrator
+    permissions: '248832',
     scope: 'bot applications.commands',
     redirect_uri: redirectUri,
     response_type: 'code',
@@ -3087,7 +3088,7 @@ app.get('/api/auth/discord/url', async (req, res) => {
   // Simple clean fallback invite link (no redirect, works perfectly matching callback failures)
   const fallbackParams = new URLSearchParams({
     client_id: clientId,
-    permissions: '8',
+    permissions: '248832',
     scope: 'bot applications.commands'
   });
 
