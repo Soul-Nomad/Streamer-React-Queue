@@ -68,6 +68,7 @@ export interface Video {
   url: string;
   title: string;
   platform: 'youtube' | 'instagram' | 'tiktok' | 'other';
+  source?: 'twitch' | 'discord' | 'site' | 'api';
   status: VideoStatus;
   timestamp: number;
   duration?: number; // duration in seconds

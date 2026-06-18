@@ -768,6 +768,7 @@ setTimeout(() => {
                 submitterId: userId,
                 url: result.normalizedUrl,
                 platform,
+                source: 'twitch',
                 title: verifyState.title || 'Vídeo do Chat',
                 status: state.settings?.isManualApprovalRequired ? 'pending' : 'approved',
                 timestamp: Date.now()
@@ -2457,6 +2458,7 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
       url: cleanUrl,
       title: sanitizeInput(contentCheck.title || 'Vídeo Sincronizado'),
       platform,
+      source: 'site',
       status: (state.settings?.isManualApprovalRequired && state.hostId !== userId) ? 'pending' : 'approved',
       timestamp: Date.now(),
       priority_score,

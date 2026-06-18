@@ -403,6 +403,7 @@ export class DiscordBotService {
             submitterId: userId,
             url: item.url,
             platform: item.platform,
+            source: 'discord',
             title: resolvedTitle,
             status: settings.isManualApprovalRequired ? 'pending' : 'approved',
             timestamp: Date.now()
