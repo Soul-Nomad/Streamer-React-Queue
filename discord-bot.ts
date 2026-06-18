@@ -12,6 +12,62 @@ export class DiscordBotService {
     // Initialized as a singleton service
   }
 
+  public getClient(): Client | null {
+    return this.client;
+  }
+
+  public decodeClientId(): string | null {
+    const token = process.env.DISCORD_BOT_TOKEN;
+    if (!token) return null;
+    const parts = token.split('.');
+    if (parts.length > 0) {
+      try {
+        const clientId = Buffer.from(parts[0], 'base64').toString('utf-8');
+        if (/^\d+$/.test(clientId)) {
+          return clientId;
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+    return null;
+  }
+
+  public async getGuildChannels(guildId: string): Promise<{ id: string; name: string }[]> {
+    if (!this.client) {
+      console.warn('[Discord Bot] Client not initialized when fetching channels for guild ID:', guildId);
+      return [];
+    }
+    try {
+      const guild = await this.client.guilds.fetch(guildId);
+      if (!guild) {
+        console.warn(`[Discord Bot] Guild ${guildId} not found.`);
+        return [];
+      }
+      const channels = await guild.channels.fetch();
+      return Array.from(channels.values())
+        .filter((c: any) => c && (c.type === 0 || (typeof c.isTextBased === 'function' ? c.isTextBased() : false)))
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name
+        }));
+    } catch (err: any) {
+      console.error(`[Discord Bot] Error fetching channels for guild ${guildId}:`, err.message);
+      return [];
+    }
+  }
+
+  public async getGuildName(guildId: string): Promise<string | null> {
+    if (!this.client) return null;
+    try {
+      const guild = await this.client.guilds.fetch(guildId);
+      return guild ? guild.name : null;
+    } catch (err: any) {
+      console.error(`[Discord Bot] Error fetching name for guild ${guildId}:`, err.message);
+      return null;
+    }
+  }
+
   public async start(): Promise<void> {
     const token = process.env.DISCORD_BOT_TOKEN;
     if (!token) {

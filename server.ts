@@ -2980,6 +2980,156 @@ app.post(['/sessions/:id/update_settings', '/api/sessions/:id/update_settings'],
   }
 });
 
+// GET /api/auth/discord/url - Generate the Discord Bot Invite OAuth URL
+app.get('/api/auth/discord/url', (req, res) => {
+  const roomId = req.query.roomId;
+  if (!roomId) {
+    return res.status(400).json({ error: 'Parâmetro roomId é obrigatório.' });
+  }
+
+  const clientId = process.env.DISCORD_CLIENT_ID || discordBot.decodeClientId();
+  if (!clientId) {
+    return res.status(500).json({ error: 'Erro de configuração: DISCORD_BOT_TOKEN ou DISCORD_CLIENT_ID ausente no servidor.' });
+  }
+
+  // Construct standard Discord OAuth2 client bot invitation URL
+  const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+  const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/discord/callback`;
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    permissions: '8', // Request Administrator
+    scope: 'bot applications.commands',
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    state: String(roomId)
+  });
+
+  const authUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`;
+  res.json({ success: true, url: authUrl });
+});
+
+// GET /api/auth/discord/callback - Callback redirected after Discord Authorization
+app.get(['/api/auth/discord/callback', '/api/auth/discord/callback/'], async (req, res) => {
+  const { code, guild_id, state: roomId } = req.query;
+
+  if (!roomId || !guild_id) {
+    return res.status(400).send('Pre-requisito ausente: guild_id ou roomId.');
+  }
+
+  try {
+    const state: any = await getSession(String(roomId));
+    if (!state) {
+      return res.status(404).send('Sessão/Sala não encontrada.');
+    }
+
+    const guildIdStr = String(guild_id);
+
+    // Get channels for this guild from DiscordBotService
+    const channels = await discordBot.getGuildChannels(guildIdStr);
+    
+    // Auto find any suitable Channel ID (first available, or match words like 'pedidos', 'fila', 'videos')
+    let selectedChannelId = '';
+    if (channels && channels.length > 0) {
+      const match = channels.find(c => 
+        c.name.toLowerCase().includes('pedidos') || 
+        c.name.toLowerCase().includes('fila') || 
+        c.name.toLowerCase().includes('videos') || 
+        c.name.toLowerCase().includes('live') || 
+        c.name.toLowerCase().includes('geral') || 
+        c.name.toLowerCase().includes('general')
+      );
+      selectedChannelId = match ? match.id : channels[0].id;
+    }
+
+    const updatedState = {
+      ...state,
+      settings: {
+        ...(state.settings || {}),
+        discordEnabled: true,
+        discordGuildId: guildIdStr,
+        discordChannelId: selectedChannelId
+      }
+    };
+
+    const supabaseAdmin = getSupabaseAdmin();
+    await supabaseAdmin
+      .from('room_settings')
+      .update({ 
+        settings_json: updatedState
+      })
+      .eq('room_id', String(roomId));
+
+    if (ablyRest) {
+      const channel = ablyRest.channels.get(`session:${roomId}`);
+      await channel.publish('session_state', updatedState);
+    }
+
+    // Success response using the postMessage pattern from oauth-integration skill
+    res.send(`
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Conexão Discord Ativada</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif; background-color: #0c0a09; color: #f5f5f4; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+            .card { padding: 40px; border: 1px solid #292524; background-color: #1c1917; border-radius: 4px; max-width: 500px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
+            h2 { color: #f97316; margin-top: 0; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }
+            p { font-size: 13px; color: #a8a29e; line-height: 1.6; }
+            .badge { background-color: #44403c; color: #f5f5f4; padding: 4px 10px; border-radius: 2px; font-size: 11px; font-family: monospace; border: 1px solid #57534e; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h2>🛸 INTEGRAÇÃO PRONTA</h2>
+            <p>O robô do <b>Discord</b> foi integrado com sucesso no seu servidor de forma automatizada!</p>
+            <p><span class="badge">SERVER ID: ${guildIdStr}</span></p>
+            <p>Esta janela fechará sozinha e o seu workspace será configurado para receber vídeos.</p>
+            <script>
+              setTimeout(() => {
+                if (window.opener) {
+                  window.opener.postMessage({ 
+                    type: 'DISCORD_AUTH_SUCCESS', 
+                    guildId: '${guildIdStr}',
+                    channelId: '${selectedChannelId}'
+                  }, '*');
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              }, 1500);
+            </script>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (err: any) {
+    console.error('[Discord Web Callback Failure]:', err.message);
+    res.status(500).send(`Ocorreu um erro no callback do Discord: ${err.message}`);
+  }
+});
+
+// GET /api/sessions/:id/discord_channels - Fetch Text Channels from the connected Guild
+app.get(['/api/sessions/:id/discord_channels', '/sessions/:id/discord_channels'], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const state: any = await getSession(roomId);
+    if (!state) return res.status(404).json({ error: 'Sala não encontrada.' });
+
+    const guildId = state.settings?.discordGuildId;
+    if (!guildId) {
+      return res.json({ success: true, channels: [] });
+    }
+
+    const channels = await discordBot.getGuildChannels(guildId);
+    const guildName = await discordBot.getGuildName(guildId);
+
+    res.json({ success: true, guildName, channels });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /sessions/:id/toggle_whitelist - Toggle user VIP state
 // Sync Moderation Action to Twitch Real-Time Helix API Channel Moderation
 async function executeTwitchModeration(

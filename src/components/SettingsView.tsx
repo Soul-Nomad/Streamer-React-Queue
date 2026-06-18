@@ -1,13 +1,123 @@
 import { useState, useEffect } from 'react';
 import { socket } from '../socket';
 import { SessionState } from '../types';
-import { Settings, Save, ShieldCheck, Layers, Award, Compass, History } from 'lucide-react';
+import { Settings, Save, ShieldCheck, Layers, Award, Compass, History, Link, RefreshCw, Trash2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsView({ session }: { session: SessionState }) {
   const [roomSettings, setRoomSettings] = useState<any>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+
+  const [discordChannels, setDiscordChannels] = useState<{ id: string; name: string }[]>([]);
+  const [discordGuildName, setDiscordGuildName] = useState<string>('');
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+
+  const fetchDiscordChannels = async (guildId: string) => {
+    if (!guildId || !roomSettings?.room_id) return;
+    setIsLoadingChannels(true);
+    try {
+      const response = await fetch(`/api/sessions/${roomSettings.room_id}/discord_channels`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setDiscordChannels(data.channels || []);
+          if (data.guildName) {
+            setDiscordGuildName(data.guildName);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar canais do Discord:', error);
+    } finally {
+      setIsLoadingChannels(false);
+    }
+  };
+
+  useEffect(() => {
+    if (roomSettings?.discordGuildId) {
+      fetchDiscordChannels(roomSettings.discordGuildId);
+    } else {
+      setDiscordChannels([]);
+      setDiscordGuildName('');
+    }
+  }, [roomSettings?.discordGuildId, roomSettings?.room_id]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return;
+      }
+      
+      if (event.data?.type === 'DISCORD_AUTH_SUCCESS') {
+        const { guildId, channelId } = event.data;
+        setRoomSettings(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            discordEnabled: true,
+            discordGuildId: guildId,
+            discordChannelId: channelId || prev.discordChannelId || ''
+          };
+        });
+        
+        fetchDiscordChannels(guildId);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [roomSettings?.room_id]);
+
+  const handleConnectDiscord = async () => {
+    if (!roomSettings?.room_id) {
+      alert("Aguarde o carregamento das configurações.");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/auth/discord/url?roomId=${roomSettings.room_id}`);
+      if (!response.ok) {
+        throw new Error('Falha ao obter URL de integração');
+      }
+      const data = await response.json();
+      if (data.url) {
+        const width = 600;
+        const height = 750;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(
+          data.url,
+          'discord_auth_popup',
+          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+        
+        if (!popup) {
+          alert("O bloqueador de popups impediu a janela do Discord. Por favor, libere popups neste site.");
+        }
+      }
+    } catch (err: any) {
+      alert(`Erro ao iniciar autenticação: ${err.message}`);
+    }
+  };
+
+  const handleDisconnectDiscord = () => {
+    if (confirm("Deseja realmente remover a integração com o Discord?")) {
+      setRoomSettings(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          discordEnabled: false,
+          discordGuildId: '',
+          discordChannelId: ''
+        };
+      });
+      setDiscordChannels([]);
+      setDiscordGuildName('');
+    }
+  };
 
   useEffect(() => {
     if (session?.id) {
@@ -127,7 +237,8 @@ export default function SettingsView({ session }: { session: SessionState }) {
          maxVideosPerUser: roomSettings.max_videos_per_user ?? 0,
          maxQueueSize: roomSettings.max_queue_size ?? 0,
          discordEnabled: roomSettings.discordEnabled ?? false,
-         discordChannelId: roomSettings.discordChannelId ?? ""
+         discordChannelId: roomSettings.discordChannelId ?? "",
+         discordGuildId: roomSettings.discordGuildId ?? ""
        });
        alert("Configurações salvas e aplicadas com sucesso!");
     } else {
@@ -426,30 +537,104 @@ export default function SettingsView({ session }: { session: SessionState }) {
 
                 <section className="space-y-5">
                    <div className="flex items-center gap-2 border-b border-zinc-800/50 pb-2 mb-4">
-                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                    <Layers className="w-3.5 h-3.5 text-[#5865F2]" />
                     <h3 className="text-zinc-100 font-black uppercase tracking-wider text-[11px] font-mono">Integração com o Discord</h3>
                   </div>
                   
-                  <div className="space-y-4">
-                    <label className="flex items-start gap-4 text-zinc-300 group cursor-pointer">
-                      <input type="checkbox" checked={!!roomSettings.discordEnabled} onChange={e => setRoomSettings({...roomSettings, discordEnabled: e.target.checked})} className="mt-0.5 rounded-sm bg-zinc-900 border-zinc-700 text-indigo-500 focus:ring-indigo-500 w-4 h-4" />
-                      <div className="flex flex-col">
-                        <span className="font-bold text-zinc-200 group-hover:text-indigo-400 transition-colors">Habilitar Robô do Discord</span>
-                        <span className="text-[10px] text-zinc-500 leading-relaxed font-mono uppercase tracking-tight">Permitir recebimento de mídias enviadas em canais autorizados do Discord.</span>
+                  <div className="space-y-4 border border-zinc-800/80 bg-zinc-950/40 p-4 rounded-md">
+                    {!roomSettings.discordGuildId ? (
+                      <div className="space-y-3">
+                        <p className="text-[10px] text-zinc-400 leading-relaxed font-mono uppercase tracking-tight">
+                          Conecte o robô do Discord com apenas 1 clique. O robô será convidado para o seu servidor e tudo ficará pronto para uso instantâneo!
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleConnectDiscord}
+                          className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-2.5 rounded font-bold uppercase tracking-wider text-[10px] flex items-center justify-center gap-2 transition-all cursor-pointer font-mono w-full cursor-pointer"
+                        >
+                          <Link className="w-3.5 h-3.5" /> Conectar Discord (1-Clique)
+                        </button>
                       </div>
-                    </label>
-                    
-                    {roomSettings.discordEnabled && (
-                        <div className="ml-8 space-y-2 p-4 bg-zinc-900 border border-zinc-800 rounded-sm">
-                          <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest">Discord ID do Canal</label>
-                          <input 
-                            type="text" 
-                            value={roomSettings.discordChannelId || ''} 
-                            onChange={e => setRoomSettings({...roomSettings, discordChannelId: e.target.value ?? ''})}
-                            placeholder="ex: 123456789012345678"
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-indigo-500 outline-none text-xs font-mono font-bold"
-                          />
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 bg-[#5865F2]/10 border border-[#5865F2]/20 p-3 rounded text-[#a5b4fc]">
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-xs uppercase font-mono">Servidor Integrado</p>
+                            <p className="text-[10px] text-[#818cf8] truncate font-mono">{discordGuildName || "Discord Server Conectado"}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleDisconnectDiscord}
+                            title="Desconectar Servidor"
+                            className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-500/10 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
+
+                        <label className="flex items-start gap-4 text-zinc-300 group cursor-pointer pt-1">
+                          <input 
+                            type="checkbox" 
+                            checked={!!roomSettings.discordEnabled} 
+                            onChange={e => setRoomSettings({...roomSettings, discordEnabled: e.target.checked})} 
+                            className="mt-0.5 rounded-sm bg-zinc-900 border-zinc-700 text-[#5865F2] focus:ring-[#5865F2] w-4 h-4 cursor-pointer" 
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-xs text-zinc-200 group-hover:text-[#5865F2] transition-colors">Ativar Captura do Discord</span>
+                            <span className="text-[10px] text-zinc-500 leading-relaxed font-mono uppercase tracking-tight">O robô processará links enviados no canal selecionado abaixo.</span>
+                          </div>
+                        </label>
+                        
+                        {roomSettings.discordEnabled && (
+                          <div className="space-y-3 pt-2">
+                            {isLoadingChannels ? (
+                              <div className="flex items-center gap-2 text-zinc-500 font-mono text-[9px] uppercase tracking-wider py-1">
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#5865F2]" />
+                                Carregando canais de texto...
+                              </div>
+                            ) : discordChannels.length > 0 ? (
+                              <div className="space-y-1.5">
+                                <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest">Canal de Chat do Discord</label>
+                                <div className="flex gap-2">
+                                  <select
+                                    value={roomSettings.discordChannelId || ''}
+                                    onChange={e => setRoomSettings({...roomSettings, discordChannelId: e.target.value})}
+                                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded px-2.5 py-2 text-zinc-100 focus:border-[#5865F2] outline-none text-xs font-mono font-bold"
+                                  >
+                                    <option value="">-- Selecione o canal de recebimento --</option>
+                                    {discordChannels.map(ch => (
+                                      <option key={ch.id} value={ch.id}>
+                                        #{ch.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => fetchDiscordChannels(roomSettings.discordGuildId)}
+                                    title="Sincronizar Canais"
+                                    className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 p-2 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 p-3 bg-zinc-900/60 border border-zinc-800 rounded">
+                                <p className="text-[10px] text-amber-500 font-bold font-mono uppercase">⚠️ Nenhum canal encontrado</p>
+                                <p className="text-[10px] text-zinc-500 font-mono uppercase leading-normal">O robô não tem permissão para visualizar canais ou não está no servidor correto.</p>
+                                <button
+                                  type="button"
+                                  onClick={handleConnectDiscord}
+                                  className="bg-[#5865F2]/20 hover:bg-[#5865F2]/30 text-[#818cf8] px-3 py-1 text-[10px] uppercase font-mono rounded cursor-pointer"
+                                >
+                                  Reconectar Robô
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </section>
