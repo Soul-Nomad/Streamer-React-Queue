@@ -4,6 +4,26 @@ import { ablyRest } from './src/lib/ably.js';
 import { sanitizeAndValidateUrl, extractCanonicalVideoId, verifyVideoContent } from './server.js';
 import crypto from 'crypto';
 
+const processedDiscordMessages = new Set<string>();
+const discordUrlSpamCache = new Map<string, number>();
+const discordChannelMapCache = new Map<string, { roomId: string | null, cachedAt: number }>();
+const recentlyProcessedDiscordVideos = new Set<string>();
+
+// Interval to clean up spam cache
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of discordUrlSpamCache.entries()) {
+    if (now - v > 60000) {
+      discordUrlSpamCache.delete(k);
+    }
+  }
+  for (const [k, v] of discordChannelMapCache.entries()) {
+    if (now - v.cachedAt > 60000) {
+      discordChannelMapCache.delete(k);
+    }
+  }
+}, 60000);
+
 export class DiscordBotService {
   private client: Client | null = null;
   private isInitializing = false;
@@ -145,31 +165,84 @@ export class DiscordBotService {
         return;
       }
 
+      // Deduplicate by message ID to prevent processing the same event twice
+      if (processedDiscordMessages.has(message.id)) return;
+      processedDiscordMessages.add(message.id);
+      setTimeout(() => processedDiscordMessages.delete(message.id), 15000);
+
+      // Fast-path memory cache for URLs to prevent identical spam from same user
+      const spamUserId = message.author.id;
+      let hasNewUniqueLinks = false;
+      for (const url of urls) {
+        // basic normalization for spam check
+        const canonicalUrl = url.split('?')[0];
+        const fastKey = `${spamUserId}:${canonicalUrl}`;
+        const now = Date.now();
+        const lastSeen = discordUrlSpamCache.get(fastKey) || 0;
+        if (now - lastSeen < 15000) { continue; } // Ignore exact URL from same user < 15s
+        discordUrlSpamCache.set(fastKey, now);
+        hasNewUniqueLinks = true;
+      }
+      
+      // If none of the links are new, and there are no attachments, drop to prevent duplicates
+      if (!hasNewUniqueLinks && attachments.length === 0) return;
+
       try {
         const supabaseAdmin = getSupabaseAdmin();
+        const nowMs = Date.now();
         
-        // 1. Fetch all active sessions to map the sender channel to its streamer room
-        const { data: activeRooms, error } = await supabaseAdmin
-          .from('room_settings')
-          .select('room_id, settings_json, rooms!inner(is_active)')
-          .eq('rooms.is_active', true);
+        // 1. Map the sender channel to its streamer room using local fast cache
+        let roomId: string | null = null;
+        let matchedRoomState: any = null;
+        
+        const cachedMapping = discordChannelMapCache.get(channelId);
+        
+        if (cachedMapping && nowMs - cachedMapping.cachedAt < 60000) {
+          roomId = cachedMapping.roomId;
+          if (!roomId) return; // Cached that this channel does not belong to any active session
+          
+          const { data, error } = await supabaseAdmin
+             .from('room_settings')
+             .select('settings_json, rooms!inner(is_active)')
+             .eq('room_id', roomId)
+             .eq('rooms.is_active', true)
+             .maybeSingle();
+             
+          if (error || !data) {
+             discordChannelMapCache.delete(channelId);
+             return;
+          }
+          matchedRoomState = data.settings_json || {};
+          
+          // Verify that Discord settings were not disabled recently
+          const s = matchedRoomState.settings || {};
+          if (s.discordEnabled !== true || s.discordChannelId !== channelId) {
+             discordChannelMapCache.set(channelId, { roomId: null, cachedAt: nowMs });
+             return;
+          }
+        } else {
+          // Cache miss: find which active room is bound to this channel
+          // To reduce egress payload size, we fetch using JSONB contains operator provided by Supabase
+          const { data: matchedRooms, error } = await supabaseAdmin
+            .from('room_settings')
+            .select('room_id, settings_json, rooms!inner(is_active)')
+            .eq('rooms.is_active', true)
+            .contains('settings_json', { settings: { discordEnabled: true, discordChannelId: channelId } })
+            .limit(1);
 
-        if (error || !activeRooms || activeRooms.length === 0) {
-          return; // No active sessions on the server
+          if (error || !matchedRooms || matchedRooms.length === 0) {
+            discordChannelMapCache.set(channelId, { roomId: null, cachedAt: nowMs });
+            return; // No active sessions on the server bound to this channel
+          }
+          
+          roomId = matchedRooms[0].room_id;
+          matchedRoomState = matchedRooms[0].settings_json || {};
+          discordChannelMapCache.set(channelId, { roomId, cachedAt: nowMs });
         }
 
-        // Find match where discord is enabled and channel matches
-        const matchedRoom = activeRooms.find((r: any) => {
-          const s = r.settings_json?.settings || {};
-          return s.discordEnabled === true && s.discordChannelId === channelId;
-        });
+        if (!roomId || !matchedRoomState) return;
 
-        if (!matchedRoom) {
-          return; // This channel is not mapped/paired to any active room
-        }
-
-        const roomId = matchedRoom.room_id;
-        const state = matchedRoom.settings_json || {};
+        const state = matchedRoomState;
         const settings = state.settings || {};
 
         console.log(`[Discord Bot] Processing submission on registered channel #${channelId} for Room ID "${roomId}"`);
@@ -332,6 +405,11 @@ export class DiscordBotService {
             ? crypto.createHash('md5').update(item.url).digest('hex').substring(0, 10)
             : extractCanonicalVideoId(item.url, item.platform);
 
+          const uniqKey = `${roomId}:${canonicalId}`;
+          if (recentlyProcessedDiscordVideos.has(uniqKey)) {
+             continue; // Silently drop concurrent duplicate processing attempting the exact same media
+          }
+
           // Check duplicate content
           const duplicateVideo = (state.queue || []).some((v: any) => {
             const vCanon = v.platform === 'other'
@@ -351,6 +429,10 @@ export class DiscordBotService {
             });
             continue;
           }
+
+          // Apply short lived lock
+          recentlyProcessedDiscordVideos.add(uniqKey);
+          setTimeout(() => { recentlyProcessedDiscordVideos.delete(uniqKey); }, 15000);
 
           // 6. Availability and oEmbed Check
           const verification = await verifyVideoContent(item.url, item.platform, settings.blockLiveStreams ?? true);
