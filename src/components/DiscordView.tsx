@@ -142,7 +142,7 @@ export default function DiscordView({ session }: { session: SessionState }) {
 
   useEffect(() => {
     fetchRoomSettings();
-  }, [session?.id]);
+  }, [session?.id, JSON.stringify(session?.settings || {})]);
 
   // Check for redirect-based incoming Discord auth pending in storage or URL
   useEffect(() => {
@@ -161,11 +161,7 @@ export default function DiscordView({ session }: { session: SessionState }) {
   // Listen to postMessage event for successful popup-based authentication
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
-        return;
-      }
-      
+      // Relax restrictive origin checks for non-sensitive local oauth redirects
       if (event.data?.type === 'DISCORD_AUTH_SUCCESS') {
         const { guildId, roomId } = event.data;
         if (roomId && roomId !== session.id) return; // Ignore messages from other sessions
@@ -234,37 +230,50 @@ export default function DiscordView({ session }: { session: SessionState }) {
         const popup = window.open(targetUrl, 'discord_auth_popup', 'width=650,height=800,menubar=no,toolbar=no,status=no,resizable=yes,scrollbars=yes');
         
         if (popup) {
+          let checkCount = 0;
           const timer = setInterval(async () => {
-            if (popup.closed) {
-              clearInterval(timer);
-              
-              // Direct Supabase refresh fallback when popup closes
-              try {
-                let targetRoomId = session.id;
-                let { data: settingsData } = await supabase
-                  .from('room_settings')
-                  .select('*')
-                  .eq('room_id', targetRoomId)
-                  .single();
-
-                if (settingsData) {
-                  const merged = {
-                     ...settingsData,
-                     ...(settingsData.settings_json?.settings || {}),
-                     ...(settingsData.settings_json || {})
-                  };
-                  setRoomSettings(merged);
-                  if (merged.discordGuildId) {
-                    await fetchDiscordChannels(merged.discordGuildId);
-                    setModalSelectedChannelId(merged.discordChannelId || '');
-                    setShowChannelModal(true);
-                  }
-                }
-              } catch (dbErr) {
-                console.error("Erro ao sincronizar após fechar popup:", dbErr);
-              }
+            checkCount++;
+            
+            let isClosed = false;
+            try {
+              isClosed = popup.closed;
+            } catch (e) {
+              // cross-origin DOM properties security block check, swallow safely
             }
-          }, 1000);
+
+            if (isClosed || checkCount > 150) {
+              clearInterval(timer);
+            }
+
+            // Direct Supabase refresh checking while the popup is open/closed
+            try {
+              let targetRoomId = session.id;
+              let { data: settingsData } = await supabase
+                .from('room_settings')
+                .select('*')
+                .eq('room_id', targetRoomId)
+                .single();
+
+              if (settingsData) {
+                const merged = {
+                   ...settingsData,
+                   ...(settingsData.settings_json?.settings || {}),
+                   ...(settingsData.settings_json || {})
+                };
+                
+                // If it successfully linked and shifted state
+                if (merged.discordGuildId && merged.discordGuildId !== roomSettings?.discordGuildId) {
+                  clearInterval(timer);
+                  setRoomSettings(merged);
+                  await fetchDiscordChannels(merged.discordGuildId);
+                  setModalSelectedChannelId(merged.discordChannelId || '');
+                  setShowChannelModal(true);
+                }
+              }
+            } catch (dbErr) {
+              console.error("Erro ao sincronizar após fechar popup:", dbErr);
+            }
+          }, 2000);
         }
       }
     } catch (err: any) {

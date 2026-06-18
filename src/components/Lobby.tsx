@@ -257,13 +257,13 @@ export default function Lobby() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetRoom = urlParams.get("room") || localStorage.getItem("active_supabase_room_id");
 
-      if (targetRoom && targetRoom.trim().length === 4) {
+      if (targetRoom && (targetRoom.trim().length === 4 || targetRoom.trim().length === 36)) {
         const isPastHost =
           targetRoom === activeRoom &&
           localStorage.getItem("active_role") === "host";
         const payload = buildTwitchPayload(isPastHost);
         const joinPayload = {
-          roomId: targetRoom.trim().toUpperCase(),
+          roomId: targetRoom.trim(),
           name: payload.displayName,
           userId: supabaseUser.id,
           twitchData: payload,
@@ -277,7 +277,7 @@ export default function Lobby() {
         );
 
         socket.emit("join_session", joinPayload);
-        localStorage.setItem("active_room_id", targetRoom.trim().toUpperCase());
+        localStorage.setItem("active_room_id", targetRoom.trim());
         localStorage.setItem("active_role", isPastHost ? "host" : "participant");
       }
     }
@@ -478,8 +478,9 @@ export default function Lobby() {
 
   const handleManualCodeJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (roomIdInput.trim().length === 4) {
-      handleJoin(roomIdInput.trim());
+    const cleanId = roomIdInput.trim();
+    if (cleanId.length === 4 || cleanId.length === 36) {
+      handleJoin(cleanId);
       setIsJoinModalOpen(false);
     }
   };
