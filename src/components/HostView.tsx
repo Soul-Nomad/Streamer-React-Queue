@@ -1429,19 +1429,19 @@ export default function HostView({ session }: { session: SessionState }) {
 
         {/* WORKSPACE AREA: Center & Right sections loaded conditionally */}
         <main className="flex-1 flex min-w-0 h-full relative overflow-hidden bg-transparent">
-          <div style={{ display: activeTab === "moderation" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/80 backdrop-blur-xl">
+          <div style={{ display: activeTab === "moderation" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
             <AdminDashboard session={session} />
           </div>
 
-          <div style={{ display: activeTab === "settings" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/80 backdrop-blur-xl">
+          <div style={{ display: activeTab === "settings" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
             <SettingsView session={session} />
           </div>
 
-          <div style={{ display: activeTab === "discord" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/80 backdrop-blur-xl">
+          <div style={{ display: activeTab === "discord" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
             <DiscordView session={session} />
           </div>
 
-          <div style={{ display: activeTab === "submit" ? "flex" : "none" }} className="flex-1 items-center justify-center p-6 bg-black/80 backdrop-blur-xl w-full">
+          <div style={{ display: activeTab === "submit" ? "flex" : "none" }} className="flex-1 items-center justify-center p-6 bg-transparent w-full">
             <div className="w-full max-w-sm bg-black/60 border border-white/10 p-6 space-y-4 rounded shadow-2xl backdrop-blur-md">
                 <div className="space-y-1">
                   <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">
@@ -1471,7 +1471,7 @@ export default function HostView({ session }: { session: SessionState }) {
               </div>
             </div>
 
-          <div style={{ display: activeTab === "participants" ? "flex" : "none" }} className="flex-1 flex-col p-6 overflow-y-auto bg-black/80 backdrop-blur-xl space-y-6">
+          <div style={{ display: activeTab === "participants" ? "flex" : "none" }} className="flex-1 flex-col p-6 overflow-y-auto bg-black/10 backdrop-blur-sm space-y-6">
             {/* Header block with actions */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800 pb-4 gap-3">
                 <div className="space-y-1 text-left">
@@ -1989,46 +1989,49 @@ export default function HostView({ session }: { session: SessionState }) {
                   ) : !optimisticLoading ? (
                     <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 lg:p-12 relative min-h-[500px]">
                       {/* Title Section */}
-                      <div className="mb-10 text-center w-full">
-                        <div className="inline-flex items-center justify-center bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-sm mb-4">
-                          <span className="w-2 h-2 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
-                          <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
-                            NO SIGNAL DETECTED
-                          </span>
-                        </div>
-                        <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter font-sans text-white mb-8 mix-blend-screen opacity-90">
-                          Aguardando Mídias
-                        </h2>
-                        
-                        <div className="flex items-start justify-center gap-4 sm:gap-8 text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-widest max-w-2xl mx-auto">
-                          <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
-                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
-                              1
-                            </span>
-                            <span className="text-center leading-tight">
-                              <strong className="text-zinc-300 block mb-0.5">Conectar</strong>
-                              Discord (Opcional)
+                      <div className="mb-10 text-center w-full max-w-3xl mx-auto bg-black/60 backdrop-blur-lg border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                        <div className="relative z-10">
+                          <div className="inline-flex items-center justify-center bg-red-500/15 border border-red-500/30 px-3 py-1 rounded-sm mb-4">
+                            <span className="w-2 h-2 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
+                            <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
+                              NO SIGNAL DETECTED
                             </span>
                           </div>
-                          <div className="w-6 sm:w-12 h-[1px] bg-zinc-800 mt-3"></div>
-                          <div className="flex flex-col items-center gap-2.5 max-w-[140px]">
-                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
-                              2
-                            </span>
-                            <span className="text-center leading-tight">
-                              <strong className="text-zinc-300 block mb-0.5">Enviar Mídias</strong>
-                              Via Twitch ou Discord
-                            </span>
-                          </div>
-                          <div className="w-6 sm:w-12 h-[1px] bg-zinc-800 mt-3"></div>
-                          <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
-                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
-                              3
-                            </span>
-                            <span className="text-center leading-tight">
-                              <strong className="text-zinc-300 block mb-0.5">Acompanhar</strong>
-                              Fila à Esquerda
-                            </span>
+                          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter font-sans text-white mb-8 opacity-100 drop-shadow-md">
+                            Aguardando Mídias
+                          </h2>
+                          
+                          <div className="flex items-start justify-center gap-4 sm:gap-8 text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-widest max-w-2xl mx-auto">
+                            <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
+                              <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-600 rounded-sm flex items-center justify-center text-white font-black shadow-inner">
+                                1
+                              </span>
+                              <span className="text-center leading-tight">
+                                <strong className="text-white block mb-0.5">Conectar</strong>
+                                Discord (Opcional)
+                              </span>
+                            </div>
+                            <div className="w-6 sm:w-12 h-[1px] bg-zinc-700 mt-3"></div>
+                            <div className="flex flex-col items-center gap-2.5 max-w-[140px]">
+                              <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-600 rounded-sm flex items-center justify-center text-white font-black shadow-inner">
+                                2
+                              </span>
+                              <span className="text-center leading-tight">
+                                <strong className="text-white block mb-0.5">Enviar Mídias</strong>
+                                Via Twitch ou Discord
+                              </span>
+                            </div>
+                            <div className="w-6 sm:w-12 h-[1px] bg-zinc-700 mt-3"></div>
+                            <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
+                              <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-600 rounded-sm flex items-center justify-center text-white font-black shadow-inner">
+                                3
+                              </span>
+                              <span className="text-center leading-tight">
+                                <strong className="text-white block mb-0.5">Acompanhar</strong>
+                                Fila à Esquerda
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2044,7 +2047,7 @@ export default function HostView({ session }: { session: SessionState }) {
                               <div className="text-[9px] font-black font-mono text-[#9146ff] uppercase tracking-[0.2em] mb-1">
                                 HQ RATED
                               </div>
-                              <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                              <h3 className="text-xl font-bold font-sans text-white uppercase tracking-tighter drop-shadow-sm">
                                 CH 1: TWITCH
                               </h3>
                             </div>
@@ -2091,7 +2094,7 @@ export default function HostView({ session }: { session: SessionState }) {
                               <div className="text-[9px] font-black font-mono text-[#5865F2] uppercase tracking-[0.2em] mb-1">
                                 HQ RATED
                               </div>
-                              <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                              <h3 className="text-xl font-bold font-sans text-white uppercase tracking-tighter drop-shadow-sm">
                                 CH 2: DISCORD
                               </h3>
                             </div>
