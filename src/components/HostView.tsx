@@ -1989,87 +1989,68 @@ export default function HostView({ session }: { session: SessionState }) {
                       {/* Animated Top Gradient Strip */}
                       <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 via-purple-400 to-emerald-400 animate-gradient-x" />
 
-                      <div className="flex flex-col items-center mb-6">
+                      <div className="flex flex-col items-center mb-8">
                         <div className="p-3 bg-orange-500/10 border border-orange-500/20 mb-4 rounded">
                           <Cast className="w-8 h-8 text-orange-400 animate-pulse" />
                         </div>
                         <h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-100 font-mono">
                           Aguardando Mídias
                         </h2>
-                        <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-sans px-2">
-                          Sua sala está ativa e pronta para receber conteúdos.
-                          Siga as instruções abaixo para começar.
-                        </p>
                       </div>
 
-                      <div className="space-y-4 mb-6 text-left border-y border-zinc-800/80 py-5 font-sans text-xs">
-                        <h3 className="text-[9.5px] font-black text-zinc-500 uppercase tracking-wider font-mono px-1">
-                          Métodos de Envio Ativos:
-                        </h3>
-
-                        <div className="flex gap-3">
-                          <span className="w-6 h-6 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">
+                      <div className="space-y-5 mb-6 text-left py-2 font-sans text-xs">
+                        <div className="flex gap-3 items-start">
+                          <span className="w-6 h-6 bg-[#5865F2]/10 text-[#5865F2] border border-[#5865F2]/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full mt-0.5">
                             1
                           </span>
-                          <div className="leading-tight">
+                          <div className="leading-tight flex-1">
                             <h4 className="font-bold text-zinc-300">
-                              Chat da Stream (Twitch)
+                              Conecte o Discord{" "}
+                              <span className="text-zinc-500 font-normal">
+                                (Opcional)
+                              </span>
                             </h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">
-                              Espectadores podem enviar links de vídeos
-                              diretamente no chat. O bot captura e coloca na
-                              fila.
+                            <p className="text-[10.5px] text-zinc-500 mt-1 mb-2.5">
+                              Vincule o bot ao seu servidor para receber mídias.
                             </p>
+                            <button
+                              onClick={() => setActiveTab("discord")}
+                              className="w-full flex items-center justify-center gap-1.5 py-2 bg-[#5865F2]/10 hover:bg-[#5865F2]/20 text-[#5865F2] border border-[#5865F2]/30 font-bold text-[10.5px] uppercase tracking-wider transition-all rounded-sm"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              Configurar Discord
+                            </button>
                           </div>
                         </div>
 
-                        <div className="flex gap-3">
-                          <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">
+                        <div className="flex gap-3 items-start">
+                          <span className="w-6 h-6 bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full mt-0.5">
                             2
                           </span>
                           <div className="leading-tight">
                             <h4 className="font-bold text-zinc-300">
-                              Convite via Link
+                              Envie Mídias
                             </h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">
-                              Copie o link abaixo para convidados externos ou
-                              para quem prefere enviar pela plataforma.
+                            <p className="text-[10.5px] text-zinc-500 mt-1">
+                              Pelo chat da <strong>Twitch</strong> ou canal configurado no <strong>Discord</strong>.
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex gap-3">
-                          <span className="w-6 h-6 bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full">
+                        <div className="flex gap-3 items-start">
+                          <span className="w-6 h-6 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono rounded-full mt-0.5">
                             3
                           </span>
                           <div className="leading-tight">
-                            <h4 className="font-bold text-zinc-300 font-sans">
-                              Gestão da Fila
+                            <h4 className="font-bold text-zinc-300">
+                              Acompanhe a Fila
                             </h4>
-                            <p className="text-[10.5px] text-zinc-500 mt-0.5">
-                              As mídias enviadas aparecerão na{" "}
-                              <strong className="text-zinc-400">
-                                coluna à esquerda
-                              </strong>{" "}
-                              para sua moderação.
+                            <p className="text-[10.5px] text-zinc-500 mt-1">
+                              Acesse a coluna à esquerda para moderar e
+                              reproduzir.
                             </p>
                           </div>
                         </div>
-                      </div>
-
-                      <button
-                        onClick={copyInvite}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase tracking-widest transition-all rounded-sm shadow-lg shadow-orange-900/20 mb-6"
-                      >
-                        <Link2 className="w-4 h-4" />
-                        Copiar Link de Convite
-                      </button>
-
-                      <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-sm">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 font-mono">
-                          BOT DE CHAT CONECTADO E MONITORANDO
-                        </span>
                       </div>
 
                       {/* Development Banner Strip */}
