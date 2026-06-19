@@ -1988,47 +1988,60 @@ export default function HostView({ session }: { session: SessionState }) {
                     </div>
                   ) : !optimisticLoading ? (
                     <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 lg:p-12 relative min-h-[500px]">
-                      {/* Title Section */}
-                      <div className="mb-10 text-center w-full">
-                        <div className="inline-flex items-center justify-center bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-sm mb-4">
-                          <span className="w-2 h-2 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
-                          <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
-                            NO SIGNAL DETECTED
-                          </span>
-                        </div>
-                        <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter font-sans text-white mb-8 mix-blend-screen opacity-90">
-                          Aguardando Mídias
-                        </h2>
+                      {/* Unified Workspace Initializing Panel */}
+                      <div className="w-full max-w-2xl bg-black/75 border border-zinc-800/80 backdrop-blur-md rounded-sm p-6 sm:p-8 relative overflow-hidden shadow-2xl mb-8">
+                        {/* High-quality retro gradient bar top */}
+                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#9146FF] via-[#5865F2] to-[#10B981]" />
                         
-                        <div className="flex items-start justify-center gap-4 sm:gap-8 text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-widest max-w-2xl mx-auto">
-                          <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
-                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
-                              1
-                            </span>
-                            <span className="text-center leading-tight">
-                              <strong className="text-zinc-300 block mb-0.5">Conectar</strong>
-                              Discord (Opcional)
+                        {/* Title Section */}
+                        <div className="mb-6 text-center w-full">
+                          <div className="inline-flex items-center justify-center bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-sm mb-4">
+                            <span className="w-1.5 h-1.5 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
+                            <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
+                              NO SIGNAL DETECTED
                             </span>
                           </div>
-                          <div className="w-6 sm:w-12 h-[1px] bg-zinc-800 mt-3"></div>
-                          <div className="flex flex-col items-center gap-2.5 max-w-[140px]">
-                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
-                              2
-                            </span>
-                            <span className="text-center leading-tight">
-                              <strong className="text-zinc-300 block mb-0.5">Enviar Mídias</strong>
-                              Via Twitch ou Discord
-                            </span>
-                          </div>
-                          <div className="w-6 sm:w-12 h-[1px] bg-zinc-800 mt-3"></div>
-                          <div className="flex flex-col items-center gap-2.5 max-w-[120px]">
-                            <span className="w-6 h-6 bg-zinc-800/80 border border-zinc-700 rounded-sm flex items-center justify-center text-zinc-300 font-black">
-                              3
-                            </span>
-                            <span className="text-center leading-tight">
-                              <strong className="text-zinc-300 block mb-0.5">Acompanhar</strong>
-                              Fila à Esquerda
-                            </span>
+                          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter font-sans text-white mb-6 mix-blend-screen opacity-95">
+                            Aguardando Mídias
+                          </h2>
+                          
+                          <div className="flex items-start justify-center gap-2 sm:gap-6 text-[10px] font-mono uppercase tracking-widest max-w-xl mx-auto">
+                            {/* Step 1 */}
+                            <div className="flex flex-col items-center gap-3 flex-1 min-w-[100px]">
+                              <span className="w-7 h-7 bg-[#9146FF]/15 text-[#9146FF] border border-[#9146FF]/35 rounded-sm flex items-center justify-center font-black shadow-[0_0_10px_rgba(145,70,255,0.15)] select-none">
+                                1
+                              </span>
+                              <span className="text-center leading-tight">
+                                <strong className="text-zinc-100 block mb-1">CONECTAR</strong>
+                                <span className="text-zinc-300 font-medium">DISCORD (OPCIONAL)</span>
+                              </span>
+                            </div>
+                            
+                            <div className="w-4 sm:w-8 h-[1px] bg-zinc-800 self-start mt-3.5 shrink-0"></div>
+                            
+                            {/* Step 2 */}
+                            <div className="flex flex-col items-center gap-3 flex-1 min-w-[100px]">
+                              <span className="w-7 h-7 bg-[#5865F2]/15 text-[#5865F2] border border-[#5865F2]/35 rounded-sm flex items-center justify-center font-black shadow-[0_0_10px_rgba(88,101,242,0.15)] select-none">
+                                2
+                              </span>
+                              <span className="text-center leading-tight">
+                                <strong className="text-zinc-100 block mb-1">ENVIAR MÍDIAS</strong>
+                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px]">VIA TWITCH OU DISCORD</span>
+                              </span>
+                            </div>
+                            
+                            <div className="w-4 sm:w-8 h-[1px] bg-zinc-800 self-start mt-3.5 shrink-0"></div>
+                            
+                            {/* Step 3 */}
+                            <div className="flex flex-col items-center gap-3 flex-1 min-w-[100px]">
+                              <span className="w-7 h-7 bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/35 rounded-sm flex items-center justify-center font-black shadow-[0_0_10px_rgba(16,185,129,0.15)] select-none">
+                                3
+                              </span>
+                              <span className="text-center leading-tight">
+                                <strong className="text-zinc-100 block mb-1">ACOMPANHAR</strong>
+                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px]">FILA À ESQUERDA</span>
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2054,7 +2067,7 @@ export default function HostView({ session }: { session: SessionState }) {
                           </div>
 
                           <div className="flex-1 z-10 pr-2">
-                            <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase max-w-[90%]">
+                            <p className="text-[10px] font-mono text-zinc-300 leading-relaxed uppercase max-w-[90%] font-semibold">
                               Monitoramento de chat ativo.
                               <br />
                               <br />
@@ -2063,10 +2076,10 @@ export default function HostView({ session }: { session: SessionState }) {
                           </div>
 
                           <div className="mt-auto z-10 flex items-center gap-2 mb-8 pt-4">
-                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
+                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-150 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
                               V-SYNC
                             </span>
-                            <span className="text-[8px] font-mono text-zinc-600 uppercase tracking-widest border border-zinc-700/50 px-1.5 py-0.5 rounded-sm">
+                            <span className="text-[8px] font-mono text-zinc-350 uppercase tracking-widest border border-zinc-750/50 px-1.5 py-0.5 rounded-sm">
                               SP: ∞ HRS
                             </span>
                           </div>
@@ -2101,7 +2114,7 @@ export default function HostView({ session }: { session: SessionState }) {
                           </div>
 
                           <div className="flex-1 z-10 flex flex-col">
-                            <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase max-w-[95%] mb-4">
+                            <p className="text-[10px] font-mono text-zinc-300 leading-relaxed uppercase max-w-[95%] mb-4 font-semibold">
                               Recepção via servidor dedicado.
                               <br />
                               <br />
@@ -2121,10 +2134,10 @@ export default function HostView({ session }: { session: SessionState }) {
                           </div>
 
                           <div className="mt-auto z-10 flex items-center gap-2 mb-8">
-                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
+                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-200 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
                               V-SYNC
                             </span>
-                            <span className="text-[8px] font-mono text-zinc-600 uppercase tracking-widest border border-zinc-700/50 px-1.5 py-0.5 rounded-sm">
+                            <span className="text-[8px] font-mono text-zinc-350 uppercase tracking-widest border border-zinc-750/50 px-1.5 py-0.5 rounded-sm">
                               OPTIONAL
                             </span>
                           </div>
@@ -2147,14 +2160,14 @@ export default function HostView({ session }: { session: SessionState }) {
                             <div className="text-[8px] font-black font-mono text-emerald-500 uppercase tracking-[0.2em] md:mb-1 w-full text-left md:text-center">
                               AUX IN
                             </div>
-                            <h3 className="text-xs font-bold font-sans text-zinc-400 uppercase tracking-widest md:mt-4 md:writing-vertical-rl md:text-orientation-mixed">
+                            <h3 className="text-xs font-bold font-sans text-zinc-300 uppercase tracking-widest md:mt-4 md:writing-vertical-rl md:text-orientation-mixed">
                               PAINEL WEB
                             </h3>
                           </div>
 
                           <div className="flex-1 z-10 flex md:flex-col items-center justify-end md:pb-4 gap-3 md:gap-0 mt-2 md:mt-0">
-                            <Globe className="w-4 h-4 text-zinc-600 md:mb-4 shrink-0" />
-                            <span className="text-[8px] font-mono text-zinc-600 uppercase tracking-[0.2em] md:writing-vertical-rl md:text-orientation-mixed opacity-80 whitespace-nowrap">
+                            <Globe className="w-4 h-4 text-zinc-400 md:mb-4 shrink-0" />
+                            <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-[0.2em] md:writing-vertical-rl md:text-orientation-mixed opacity-90 whitespace-nowrap">
                               MANUAL ENTRY
                             </span>
                           </div>

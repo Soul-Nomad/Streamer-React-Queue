@@ -20,6 +20,7 @@ import LobbySidebar from "./LobbySidebar";
 import LobbyHero from "./LobbyHero";
 import LobbyModals from "./LobbyModals";
 import LobbyContent from "./LobbyContent";
+import Footer from "./Footer";
 
 const TWITCH_COLORS = [
   "#FF0000",
@@ -837,25 +838,7 @@ export default function Lobby() {
       </div>
 
       {/* DESIGN FOOTER WARNINGS BAR */}
-      <footer className="bg-[#0c1017] border-t border-white/5 py-5 px-8 text-center text-[10px] text-slate-550 font-mono select-none">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          <p>© 2026 S-Queue System Terminal. All Rights Reserved.</p>
-          <div className="flex gap-4">
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("openModal", { detail: "termos" }))}
-              className="hover:text-white transition-colors cursor-pointer"
-            >
-              Termos de Uso
-            </button>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("openModal", { detail: "privacidade" }))}
-              className="hover:text-white transition-colors cursor-pointer"
-            >
-              Privacidade
-            </button>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       {/* POPUP COMM_ALERTS */}
       <LobbyModals
