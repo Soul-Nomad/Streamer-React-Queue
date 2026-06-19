@@ -141,7 +141,7 @@ export default function LobbyHero({
               <div className="space-y-1 text-left">
                 <h3 className="text-[11px] uppercase font-black tracking-wider text-[#9146FF] font-mono">Pelo Chat</h3>
                 <p className="text-[10px] text-slate-300 leading-normal font-normal">
-                  Envie links direto no chat da Twitch.
+                  Captura automática de links no chat
                 </p>
               </div>
             </motion.div>
@@ -157,7 +157,7 @@ export default function LobbyHero({
               <div className="space-y-1 text-left">
                 <h3 className="text-[11px] uppercase font-black tracking-wider text-[#00FF66] font-mono">Pelo Site</h3>
                 <p className="text-[10px] text-slate-300 leading-normal font-normal">
-                  Acesse a sala e envie links.
+                  Bot integrado para o seu servidor
                 </p>
               </div>
             </motion.div>

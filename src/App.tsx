@@ -7,10 +7,12 @@ import { useState, useEffect } from 'react';
 import { socket } from './socket';
 import { SessionState } from './types';
 import Lobby from './components/Lobby';
+import Onboarding from './components/Onboarding';
 import HostView from './components/HostView';
 import ParticipantView from './components/ParticipantView';
 import TermosDeUso from './components/TermosDeUso';
 import PoliticaDePrivacidade from './components/PoliticaDePrivacidade';
+import { supabase } from './lib/supabase';
 import { AlertCircle, CheckCircle2, X, WifiOff, Wifi } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -25,6 +27,24 @@ export default function App() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [modalOpen, setModalOpen] = useState<'termos' | 'privacidade' | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => localStorage.getItem('onboarding_completed') === 'true');
+  const [supabaseUser, setSupabaseUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  
+  const handleStartOnboarding = () => {
+    supabase.auth.signInWithOAuth({
+      provider: "twitch",
+      options: {
+        scopes: "channel:read:redemptions channel:read:subscriptions chat:read chat:edit moderator:manage:banned_users moderator:read:chatters moderator:read:followers channel:read:vips channel:manage:redemptions user:read:follows",
+        redirectTo: window.location.origin,
+      },
+    });
+  };
+
+  const handleSecondaryOnboarding = () => {
+    setOnboardingDismissed(true);
+    localStorage.setItem('onboarding_completed', 'true');
+  };
   
   const showToast = (message: string, type: 'error' | 'info' | 'success' = 'info') => {
     setToast({ message, type });
@@ -79,6 +99,17 @@ export default function App() {
 
     socket.on('warn', (msg: string) => {
        showToast(msg, 'info');
+    });
+
+    // Handle Auth state for onboarding flow
+    supabase.auth.getSession().then(({ data: { session: authSession } }) => {
+      setSupabaseUser(authSession?.user ?? null);
+      setCheckingAuth(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      setSupabaseUser(authSession?.user ?? null);
+      setCheckingAuth(false);
     });
 
     socket.on('session_created', (roomId: string) => {
@@ -139,6 +170,7 @@ export default function App() {
        socket.off('error');
        socket.off('timeout');
        socket.off('warn');
+       subscription.unsubscribe();
     };
   }, []);
 
@@ -264,7 +296,13 @@ export default function App() {
 
       {/* Main Role router */}
       {(() => {
-        if (!session) return <Lobby />;
+        if (checkingAuth) return null;
+        if (!session) {
+          if (!onboardingDismissed && !supabaseUser) {
+            return <Onboarding onStart={handleStartOnboarding} onSecondary={handleSecondaryOnboarding} />;
+          }
+          return <Lobby />;
+        }
         if (isHost) return <HostView session={session} />;
         return <ParticipantView session={session} />;
       })()}
