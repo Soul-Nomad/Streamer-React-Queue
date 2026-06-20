@@ -344,60 +344,66 @@ export default function DiscordView({ session }: { session: SessionState }) {
 
   if (settingsLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-zinc-400 font-mono text-xs uppercase uppercase tracking-wider h-64">
-        <RefreshCw className="w-6 h-6 animate-spin text-orange-500 mb-2" />
-        Carregando Módulos Discord...
+      <div className="flex flex-col items-center justify-center p-12 text-zinc-550 font-mono text-xs uppercase tracking-wider h-64">
+        <RefreshCw className="w-5 h-5 animate-spin text-orange-500 mb-3" />
+        Sincronizando Módulos Discord...
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-8 animate-fade-in text-left">
-      <div className="space-y-1">
-        <h2 className="text-xl font-black font-mono uppercase tracking-widest text-[#5865F2]">
-          Integração Discord Bot
-        </h2>
-        <p className="text-xs text-zinc-400 uppercase font-mono tracking-wider">
-          Capture links de vídeos enviados no chat do Discord em tempo real
-        </p>
+    <div className="w-full h-full flex flex-col bg-transparent overflow-hidden text-zinc-400 animate-in fade-in" id="discord_view">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 border-b border-zinc-800 shrink-0 bg-black/80">
+        <h1 className="text-2xl font-black text-white uppercase tracking-widest font-mono">
+          DISCORD
+        </h1>
+        <div className="text-[9px] font-mono font-bold text-zinc-600 bg-[#5865F2]/5 px-3 py-1 rounded border border-[#5865F2]/20 uppercase tracking-widest self-start md:self-auto">
+          MÁQUINA DO CHAT ATIVA
+        </div>
       </div>
-
-      <div className="bg-zinc-900/60 border border-zinc-850/80 p-6 rounded-lg space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#5865F2] to-[#7289DA]" />
+      
+      <div className="flex-1 overflow-y-auto p-6 md:p-8 text-left">
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Main card */}
+      <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 rounded-sm p-6 space-y-6 overflow-hidden shadow-2xl transition-all duration-300 hover:border-[#5865F2]/60 group">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+        <div className="absolute top-0 left-0 right-0 h-[1.8px] bg-gradient-to-r from-[#5865F2] to-[#5865F2]/20" />
         
+        <div className="relative z-10 w-full">
         {!roomSettings?.discordGuildId ? (
-          <div className="space-y-6 text-center py-8">
+          <div className="space-y-6 text-center py-10">
             <div className="w-16 h-16 rounded-full bg-[#5865F2]/10 border border-[#5865F2]/20 flex items-center justify-center mx-auto text-[#5865F2]">
-              <Layers className="w-7 h-7" />
+              <Layers className="w-6 h-6" />
             </div>
             
-            <div className="space-y-2 max-w-lg mx-auto">
-              <h3 className="text-zinc-100 font-black uppercase text-sm font-mono tracking-wider">Passo 1: Adicionar Bot ao Servidor</h3>
-              <p className="text-[11px] text-zinc-400 leading-relaxed font-mono uppercase">
-                Conecte o bot oficial ao seu servidor em 1 clique. O bot escuta os canais de texto para capturar links de vídeos do YouTube e Twitch enviados pelo chat.
+            <div className="space-y-2 max-w-md mx-auto">
+              <h3 className="text-zinc-100 font-extrabold uppercase text-xs font-mono tracking-wider">PASSO 1: VINCULAR DISCORD BOT</h3>
+              <p className="text-[11px] text-zinc-500 leading-relaxed font-mono uppercase tracking-tight">
+                Conecte o bot oficial ao seu servidor em um clique. O bot passa a ouvir os canais de texto selecionados para extrair envios de YouTube/Twitch e consolidar no Host.
               </p>
             </div>
 
             <button
               type="button"
               onClick={handleConnectDiscord}
-              className="bg-[#5865F2] hover:bg-[#4752C4] hover:shadow-[0_0_20px_rgba(88,101,242,0.25)] text-white px-6 py-3 rounded-md font-bold uppercase tracking-wider text-[11px] flex items-center gap-2.5 transition-all cursor-pointer font-mono mx-auto h-12"
+              className="bg-[#5865F2] hover:bg-[#4752C4] hover:shadow-[0_0_20px_rgba(88,101,242,0.35)] text-white px-8 py-3.5 rounded-sm font-extrabold uppercase tracking-widest text-[11px] flex items-center gap-2.5 transition-all cursor-pointer font-mono mx-auto h-12 border border-[#7289da]/30"
             >
-              <Link className="w-4 h-4" /> Conectar Bot via OAuth2
+              <Link className="w-4 h-4" /> VINCULAR BOT VIA OAUTH2
             </button>
           </div>
         ) : (
           <div className="space-y-6">
             
             {/* Connected Confirmation Header box */}
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-full">
-                  <CheckCircle className="w-5 h-5" />
+            <div className="p-5 bg-emerald-500/5 border border-emerald-500/20 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 text-left">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-full">
+                  <CheckCircle className="w-5 h-5 animate-pulse" />
                 </div>
                 <div>
-                  <p className="font-mono text-zinc-500 text-[10px] uppercase font-bold tracking-widest">SERVIDOR CONECTADO</p>
-                  <p className="font-mono font-black text-xs text-zinc-100 uppercase mt-0.5">
+                  <p className="font-mono text-zinc-500 text-[9px] font-bold tracking-widest">SERVIDOR CONECTADO E TIRO ATIVO</p>
+                  <p className="font-mono font-black text-sm text-zinc-200 mt-0.5 truncate uppercase">
                     {discordGuildName || `ID: ${roomSettings?.discordGuildId}`}
                   </p>
                 </div>
@@ -405,15 +411,15 @@ export default function DiscordView({ session }: { session: SessionState }) {
               <button
                 type="button"
                 onClick={handleDisconnectDiscord}
-                className="px-3 py-1.5 border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-[10px] font-mono font-bold uppercase rounded cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-[9px] font-mono font-extrabold uppercase rounded-sm cursor-pointer flex items-center justify-center gap-1.5 self-start sm:self-auto uppercase tracking-wider"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Remover Conexão
+                <Trash2 className="w-3.5 h-3.5" /> REMOVER CONEXÃO
               </button>
             </div>
 
             {/* Target Channel Controls */}
-            <div className="space-y-4 pt-2">
-              <label className="flex items-start gap-4 text-zinc-300 group cursor-pointer">
+            <div className="space-y-5 pt-3">
+              <label className="flex items-start gap-4 text-zinc-300 group cursor-pointer text-left">
                 <input 
                   type="checkbox" 
                   checked={!!roomSettings?.discordEnabled} 
@@ -439,28 +445,28 @@ export default function DiscordView({ session }: { session: SessionState }) {
                       console.error('Falha ao alternar habilitação do Discord:', error);
                     }
                   }} 
-                  className="mt-0.5 rounded-sm bg-zinc-900 border-zinc-700 text-[#5865F2] focus:ring-[#5865F2] w-4 h-4 cursor-pointer" 
+                  className="mt-1 rounded bg-zinc-950 border-zinc-805 text-[#5865F2] focus:ring-[#5865F2]/20 w-4 h-4 cursor-pointer accent-[#5865F2]" 
                 />
                 <div className="flex flex-col">
-                  <span className="font-bold text-zinc-200 group-hover:text-[#5865F2] transition-colors uppercase text-xs font-mono">Ativar Captura do Discord</span>
-                  <span className="text-[10px] text-zinc-500 leading-relaxed font-mono uppercase tracking-tight">O robô processará links enviados no canal selecionado abaixo.</span>
+                  <span className="font-bold text-zinc-200 group-hover:text-[#5865F2] transition-colors uppercase text-xs font-mono tracking-tight">Ativar Scanner do Bot no Servidor</span>
+                  <span className="text-[10px] text-zinc-550 leading-relaxed font-mono uppercase tracking-tight mt-0.5">O robô passará a varrer mensagens recebidas no canal selecionado abaixo.</span>
                 </div>
               </label>
 
               {roomSettings?.discordEnabled && (
-                <div className="space-y-4 p-5 bg-zinc-950 border border-zinc-850 rounded">
+                <div className="space-y-4 p-5 bg-[#09090a]/50 border border-zinc-820 rounded-sm text-left animate-in fade-in duration-300">
                   <div className="space-y-2">
                     <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest">
-                      Selecione o Canal de Texto Alvo
+                      SELECIONE O CANAL DE CHAT DA ESCUTA
                     </label>
 
                     {isLoadingChannels ? (
-                      <div className="flex items-center gap-2 text-zinc-500 font-mono text-[10px] uppercase py-2 bg-zinc-900/30 p-4 border border-zinc-900 rounded">
-                        <RefreshCw className="w-4 h-4 animate-spin text-[#5865F2]" />
-                        Buscando canais de texto...
+                      <div className="flex items-center gap-2 text-zinc-500 font-mono text-[9px] uppercase py-3 bg-zinc-950 p-4 border border-zinc-900 rounded-sm">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#5865F2]" />
+                        Mapeando canais de texto...
                       </div>
                     ) : discordChannels.length > 0 ? (
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <select
                           value={roomSettings?.discordChannelId || ''}
                           onChange={async (e) => {
@@ -468,12 +474,12 @@ export default function DiscordView({ session }: { session: SessionState }) {
                             setRoomSettings((prev: any) => prev ? { ...prev, discordChannelId: val } : null);
                             await saveDiscordSettingsDirect(roomSettings.discordGuildId, val);
                           }}
-                          className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-[#5865F2] outline-none text-xs font-mono font-bold h-10 cursor-pointer"
+                          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-sm px-4 py-2.5 text-zinc-200 focus:border-[#5865F2] outline-none text-xs font-mono font-bold h-11 cursor-pointer appearance-none transition-all relative z-20"
                         >
-                          <option value="">-- Selecione o canal de recebimento --</option>
+                          <option value="">-- SELECIONE O CANAL ALVO --</option>
                           {discordChannels.map(ch => (
-                            <option key={ch.id} value={ch.id}>
-                              #{ch.name}
+                            <option key={ch.id} value={ch.id} className="bg-zinc-950 text-zinc-200">
+                              #{ch.name.toUpperCase()}
                             </option>
                           ))}
                         </select>
@@ -481,29 +487,29 @@ export default function DiscordView({ session }: { session: SessionState }) {
                           type="button"
                           onClick={() => fetchDiscordChannels(roomSettings.discordGuildId)}
                           title="Sincronizar Canais"
-                          className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 p-2 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer w-10 flex items-center justify-center"
+                          className="bg-zinc-950 border border-zinc-800 hover:bg-zinc-900 px-3.5 rounded-sm text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer w-11 flex items-center justify-center h-11 relative z-20"
                         >
-                          <RefreshCw className="w-4 h-4" />
+                          <RefreshCw className="w-4 h-4 hover:scale-105" />
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-3 p-4 bg-red-500/5 border border-red-500/20 rounded">
-                        <p className="text-[10px] text-amber-500 font-bold font-mono uppercase">⚠️ Nenhum canal encontrado</p>
-                        <p className="text-[10px] text-zinc-500 font-mono uppercase leading-normal">O robô não tem permissão para ler mensagens ou não há canais de texto acessíveis no servidor.</p>
+                      <div className="space-y-3.5 p-4.5 bg-red-500/5 border border-red-500/20 rounded-sm relative z-20">
+                        <p className="text-[10px] text-amber-500 font-extrabold font-mono uppercase">⚠️ NENHUM CANAL ACESSÍVEL MAQUEADO</p>
+                        <p className="text-[10px] text-zinc-550 font-mono uppercase leading-normal">O robô não tem privilégios de leitura (READ_MESSAGES) ou não há canais de chat válidos no servidor.</p>
                         <div className="flex gap-2">
                           <button
                             type="button"
                             onClick={() => fetchDiscordChannels(roomSettings.discordGuildId)}
-                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 text-[9px] uppercase font-mono rounded font-bold cursor-pointer"
+                            className="bg-zinc-900 border border-zinc-850 hover:bg-zinc-800 text-zinc-300 px-3.5 py-2 text-[9px] uppercase font-mono rounded font-black cursor-pointer transition-colors"
                           >
-                            Recarregar Canais
+                            RECARREGAR CANAIS
                           </button>
                           <button
                             type="button"
                             onClick={handleConnectDiscord}
-                            className="bg-[#5865F2]/20 hover:bg-[#5865F2]/30 text-[#818cf8] px-3 py-1.5 text-[9px] uppercase font-mono rounded font-bold cursor-pointer"
+                            className="bg-[#5865F2]/15 hover:bg-[#5865F2]/25 text-[#9fa8f5] px-3.5 py-2 text-[9px] uppercase font-mono rounded font-black cursor-pointer transition-colors"
                           >
-                            Reautorizar Bot
+                            REBOTAR INTEGRACAO
                           </button>
                         </div>
                       </div>
@@ -516,66 +522,78 @@ export default function DiscordView({ session }: { session: SessionState }) {
 
           </div>
         )}
+        </div>
+
+        {/* Discord color skewed bottom edge */}
+        <div className="absolute bottom-0 left-0 right-0 h-10 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none z-0">
+          <div className="flex-1 bg-[#1a1e4a]"></div>
+          <div className="flex-1 bg-[#282f75]"></div>
+          <div className="flex-1 bg-[#3741a3]"></div>
+          <div className="flex-1 bg-[#4752c4]"></div>
+          <div className="flex-1 bg-[#5865f2]"></div>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-40 z-10 pointer-events-none mb-[-4px]"></div>
       </div>
 
       {/* Discord Channel Selector Modal Popup */}
       {showChannelModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0c0a09] border border-zinc-800 rounded-lg p-6 max-w-md w-[90%] shadow-2xl relative space-y-6 text-left">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#0a0a0c] border border-zinc-800 rounded-sm p-6 max-w-md w-[90%] shadow-2xl relative space-y-6 text-left">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#5865F2]/60" />
             
             {/* Header */}
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#5865F2]/10 rounded border border-[#5865F2]/20 text-[#5865F2]">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#5865F2]/10 rounded border border-[#5865F2]/25 text-[#5865F2]">
                   <Layers className="w-5 h-5 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-zinc-100 font-black uppercase tracking-wider text-xs font-mono">
-                    Vincular Canal do Discord
+                  <h3 className="text-zinc-150 font-black uppercase tracking-wider text-xs font-mono">
+                    VINCULAR CANAL ALVO
                   </h3>
                   <p className="text-[9px] text-[#818cf8] font-mono uppercase tracking-tight mt-0.5">
-                    Defina o canal de escuta do bot
+                    DEFINA A RECEPTORIA OPERACIONAL DO ROBÔ
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowChannelModal(false)}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded-sm hover:bg-zinc-900 cursor-pointer"
+                className="text-zinc-500 hover:text-zinc-300 p-1 rounded hover:bg-zinc-900 cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono uppercase font-bold rounded flex items-center gap-2">
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono uppercase font-black rounded-sm flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 shrink-0" />
-                Sucesso: Robô Conectado com Sucesso!
+                SUCESSO: CONEXÃO COM O BOT DETECTADA!
               </div>
 
-              <p className="text-[10px] text-zinc-400 leading-normal font-mono uppercase">
+              <p className="text-[10px] text-zinc-500 leading-normal font-mono uppercase">
                 Escolha abaixo o canal onde os espectadores vão enviar os links de vídeo. O bot lerá esse canal em tempo real.
               </p>
 
               {isLoadingChannels ? (
-                <div className="flex items-center justify-center gap-2 text-zinc-500 font-mono text-[9px] uppercase py-8 bg-zinc-900/40 border border-zinc-900 rounded">
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#5865F2]" />
-                  Carregando canais...
+                <div className="flex items-center justify-center gap-2 text-zinc-500 font-mono text-[9px] uppercase py-8 bg-zinc-950 border border-zinc-900 rounded-sm">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#5865F2]" />
+                  MAPEANDO AUDIO CANAIS...
                 </div>
               ) : discordChannels.length > 0 ? (
                 <div className="space-y-2">
-                  <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest">
-                    CANAIS DE TEXTO DISPONÍVEIS
+                  <label className="block text-zinc-550 font-mono uppercase text-[9px] font-bold tracking-widest">
+                    CANAIS DISPONÍVEIS
                   </label>
                   <div className="flex gap-2">
                     <select
                       value={modalSelectedChannelId}
                       onChange={e => setModalSelectedChannelId(e.target.value)}
-                      className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-zinc-100 focus:border-[#5865F2] outline-none text-xs font-mono font-bold h-10 cursor-pointer"
+                      className="flex-1 bg-zinc-950 border border-zinc-800 rounded-sm px-3.5 py-2 text-zinc-250 focus:border-[#5865F2] outline-none text-xs font-mono font-bold h-11 cursor-pointer"
                     >
-                      <option value="">-- Escolha um Canal --</option>
+                      <option value="">-- ESCOLHA UM CANAL --</option>
                       {discordChannels.map(ch => (
                         <option key={ch.id} value={ch.id}>
-                          #{ch.name}
+                          #{ch.name.toUpperCase()}
                         </option>
                       ))}
                     </select>
@@ -583,7 +601,7 @@ export default function DiscordView({ session }: { session: SessionState }) {
                       type="button"
                       onClick={() => fetchDiscordChannels(roomSettings?.discordGuildId)}
                       title="Sincronizar Canais"
-                      className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 p-2 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer w-10 flex items-center justify-center"
+                      className="bg-zinc-950 border border-zinc-800 hover:bg-zinc-900 p-2 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer w-11 flex items-center justify-center"
                     >
                       <RefreshCw className="w-4 h-4" />
                     </button>
@@ -591,14 +609,14 @@ export default function DiscordView({ session }: { session: SessionState }) {
                 </div>
               ) : (
                 <div className="p-4 bg-red-500/5 border border-red-500/20 rounded text-center space-y-3">
-                  <p className="text-[10px] text-red-400 font-mono uppercase font-bold">⚠️ Nenhum canal acessível encontrado</p>
+                  <p className="text-[10px] text-red-400 font-mono uppercase font-bold">⚠️ NENHUM CANAL ACESSÍVEL MAQUEADO</p>
                   <p className="text-[9px] text-zinc-500 leading-normal font-mono uppercase">
                     O robô precisa de permissões para ver canais e ler mensagens do servidor selecionado.
                   </p>
                   <button
                     type="button"
                     onClick={handleConnectDiscord}
-                    className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-3 py-1.5 text-[9px] uppercase font-mono rounded font-bold cursor-pointer transition-colors"
+                    className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-3.5 py-1.5 text-[9px] uppercase font-mono rounded font-black cursor-pointer transition-colors"
                   >
                     Reautorizar Bot
                   </button>
@@ -607,13 +625,13 @@ export default function DiscordView({ session }: { session: SessionState }) {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-900/80">
               <button
                 type="button"
                 onClick={() => setShowChannelModal(false)}
-                className="px-4 py-2 border border-zinc-800 hover:border-zinc-700 text-zinc-400 text-[10px] font-mono font-black uppercase tracking-wider rounded transition-colors cursor-pointer"
+                className="px-4 py-2 border border-zinc-800 hover:border-zinc-750 text-zinc-500 hover:text-zinc-300 text-[10px] font-mono font-black uppercase tracking-wider rounded-sm transition-colors cursor-pointer"
               >
-                Cancelar
+                CANCELAR
               </button>
               <button
                 type="button"
@@ -632,15 +650,17 @@ export default function DiscordView({ session }: { session: SessionState }) {
                   setShowChannelModal(false);
                   alert("🎉 Integração Discord com o canal #" + (discordChannels.find(c => c.id === modalSelectedChannelId)?.name || 'selecionado') + " ativada com sucesso!");
                 }}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white text-[10px] font-mono font-black uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white text-[10px] font-mono font-black uppercase tracking-wider rounded-sm transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <CheckCircle className="w-3.5 h-3.5" /> Vincular Canal
+                <CheckCircle className="w-3.5 h-3.5" /> VINCULAR CANAL
               </button>
             </div>
 
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

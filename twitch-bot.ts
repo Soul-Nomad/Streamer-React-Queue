@@ -168,7 +168,7 @@ export function connectBotToChannel(channelName: string) {
      console.log(`[Twitch Bot Ref] Adding channel #${login} to queue/monitored set (Bot Ready: ${!!botClient})`);
      if (botClient) {
        botClient.join(login).catch((err) => {
-         console.error(`[Twitch Bot Ref] Error joining channel #${login}:`, err.message);
+         console.error(`[Twitch Bot Ref] Error joining channel #${login}:`, err?.message || err);
        });
      }
   }

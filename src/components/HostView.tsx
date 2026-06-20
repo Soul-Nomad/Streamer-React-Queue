@@ -45,6 +45,7 @@ import {
   Twitch,
   Plug,
   Globe,
+  Trophy,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -62,6 +63,7 @@ import DiscordView from "./DiscordView";
 import HostQueuePanel from "./HostQueuePanel";
 import HostUserProfile from "./HostUserProfile";
 import HostAuditLogs from "./HostAuditLogs";
+import ViewerRanking from "./ViewerRanking";
 
 const Player = ReactPlayer as any;
 
@@ -740,7 +742,7 @@ export default function HostView({ session }: { session: SessionState }) {
 
   // App Navigation and Main tab
   const [activeTab, setActiveTab] = useState<
-    "player" | "submit" | "participants" | "moderation" | "settings" | "discord"
+    "player" | "submit" | "ranking" | "moderation" | "settings" | "discord"
   >("player");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
@@ -749,7 +751,7 @@ export default function HostView({ session }: { session: SessionState }) {
     const url = new URL(window.location.href);
     const tabFromUrl = url.searchParams.get('tab');
     if (tabFromUrl) {
-      const validTabs = ["player", "submit", "participants", "moderation", "settings", "discord"];
+      const validTabs = ["player", "submit", "ranking", "moderation", "settings", "discord"];
       if (validTabs.includes(tabFromUrl)) {
         setActiveTab(tabFromUrl as any);
       }
@@ -827,7 +829,7 @@ export default function HostView({ session }: { session: SessionState }) {
   };
 
   useEffect(() => {
-    if (activeTab === "participants") {
+    if (activeTab === "ranking") {
       fetchTwitchChatters();
     }
   }, [activeTab, session?.id]);
@@ -1342,16 +1344,16 @@ export default function HostView({ session }: { session: SessionState }) {
           </button>
 
           <button
-            onClick={() => setActiveTab("participants")}
+            onClick={() => setActiveTab("ranking")}
             className={clsx(
               "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
-              activeTab === "participants"
+              activeTab === "ranking"
                 ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]"
                 : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent",
             )}
           >
-            <Users className="w-3.5 h-3.5" />
-            ESPECTADORES ({session.users.length})
+            <Trophy className="w-3.5 h-3.5" />
+            RANKING
           </button>
 
           <button
@@ -1441,37 +1443,220 @@ export default function HostView({ session }: { session: SessionState }) {
             <DiscordView session={session} />
           </div>
 
-          <div style={{ display: activeTab === "submit" ? "flex" : "none" }} className="flex-1 items-center justify-center p-6 bg-transparent w-full">
-            <div className="w-full max-w-sm bg-black/60 border border-white/10 p-6 space-y-4 rounded shadow-2xl backdrop-blur-md">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-orange-400">
-                    Injeção Manual de Mídias
-                  </h3>
-                  <p className="text-[10.5px] text-zinc-450">
-                    Envie um link de vídeo diretamente sobrepondo cooldowns ou
-                    regras de validações normais de viewers.
-                  </p>
+          <div style={{ display: activeTab === "submit" ? "block" : "none" }} className="flex-1 w-full p-6 md:p-8 overflow-y-auto bg-black/10 backdrop-blur-sm">
+            {/* Centered card container for the Manual Submission modules */}
+            <div className="relative bg-[#0d0d0e]/60 border border-zinc-800/85 rounded-sm p-6 md:p-8 max-w-4xl mx-auto space-y-8 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* VHS-style orange gradient top-stripe */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-orange-500/50 to-orange-500/10" />
+              
+              {/* Centered Header inside the Card */}
+              <div className="space-y-2 pb-6 border-b border-zinc-800/80 text-center relative">
+                <div className="flex items-center justify-center gap-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                  <h2 className="text-lg md:text-xl font-black font-mono uppercase tracking-widest text-zinc-100 flex items-center gap-2">
+                    <CassetteTape className="w-5 h-5 text-orange-500" />
+                    MÓDULO CONSOLE DE INJEÇÃO MANUAL
+                  </h2>
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
                 </div>
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={directUrl}
-                    onChange={(e) => setDirectUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full bg-black/45 border border-white/10 rounded px-3 py-2.5 text-xs text-white placeholder-zinc-550 focus:outline-none focus:border-[#9146FF] font-mono"
-                  />
-                  <button
-                    onClick={handleDirectSubmit}
-                    disabled={!directUrl.trim().startsWith("http")}
-                    className="w-full bg-[#9146FF] hover:bg-[#9146FF]/80 disabled:bg-white/5 disabled:text-zinc-650 text-white font-black py-2.5 rounded text-xs transition-colors cursor-pointer font-mono shadow-[0_0_15px_rgba(145,70,255,0.15)]"
-                  >
-                    INJETAR AGORA
-                  </button>
+                <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider font-mono max-w-xl mx-auto leading-relaxed">
+                  PAINEL ANALÓGICO PARA TRANSFERÊNCIA IMEDIATA DE MÍDIAS EXTERNAS PARA O STREAMER
+                </p>
+              </div>
+
+              {/* Grid content container inside the Card */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+                
+                {/* Card 1: Console de Injeção */}
+                <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-orange-500/60 group rounded-sm p-5 min-h-[360px]">
+                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                  
+                  <div className="relative z-10 flex flex-col justify-between h-full space-y-6 flex-1">
+                    <div className="space-y-4">
+                      {/* Card Header matching Twitch/Discord layout */}
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="text-[9px] font-black font-mono text-orange-500 uppercase tracking-[0.2em] mb-1 not-italic">
+                            CONSOLE AUXILIAR
+                          </div>
+                          <h3 className="text-lg font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                            INJEÇÃO DE FILA
+                          </h3>
+                        </div>
+                        <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                          <CassetteTape className="w-4 h-4 text-orange-500" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-left">
+                        <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase font-semibold">
+                          Insira qualquer URL de vídeo suportada (YouTube, Twitch, Instagram, Twitter, TikTok, etc.). 
+                          <br />
+                          <br />
+                          Esse console transpassará de imediato quaisquer regras de moderação assistida ou cooldowns ativos de usuários da live.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1 pt-2">
+                        <input
+                          type="text"
+                          value={directUrl}
+                          onChange={(e) => setDirectUrl(e.target.value)}
+                          placeholder="Insira a URL (ex: https://youtube.com/watch?...)"
+                          className="w-full bg-[#141416]/90 border border-zinc-800 rounded-sm px-3.5 py-3 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-orange-500 font-mono tracking-tight relative z-20"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-zinc-900/80 flex items-center justify-between gap-4 relative z-20">
+                      <div className="text-[9px] font-mono text-zinc-550 uppercase font-bold text-left leading-tight hidden sm:block">
+                        Status de Ingressão: <br/> <span className="text-orange-500/80 text-[8px] font-black tracking-widest">LIVRE // V-SYNC</span>
+                      </div>
+                      
+                      <button
+                        onClick={handleDirectSubmit}
+                        disabled={!directUrl.trim().startsWith("http")}
+                        className="flex-1 sm:flex-none uppercase text-[10px] font-mono font-black tracking-widest text-white disabled:text-zinc-600 bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-950 border border-transparent disabled:border-zinc-900 shadow-[0_0_20px_rgba(234,88,12,0.15)] hover:shadow-[0_0_25px_rgba(234,88,12,0.25)] transition-all px-6 py-2.5 rounded-sm cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        Injetar Vídeo
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Skewed background stripes at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none">
+                    <div className="flex-1 bg-[#4a1d05]"></div>
+                    <div className="flex-1 bg-[#7c2d12]"></div>
+                    <div className="flex-1 bg-[#9a3412]"></div>
+                    <div className="flex-1 bg-[#ea580c]"></div>
+                    <div className="flex-1 bg-[#f97316]"></div>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                </div>
+
+                {/* Card 2: Telemetria & Informações de Protocolo */}
+                <div className="space-y-6 flex flex-col justify-between">
+                  
+                  {/* Panel info */}
+                  <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-yellow-600/60 rounded-sm p-4 text-left">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                    
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="text-[9px] font-black font-mono text-yellow-500 uppercase tracking-[0.2em] mb-1 not-italic">
+                            DIRETRIZ LIVE
+                          </div>
+                          <h3 className="text-lg font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                            REGRAS DE SOBREPOSIÇÃO
+                          </h3>
+                        </div>
+                        <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                          <AlertCircle className="w-4 h-4 text-yellow-500" />
+                        </div>
+                      </div>
+
+                      <ul className="text-[9px] space-y-2 text-zinc-400 font-semibold uppercase font-mono">
+                        <li className="flex items-start gap-2">
+                          <span className="text-yellow-500 font-black shrink-0">✔</span>
+                          <span>Sobrepõe as Whitelists de origem ativas na configuração.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-yellow-500 font-black shrink-0">✔</span>
+                          <span>Ignora cooldowns globais ou de conta aplicados no chat.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-yellow-500 font-black shrink-0">✔</span>
+                          <span>Não necessita permissão de moderadores terceiros.</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-600 to-amber-500 opacity-80 z-10"></div>
+                  </div>
+
+                  {/* Active telemetries metrics sub-cards */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-cyan-500/60 rounded-sm p-4 text-left font-mono h-[105px]">
+                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                      
+                      <div className="relative z-10">
+                        <span className="text-[8px] text-cyan-400 block font-black uppercase tracking-widest">SESSÕES ATIVAS</span>
+                        <span className="text-xl font-black text-white block mt-1 uppercase tracking-tight">
+                          {session.users.length} ATIVOS
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 h-4 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none">
+                        <div className="flex-1 bg-cyan-950/40"></div>
+                        <div className="flex-1 bg-cyan-800/60"></div>
+                        <div className="flex-1 bg-cyan-600/80"></div>
+                        <div className="flex-1 bg-cyan-400"></div>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 h-4 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                    </div>
+
+                    <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-emerald-500/60 rounded-sm p-4 text-left font-mono h-[105px]">
+                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                      
+                      <div className="relative z-10">
+                        <span className="text-[8px] text-emerald-400 block font-black uppercase tracking-widest">TOTAL DE MÍDIAS FILA</span>
+                        <span className="text-xl font-black text-emerald-400 block mt-1 uppercase tracking-tight">
+                          {session.queue.length} FITAS
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 h-4 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none">
+                        <div className="flex-1 bg-emerald-950/40"></div>
+                        <div className="flex-1 bg-emerald-800/60"></div>
+                        <div className="flex-1 bg-emerald-600/80"></div>
+                        <div className="flex-1 bg-emerald-400"></div>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 h-4 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                    </div>
+                  </div>
+
+                  {/* Quick instruction notice Card */}
+                  <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#9146ff]/60 rounded-sm p-4 text-left font-mono">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                    
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="text-[9px] font-black font-mono text-[#9146ff] uppercase tracking-[0.2em] mb-1 not-italic">
+                            PROCESSO EXTERNO
+                          </div>
+                          <h3 className="text-xs font-bold font-sans text-zinc-300 uppercase tracking-wider">
+                            MÉTODO ENVIOS DE CHAT
+                          </h3>
+                        </div>
+                        <div className="w-6 h-6 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                          <Globe className="w-3 h-3 text-[#9146ff]" />
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-zinc-400 font-semibold leading-relaxed uppercase">
+                        Os espectadores da live enviam mídias colando links diretamente no formulário do Lobby ou através do bot de comandos vinculados à sua conta da Twitch ou Discord.
+                      </p>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-700 to-indigo-500 opacity-80 z-10"></div>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-          <div style={{ display: activeTab === "participants" ? "flex" : "none" }} className="flex-1 flex-col p-6 overflow-y-auto bg-black/10 backdrop-blur-sm space-y-6">
+          <div style={{ display: activeTab === "ranking" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <ViewerRanking 
+              session={session} 
+              onSelectUser={(usr) => {
+                setSelectedUser(usr);
+                setActiveTab("player");
+              }} 
+            />
+          </div>
+
+          <div style={{ display: "none" }} className="flex-1 flex-col p-6 overflow-y-auto bg-black/10 backdrop-blur-sm space-y-6">
             {/* Header block with actions */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800 pb-4 gap-3">
                 <div className="space-y-1 text-left">
@@ -1987,21 +2172,28 @@ export default function HostView({ session }: { session: SessionState }) {
                       )}
                     </div>
                   ) : !optimisticLoading ? (
-                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 lg:p-12 relative min-h-[500px]">
-                      {/* Unified Workspace Initializing Panel */}
-                      <div className="w-full max-w-2xl bg-black/75 border border-zinc-800/80 backdrop-blur-md rounded-sm p-6 sm:p-8 relative overflow-hidden shadow-2xl mb-8">
-                        {/* High-quality retro gradient bar top */}
-                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#9146FF] via-[#5865F2] to-[#10B981]" />
+                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 lg:p-8 relative min-h-[500px]">
+                      {/* Unified Workspace Initializing Panel as `#waiting-media-card` */}
+                      <div 
+                        id="waiting-media-card"
+                        className="w-full max-w-3xl bg-black/35 border border-white/10 hover:border-white/15 hover:bg-black/50 transition-all duration-350 backdrop-blur-md rounded-sm p-6 sm:p-8 relative overflow-hidden shadow-2xl flex flex-col items-center"
+                      >
+                        {/* High-quality retro animated liquid gradient bar top */}
+                        <div className="absolute top-0 left-0 right-0 h-[4px] overflow-hidden">
+                          {/* Stable base gradient with original palette */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#f97316] via-[#8E53F9] via-[#8b5cf6] via-[#3b82f6] to-[#10B981]" />
+                          {/* Fluid sweeping shimmer overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/35 to-transparent animate-fluid-shimmer" style={{ width: '100%' }} />
+                          {/* Fluid glowing pulse overlay in the middle area */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-fluid-glow-pulse origin-center" />
+                        </div>
                         
                         {/* Title Section */}
                         <div className="mb-6 text-center w-full">
-                          <div className="inline-flex items-center justify-center bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-sm mb-4">
-                            <span className="w-1.5 h-1.5 bg-red-500 animate-pulse rounded-full shadow-[0_0_8px_red] mr-2"></span>
-                            <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-[0.2em]">
-                              NO SIGNAL DETECTED
-                            </span>
-                          </div>
-                          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter font-sans text-white mb-6 mix-blend-screen opacity-95">
+                          <h2 
+                            className="text-2xl sm:text-3xl font-black uppercase tracking-tighter font-sans text-white mix-blend-screen opacity-95"
+                            style={{ marginTop: '10px', marginBottom: '40px' }}
+                          >
                             Aguardando Mídias
                           </h2>
                           
@@ -2012,8 +2204,8 @@ export default function HostView({ session }: { session: SessionState }) {
                                 1
                               </span>
                               <span className="text-center leading-tight">
-                                <strong className="text-zinc-100 block mb-1">CONECTAR</strong>
-                                <span className="text-zinc-300 font-medium">DISCORD (OPCIONAL)</span>
+                                <strong className="text-zinc-100 block mb-1 text-[15px]">CONECTAR</strong>
+                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px] italic">DISCORD (OPCIONAL)</span>
                               </span>
                             </div>
                             
@@ -2025,8 +2217,8 @@ export default function HostView({ session }: { session: SessionState }) {
                                 2
                               </span>
                               <span className="text-center leading-tight">
-                                <strong className="text-zinc-100 block mb-1">ENVIAR MÍDIAS</strong>
-                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px]">VIA TWITCH OU DISCORD</span>
+                                <strong className="text-zinc-100 block mb-1 text-[15px]">ENVIAR MÍDIAS</strong>
+                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px] italic">VIA TWITCH OU DISCORD</span>
                               </span>
                             </div>
                             
@@ -2038,141 +2230,126 @@ export default function HostView({ session }: { session: SessionState }) {
                                 3
                               </span>
                               <span className="text-center leading-tight">
-                                <strong className="text-zinc-100 block mb-1">ACOMPANHAR</strong>
-                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px]">FILA À ESQUERDA</span>
+                                <strong className="text-zinc-100 block mb-1 text-[15px]">ACOMPANHAR</strong>
+                                <span className="text-zinc-300 font-medium text-[9px] sm:text-[10px] italic">FILA À ESQUERDA</span>
                               </span>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Cards Container */}
-                      <div className="flex flex-col md:flex-row items-stretch justify-center w-full gap-4 max-w-3xl">
-                        {/* CH 1: TWITCH (High Priority) */}
-                        <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#9146ff]/60 group rounded-sm p-4">
-                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                          
-                          <div className="flex justify-between items-start mb-6 z-10">
-                            <div>
-                              <div className="text-[9px] font-black font-mono text-[#9146ff] uppercase tracking-[0.2em] mb-1">
-                                HQ RATED
+                        {/* Divider Line */}
+                        <div className="w-full h-[1px] bg-white/5 my-6"></div>
+
+                        {/* Cards Container - Now beautifully enclosed inside `#waiting-media-card` */}
+                        <div className="flex flex-col md:flex-row items-stretch justify-center w-full gap-4">
+                          {/* CH 1: TWITCH (High Priority) */}
+                          <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#9146ff]/60 group rounded-sm p-4">
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                            
+                            <div className="flex justify-between items-start mb-6 z-10">
+                              <div>
+                                <div className="text-[9px] font-black font-mono text-[#9146ff] uppercase tracking-[0.2em] mb-1 not-italic">
+                                  PRINCIPAL
+                                </div>
+                                <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                                  TWITCH
+                                </h3>
                               </div>
-                              <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
-                                CH 1: TWITCH
+                              <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                                <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 z-10 pr-2">
+                              <p className="text-[10px] font-mono text-zinc-300 leading-relaxed uppercase max-w-[90%] font-semibold">
+                                Monitoramento de chat active.
+                                <br />
+                                <br />
+                                Espectadores enviam links de vídeos (TikTok, YT, IG) diretamente pelo bate-papo da live.
+                              </p>
+                            </div>
+
+                            <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90">
+                              <div className="flex-1 bg-[#4b14a3]"></div>
+                              <div className="flex-1 bg-[#641bd9]"></div>
+                              <div className="flex-1 bg-[#7b2bf0]"></div>
+                              <div className="flex-1 bg-[#9146ff]"></div>
+                              <div className="flex-1 bg-[#a366ff]"></div>
+                            </div>
+                            
+                            <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                          </div>
+
+                          {/* CH 2: DISCORD (High Priority) */}
+                          <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#5865F2]/60 group rounded-sm p-4 pb-10">
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                            
+                            <div className="flex justify-between items-start mb-6 z-10">
+                              <div>
+                                <div className="text-[9px] font-black font-mono text-[#5865F2] uppercase tracking-[0.2em] mb-1 not-italic">
+                                  OPCIONAL
+                                </div>
+                                <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
+                                  DISCORD
+                                </h3>
+                              </div>
+                              <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
+                                <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 z-10 flex flex-col">
+                              <p className="text-[10px] font-mono text-zinc-300 leading-relaxed uppercase max-w-[95%] mb-4 font-semibold">
+                                Recepção via servidor dedicado.
+                                <br />
+                                <br />
+                                Comunidade envia mídias em um canal pré-configurado. Sincronização centralizada.
+                              </p>
+
+                              <button
+                                onClick={() => setActiveTab("discord")}
+                                className="group/btn relative mt-auto mb-2 w-max px-4 h-7 bg-transparent border border-[#5865F2]/40 hover:border-[#5865F2] transition-colors overflow-hidden flex items-center justify-center cursor-pointer"
+                              >
+                                <div className="absolute inset-0 bg-[#5865F2]/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
+                                <span className="relative z-10 text-[8px] font-black font-mono text-[#5865F2] uppercase tracking-widest group-hover/btn:text-white transition-colors flex items-center gap-1.5">
+                                  <Plug className="w-3 h-3" />
+                                  CONECTAR BOT
+                                </span>
+                              </button>
+                            </div>
+
+                            <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90">
+                              <div className="flex-1 bg-[#1e2353]"></div>
+                              <div className="flex-1 bg-[#2d347d]"></div>
+                              <div className="flex-1 bg-[#3b45a6]"></div>
+                              <div className="flex-1 bg-[#4a56d0]"></div>
+                              <div className="flex-1 bg-[#5865F2]"></div>
+                            </div>
+
+                            <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
+                          </div>
+
+                          {/* AUX / SITE (Low Priority) */}
+                          <div className="w-full md:w-[130px] shrink-0 bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:border-emerald-500/50 group rounded-sm p-4">
+                            {/* Header */}
+                            <div className="flex md:flex-col items-center justify-between md:justify-start mb-4 z-10 md:text-center w-full">
+                              <div className="text-[8px] font-black font-mono text-emerald-500 uppercase tracking-[0.2em] md:mb-1 w-full text-left md:text-center not-italic">
+                                AUXILIAR
+                              </div>
+                              <h3 className="text-xs font-bold font-sans text-zinc-300 uppercase tracking-widest md:mt-4 md:writing-vertical-rl md:text-orientation-mixed">
+                                PAINEL WEB
                               </h3>
                             </div>
-                            <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
-                              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-                            </div>
-                          </div>
 
-                          <div className="flex-1 z-10 pr-2">
-                            <p className="text-[10px] font-mono text-zinc-300 leading-relaxed uppercase max-w-[90%] font-semibold">
-                              Monitoramento de chat ativo.
-                              <br />
-                              <br />
-                              Espectadores enviam links de vídeos (TikTok, YT, IG) diretamente pelo bate-papo da live.
-                            </p>
-                          </div>
-
-                          <div className="mt-auto z-10 flex items-center gap-2 mb-8 pt-4">
-                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-150 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
-                              V-SYNC
-                            </span>
-                            <span className="text-[8px] font-mono text-zinc-350 uppercase tracking-widest border border-zinc-750/50 px-1.5 py-0.5 rounded-sm">
-                              SP: ∞ HRS
-                            </span>
-                          </div>
-
-                          <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90">
-                            <div className="flex-1 bg-[#4b14a3]"></div>
-                            <div className="flex-1 bg-[#641bd9]"></div>
-                            <div className="flex-1 bg-[#7b2bf0]"></div>
-                            <div className="flex-1 bg-[#9146ff]"></div>
-                            <div className="flex-1 bg-[#a366ff]"></div>
-                          </div>
-                          
-                          <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
-                        </div>
-
-                        {/* CH 2: DISCORD (High Priority) */}
-                        <div className="flex-1 min-w-[220px] bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#5865F2]/60 group rounded-sm p-4">
-                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                          
-                          <div className="flex justify-between items-start mb-6 z-10">
-                            <div>
-                              <div className="text-[9px] font-black font-mono text-[#5865F2] uppercase tracking-[0.2em] mb-1">
-                                HQ RATED
-                              </div>
-                              <h3 className="text-xl font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
-                                CH 2: DISCORD
-                              </h3>
-                            </div>
-                            <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
-                              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-                            </div>
-                          </div>
-
-                          <div className="flex-1 z-10 flex flex-col">
-                            <p className="text-[10px] font-mono text-zinc-300 leading-relaxed uppercase max-w-[95%] mb-4 font-semibold">
-                              Recepção via servidor dedicado.
-                              <br />
-                              <br />
-                              Comunidade envia mídias em um canal pré-configurado. Sincronização centralizada.
-                            </p>
-
-                            <button
-                              onClick={() => setActiveTab("discord")}
-                              className="group/btn relative mt-auto mb-2 w-max px-4 h-7 bg-transparent border border-[#5865F2]/40 hover:border-[#5865F2] transition-colors overflow-hidden flex items-center justify-center cursor-pointer"
-                            >
-                              <div className="absolute inset-0 bg-[#5865F2]/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
-                              <span className="relative z-10 text-[8px] font-black font-mono text-[#5865F2] uppercase tracking-widest group-hover/btn:text-white transition-colors flex items-center gap-1.5">
-                                <Plug className="w-3 h-3" />
-                                CONECTAR BOT
+                            <div className="flex-1 z-10 flex md:flex-col items-center justify-end md:pb-4 gap-3 md:gap-0 mt-2 md:mt-0">
+                              <Globe className="w-4 h-4 text-zinc-400 md:mb-4 shrink-0" />
+                              <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-[0.2em] md:writing-vertical-rl md:text-orientation-mixed opacity-90 whitespace-nowrap">
+                                MANUAL ENTRY
                               </span>
-                            </button>
-                          </div>
-
-                          <div className="mt-auto z-10 flex items-center gap-2 mb-8">
-                            <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-200 text-[8px] font-black font-mono uppercase tracking-widest rounded-sm">
-                              V-SYNC
-                            </span>
-                            <span className="text-[8px] font-mono text-zinc-350 uppercase tracking-widest border border-zinc-750/50 px-1.5 py-0.5 rounded-sm">
-                              OPTIONAL
-                            </span>
-                          </div>
-
-                          <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90">
-                            <div className="flex-1 bg-[#1e2353]"></div>
-                            <div className="flex-1 bg-[#2d347d]"></div>
-                            <div className="flex-1 bg-[#3b45a6]"></div>
-                            <div className="flex-1 bg-[#4a56d0]"></div>
-                            <div className="flex-1 bg-[#5865F2]"></div>
-                          </div>
-
-                          <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
-                        </div>
-
-                        {/* AUX / SITE (Low Priority) */}
-                        <div className="w-full md:w-[130px] shrink-0 bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:border-emerald-500/50 group rounded-sm p-4">
-                          {/* Header */}
-                          <div className="flex md:flex-col items-center justify-between md:justify-start mb-4 z-10 md:text-center w-full">
-                            <div className="text-[8px] font-black font-mono text-emerald-500 uppercase tracking-[0.2em] md:mb-1 w-full text-left md:text-center">
-                              AUX IN
                             </div>
-                            <h3 className="text-xs font-bold font-sans text-zinc-300 uppercase tracking-widest md:mt-4 md:writing-vertical-rl md:text-orientation-mixed">
-                              PAINEL WEB
-                            </h3>
-                          </div>
 
-                          <div className="flex-1 z-10 flex md:flex-col items-center justify-end md:pb-4 gap-3 md:gap-0 mt-2 md:mt-0">
-                            <Globe className="w-4 h-4 text-zinc-400 md:mb-4 shrink-0" />
-                            <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-[0.2em] md:writing-vertical-rl md:text-orientation-mixed opacity-90 whitespace-nowrap">
-                              MANUAL ENTRY
-                            </span>
+                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-600 to-emerald-400 opacity-80 z-10"></div>
                           </div>
-
-                          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-600 to-emerald-400 opacity-80 z-10"></div>
                         </div>
                       </div>
                     </div>

@@ -132,6 +132,34 @@
   animation: gradient-x 6s linear infinite;
 }
 
+@keyframes fluid-shimmer {
+  0% {
+    transform: translateX(-150%) skewX(-30deg);
+  }
+  50%, 100% {
+    transform: translateX(150%) skewX(-30deg);
+  }
+}
+
+.animate-fluid-shimmer {
+  animation: fluid-shimmer 4s ease-in-out infinite;
+}
+
+@keyframes fluid-glow-pulse {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scaleX(0.85);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scaleX(1.15);
+  }
+}
+
+.animate-fluid-glow-pulse {
+  animation: fluid-glow-pulse 5s ease-in-out infinite;
+}
+
 /* Ambient phosphor pulse */
 .animate-pulse-phosphor {
   animation: pulse-phosphor 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;

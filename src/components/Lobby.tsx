@@ -121,31 +121,30 @@ export default function Lobby() {
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const user = session?.user ?? null;
-      setSupabaseUser(user);
-      if (user?.id) {
-        localStorage.setItem("active_supabase_user_id", user.id);
-      } else {
-        localStorage.removeItem("active_supabase_user_id");
-      }
-      setLoadingUser(false);
-    });
+    const checkAuthStatus = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const user = session?.user ?? null;
+        setSupabaseUser(user);
+        if (user?.id) {
+          localStorage.setItem("active_supabase_user_id", user.id);
+        } else {
+          localStorage.removeItem("active_supabase_user_id");
+        }
+        setLoadingUser(false);
+      });
+    };
+
+    checkAuthStatus();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      setSupabaseUser(user);
-      if (user?.id) {
-        localStorage.setItem("active_supabase_user_id", user.id);
-      } else {
-        localStorage.removeItem("active_supabase_user_id");
-      }
-      setLoadingUser(false);
+      checkAuthStatus();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchActiveRooms = async () => {
@@ -704,12 +703,14 @@ export default function Lobby() {
           )}
 
           {!supabaseUser ? (
-            <button
-              onClick={handleLoginTwitch}
-              className="h-9 px-4 bg-[#9146FF] hover:bg-[#772ce8] text-[10px] font-black text-white rounded-lg flex items-center gap-2 uppercase transition-all cursor-pointer shadow-lg shadow-[#9146FF]/30 font-mono border border-white/10"
-            >
-              <Twitch className="w-3.5 h-3.5 fill-current" /> CONECTAR TWITCH
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLoginTwitch}
+                className="h-9 px-4 bg-[#9146FF] hover:bg-[#772ce8] text-[10px] font-black text-white rounded-lg flex items-center gap-2 uppercase transition-all cursor-pointer shadow-lg shadow-[#9146FF]/30 font-mono border border-white/10"
+              >
+                <Twitch className="w-3.5 h-3.5 fill-current" /> CONECTAR TWITCH
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2.5 bg-black/30 border border-white/10 p-1 px-2 rounded-lg backdrop-blur-sm">
               {twitchAvatar ? (

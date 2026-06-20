@@ -138,7 +138,7 @@ export function connectBotToChannel(channelName: string) {
      console.log(`[Twitch Bot] Adding channel #${login} to queue/monitored set (Bot Ready: ${!!botClient})`);
      if (botClient) {
        botClient.join(login).catch((err) => {
-         console.error(`[Twitch Bot] Error joining channel #${login}:`, err.message);
+         console.error(`[Twitch Bot] Error joining channel #${login}:`, err?.message || err);
        });
      }
   }
@@ -508,7 +508,7 @@ setTimeout(() => {
     for (const chan of activeChannels) {
       console.log(`[Twitch Bot] Joining accumulated pre-connection channel #${chan}`);
       botClient?.join(chan).catch(err => {
-        console.error(`[Twitch Bot] Failed to join channel #${chan}:`, err.message);
+        console.error(`[Twitch Bot] Failed to join channel #${chan}:`, err?.message || err);
       });
     }
     
@@ -1518,7 +1518,11 @@ app.get('/api/sessions/:id/twitch_chatters', async (req, res) => {
     const chatters = chattersRes.data?.data || [];
     res.json({ success: true, chatters });
   } catch (err: any) {
-    console.error('[Fetch Twitch Chatters Error]', err.response?.data || err.message);
+    if (err?.response?.status === 401) {
+       console.warn('[Fetch Twitch Chatters] Unauthorized (401) - Token might be expired or invalid.');
+    } else {
+       console.error('[Fetch Twitch Chatters Error]', err?.response?.data || err?.message || err);
+    }
     res.status(200).json({ success: false, chatters: [], error: err.response?.data?.message || err.message || 'Error fetching chatters' });
   }
 });

@@ -101,15 +101,17 @@ export default function App() {
        showToast(msg, 'info');
     });
 
-    // Handle Auth state for onboarding flow
-    supabase.auth.getSession().then(({ data: { session: authSession } }) => {
-      setSupabaseUser(authSession?.user ?? null);
-      setCheckingAuth(false);
-    });
+    const checkAuthStatus = () => {
+      supabase.auth.getSession().then(({ data: { session: authSession } }) => {
+        setSupabaseUser(authSession?.user ?? null);
+        setCheckingAuth(false);
+      });
+    };
+
+    checkAuthStatus();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, authSession) => {
-      setSupabaseUser(authSession?.user ?? null);
-      setCheckingAuth(false);
+      checkAuthStatus();
     });
 
     socket.on('session_created', (roomId: string) => {
