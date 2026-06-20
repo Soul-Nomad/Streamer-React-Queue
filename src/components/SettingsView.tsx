@@ -8,6 +8,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
   const [roomSettings, setRoomSettings] = useState<any>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [livepixCopied, setLivepixCopied] = useState(false);
 
   useEffect(() => {
     if (session?.id) {
@@ -555,6 +556,127 @@ export default function SettingsView({ session }: { session: SessionState }) {
                       <div className="flex items-center justify-between border border-zinc-900 bg-zinc-950 px-3.5 py-2.5 rounded-sm">
                         <span className="text-[9px] font-mono text-zinc-550 font-bold uppercase">PESO VIP CHAT</span>
                         <input type="number" value={roomSettings.weight_vip ?? 15} onChange={e => setRoomSettings({...roomSettings, weight_vip: parseInt(e.target.value) || 0})} className="w-10 bg-transparent text-right font-bold text-orange-400 outline-none text-xs font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 6: Integração Livepix.gg (Premium, highly detailed visual guide) */}
+                <div className="relative bg-[#0d0d0e] border border-zinc-800 rounded-sm p-6 shadow-xl space-y-6 overflow-hidden" id="livepix_integration_card">
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 to-teal-500 animate-pulse" />
+                  
+                  <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
+                    <div className="flex items-center gap-2">
+                      <Link className="w-5 h-5 text-emerald-400" />
+                      <h3 className="text-zinc-100 font-black uppercase tracking-wider text-xs font-mono">Integração Livepix.gg</h3>
+                    </div>
+                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[8px] font-mono font-bold tracking-widest uppercase">CONEXÃO SEGURA</span>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-emerald-950/20 border border-emerald-900/35 p-3 rounded text-zinc-300 space-y-1.5">
+                      <p className="text-[10px] font-mono uppercase tracking-tight font-semibold text-emerald-400">
+                        ❓ POR QUE CADA STREAMER MAQUINA ISSO MANUALMENTE?
+                      </p>
+                      <p className="text-[9px] font-mono text-zinc-450 uppercase leading-relaxed font-medium">
+                        O Livepix não possui uma API pública para configurarmos sua conta automaticamente.
+                        Este método manual garante que <span className="text-zinc-200">você não precise compartilhar suas senhas ou chaves secretas</span> do Livepix. É 100% seguro, privado e configurado em menos de 1 minuto!
+                      </p>
+                    </div>
+                    
+                    {/* WEBHOOK KEY AREA */}
+                    <div className="space-y-2">
+                      <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest text-left">SUA URL DO WEBHOOK DE SEGURANÇA</label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input 
+                            type="text" 
+                            readOnly
+                            value={roomSettings?.room_id ? `${window.location.origin}/api/webhooks/livepix/${roomSettings.room_id}` : 'Carregando URL...'} 
+                            className="w-full bg-zinc-950 border border-zinc-900 rounded px-3 py-2 text-zinc-300 outline-none text-[10px] font-mono select-all select-text pr-10"
+                            id="livepix_url_input"
+                          />
+                          <span className="absolute right-3 top-2.5 text-[8px] font-mono text-emerald-500 font-bold tracking-wider">LIVE</span>
+                        </div>
+                        <button
+                          type="button"
+                          id="livepix_copy_btn"
+                          onClick={() => {
+                            if (roomSettings?.room_id) {
+                              navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/livepix/${roomSettings.room_id}`);
+                              setLivepixCopied(true);
+                              setTimeout(() => setLivepixCopied(false), 3000);
+                            }
+                          }}
+                          className={`px-4 py-2 rounded font-mono text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                            livepixCopied 
+                              ? 'bg-emerald-500 text-black border border-emerald-400 font-black' 
+                              : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-200'
+                          }`}
+                        >
+                          {livepixCopied ? '✓ COPIADO!' : 'COPIAR URL'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* INTERACTIVE GUIDE STEPS */}
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-900 pb-1.5 flex items-center gap-1.5">
+                        <span>📖</span> PASSO A PASSO ILUSTRADO DE CONFIGURAÇÃO:
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 gap-3">
+                        {/* STEP 1 */}
+                        <div className="flex items-start gap-3 bg-zinc-950/50 border border-zinc-900/60 p-3 rounded transition-all hover:border-zinc-800/80">
+                          <div className="flex items-center justify-center bg-zinc-900 text-zinc-200 border border-zinc-800 rounded-full w-5 h-5 font-mono text-[10px] font-bold flex-shrink-0 mt-0.5">
+                            1
+                          </div>
+                          <div className="space-y-1">
+                            <span className="block text-[9px] font-mono font-bold text-zinc-300 uppercase tracking-wider">ENTRE NO SEU PAINEL LIVEPIX</span>
+                            <span className="block text-[9px] font-mono text-zinc-500 uppercase leading-snug">
+                              Acesse <a href="https://livepix.gg" target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline font-bold">livepix.gg</a> e faça login. No menu lateral esquerdo, clique em <strong className="text-zinc-300 font-bold">CONFIGURAÇÕES</strong>.
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* STEP 2 */}
+                        <div className="flex items-start gap-3 bg-zinc-950/50 border border-zinc-900/60 p-3 rounded transition-all hover:border-zinc-800/80">
+                          <div className="flex items-center justify-center bg-zinc-900 text-zinc-200 border border-zinc-800 rounded-full w-5 h-5 font-mono text-[10px] font-bold flex-shrink-0 mt-0.5">
+                            2
+                          </div>
+                          <div className="space-y-1">
+                            <span className="block text-[9px] font-mono font-bold text-zinc-300 uppercase tracking-wider">ACESSE A SEÇÃO WEBHOOKS</span>
+                            <span className="block text-[9px] font-mono text-zinc-500 uppercase leading-snug">
+                              Dentro de configurações, localize a aba ou botão de <strong className="text-zinc-300 font-bold">WEBHOOKS</strong> (ou Integrações de Desenvolvedor) e clique em <strong className="text-zinc-300 font-bold">CRIAR NOVO WEBHOOK</strong>.
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* STEP 3 */}
+                        <div className="flex items-start gap-3 bg-zinc-950/50 border border-zinc-900/60 p-3 rounded transition-all hover:border-zinc-800/80">
+                          <div className="flex items-center justify-center bg-zinc-900 text-zinc-200 border border-zinc-800 rounded-full w-5 h-5 font-mono text-[10px] font-bold flex-shrink-0 mt-0.5">
+                            3
+                          </div>
+                          <div className="space-y-1">
+                            <span className="block text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-wider">COLE E ATIVE OS EVENTOS</span>
+                            <span className="block text-[9px] font-mono text-zinc-500 uppercase leading-snug">
+                              Cole a <strong className="text-emerald-400 font-bold">URL QUE VOCÊ COPIOU ACIMA</strong> no campo <span className="text-zinc-300">"URL de destino"</span>. Marque a caixa para o evento de <strong className="text-zinc-300 font-bold">"Transação Concluída / Pix Recebido"</strong>.
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* STEP 4 */}
+                        <div className="flex items-start gap-3 bg-zinc-950/50 border border-zinc-900/60 p-3 rounded transition-all border-l-2 border-l-emerald-500">
+                          <div className="flex items-center justify-center bg-emerald-500 text-black rounded-full w-5 h-5 font-mono text-[10px] font-black flex-shrink-0 mt-0.5">
+                            ✓
+                          </div>
+                          <div className="space-y-1">
+                            <span className="block text-[9px] font-mono font-bold text-zinc-200 uppercase tracking-wider">PRONTO! FAIXA PRETA NO CHAT</span>
+                            <span className="block text-[9px] font-mono text-zinc-500 uppercase leading-snug">
+                              Clique em <strong className="text-zinc-300 font-bold">SALVAR</strong>. Quando os apoiadores mandarem mensagens de Pix contendo links (YouTube/Twitch/TikTok), eles serão validados contra seus filtros e colocados na sua fila com <span className="text-emerald-400 font-bold">prioridade de suporte financeiro (150 pontos VIP)</span> de forma 100% instantânea no painel!
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -2208,6 +2208,242 @@ app.get('/api/proxy-video', async (req, res) => {
 // ABLY REALTIME AUTH & SUPABASE PERSISTENCE REST ENDPOINTS
 // -------------------------------------------------------------
 
+// POST /api/webhooks/livepix/:roomIdOrLogin - Livepix.gg Webhook Integration
+app.post(['/api/webhooks/livepix/:roomIdOrLogin', '/webhooks/livepix/:roomIdOrLogin'], async (req, res) => {
+  try {
+    const roomIdOrLogin = req.params.roomIdOrLogin;
+    if (!roomIdOrLogin) {
+      return res.status(400).json({ error: 'Parâmetro roomIdOrLogin é obrigatório' });
+    }
+
+    console.log(`[Livepix Webhook] Recebida notificação para room/login: ${roomIdOrLogin}`);
+    
+    // 1. Helper function to find all URLs recursively
+    function findUrlsInObject(obj: any): string[] {
+      const urls: string[] = [];
+      const regex = /https?:\/\/[^\s]+/g;
+      
+      function recurse(value: any) {
+        if (typeof value === 'string') {
+          const matches = value.match(regex);
+          if (matches) {
+            urls.push(...matches);
+          }
+        } else if (Array.isArray(value)) {
+          for (const item of value) {
+            recurse(item);
+          }
+        } else if (value && typeof value === 'object') {
+          for (const key of Object.keys(value)) {
+            recurse(value[key]);
+          }
+        }
+      }
+      
+      recurse(obj);
+      return [...new Set(urls)];
+    }
+
+    // 2. Helper function to get sender name
+    function getSenderName(body: any): string {
+      if (!body) return 'Apoiador Livepix';
+      if (body.data?.sender?.name && typeof body.data.sender.name === 'string') {
+        return body.data.sender.name.trim();
+      }
+      if (body.data?.sender && typeof body.data.sender === 'string') {
+        return body.data.sender.trim();
+      }
+      if (body.sender?.name && typeof body.sender.name === 'string') {
+        return body.sender.name.trim();
+      }
+      if (body.sender && typeof body.sender === 'string') {
+        return body.sender.trim();
+      }
+      if (body.name && typeof body.name === 'string') {
+        return body.name.trim();
+      }
+      if (body.data?.name && typeof body.data.name === 'string') {
+        return body.data.name.trim();
+      }
+      return 'Apoiador Livepix';
+    }
+
+    // 3. Find Room from DB
+    let roomDb: any = null;
+    const supabaseAdmin = getSupabaseAdmin();
+
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roomIdOrLogin)) {
+      const { data } = await supabaseAdmin
+        .from('rooms')
+        .select('id, twitch_channel_id')
+        .eq('id', roomIdOrLogin)
+        .maybeSingle();
+      roomDb = data;
+    }
+
+    if (!roomDb) {
+      const { data } = await supabaseAdmin
+        .from('rooms')
+        .select('id, twitch_channel_id')
+        .eq('twitch_channel_id', roomIdOrLogin.toLowerCase())
+        .maybeSingle();
+      roomDb = data;
+    }
+
+    if (!roomDb) {
+      console.warn(`[Livepix Webhook] Sala não encontrada para identificador: ${roomIdOrLogin}`);
+      return res.status(404).json({ error: 'Sala correspondente não encontrada.' });
+    }
+
+    const roomId = roomDb.id;
+    const twitchChannel = roomDb.twitch_channel_id;
+
+    // 4. Fetch Session state
+    const state: any = await getSession(roomId);
+    if (!state) {
+      console.warn(`[Livepix Webhook] Sessão de sala inativa no momento: ${roomId}`);
+      return res.status(400).json({ error: 'A sala está offline ou inativa no momento.' });
+    }
+
+    // 5. Extract Sender Name
+    const senderName = getSenderName(req.body);
+
+    // 6. Find all URLs recursively
+    const urls = findUrlsInObject(req.body);
+    console.log(`[Livepix Webhook] Links extraídos da doação de @${senderName}:`, urls);
+
+    if (urls.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: 'Nenhum link de vídeo detectado na doação. Evento recebido com sucesso.' 
+      });
+    }
+
+    let videosAdded = 0;
+    const addedTitles: string[] = [];
+
+    // 7. Process each URL found
+    for (const rawUrl of urls) {
+      const vCheck = sanitizeAndValidateUrl(rawUrl, state.settings);
+      if (!vCheck.valid) {
+        console.warn(`[Livepix Webhook] Link inválido detectado na doação: ${rawUrl}. Motivo: ${vCheck.error}`);
+        continue;
+      }
+
+      const platform = vCheck.platform || 'other';
+      const cleanUrl = vCheck.normalizedUrl || rawUrl;
+      const canonId = extractCanonicalVideoId(cleanUrl, platform);
+
+      // Check Duplicates in Queue
+      const isDuplicate = (state.queue || []).some((v: any) => 
+        extractCanonicalVideoId(v.url, v.platform) === canonId ||
+        v.url === cleanUrl
+      );
+      if (isDuplicate) {
+        console.warn(`[Livepix Webhook] Vídeo duplicado ignorado: ${cleanUrl}`);
+        continue;
+      }
+
+      // Verify Content
+      const contentCheck = await verifyVideoContent(cleanUrl, platform, state.settings?.blockLiveStreams);
+      if (!contentCheck.valid) {
+        console.warn(`[Livepix Webhook] Verificação de conteúdo falhou para ${cleanUrl}: ${contentCheck.error}`);
+        continue;
+      }
+
+      // Priority Score: Give Livepix donations a premium priority of 150 points to respect real money support!
+      const priority_score = 150;
+
+      const nowD = new Date();
+      const dataEnvio = nowD.toLocaleDateString('pt-BR');
+      const horaEnvio = nowD.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const videoTitle = sanitizeInput(contentCheck.title || 'Vídeo de Apoio (Livepix)');
+
+      const newVideo = {
+        id: 'vid_livepix_' + Date.now().toString() + Math.random().toString(36).substring(5),
+        submitter: `${senderName} [Livepix]`,
+        submitterId: 'livepix_webhook',
+        url: cleanUrl,
+        title: videoTitle,
+        platform,
+        source: 'api' as const,
+        status: state.settings?.isManualApprovalRequired ? ('pending' as const) : ('approved' as const),
+        timestamp: Date.now(),
+        priority_score,
+        dataEnvio,
+        horaEnvio
+      };
+
+      // Add to session queue
+      state.queue = state.queue || [];
+      state.queue.push(newVideo);
+
+      // Save video in DB
+      try {
+        await supabaseAdmin.from('videos').insert({
+          room_id: roomId,
+          submitted_by: null,
+          twitch_user_id: 'livepix_webhook',
+          video_url: cleanUrl,
+          status: newVideo.status,
+          priority_score
+        });
+      } catch (dbErr) {
+        console.warn(`[Livepix Webhook] Erro ao cadastrar na tabela de vídeos:`, dbErr);
+      }
+
+      videosAdded++;
+      addedTitles.push(videoTitle);
+    }
+
+    if (videosAdded > 0) {
+      // 8. Save back state
+      await supabaseAdmin
+        .from('room_settings')
+        .update({ settings_json: state })
+        .eq('room_id', roomId);
+
+      await supabaseAdmin
+        .from('rooms')
+        .update({ video_queue_count: (state.queue || []).length })
+        .eq('id', roomId);
+
+      // 9. Publish state to Ably channel
+      if (ablyRest) {
+        const channel = ablyRest.channels.get(`session:${roomId}`);
+        await channel.publish('session_state', state);
+      }
+
+      // 10. Try sending feedback to Twitch text channel using twitch bot
+      if (twitchChannel) {
+        const hostUser = state.users?.find((u: any) => u.isHost || u.userId === state.hostId);
+        const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+        const broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId;
+        
+        const feedbackMsg = `💰 [Livepix] @${senderName} enviou ${videosAdded} vídeo(s) na doação: ${addedTitles.join(', ')}`;
+          
+        sendBotMessage(twitchChannel, feedbackMsg, broadcasterToken, broadcasterId).catch(() => {});
+      }
+
+      return res.json({ 
+        success: true, 
+        message: `Sucesso! Adicionado ${videosAdded} vídeo(s) à fila.`,
+        videos: addedTitles 
+      });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Notificação recebida, mas nenhum vídeo novo foi qualificado ou adicionado.' 
+    });
+
+  } catch (err: any) {
+    console.error('[Livepix Webhook Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET & POST /auth/ably-token - Renovação automática de tokens Ably
 app.all(['/auth/ably-token', '/api/auth/ably-token'], async (req, res) => {
   try {
