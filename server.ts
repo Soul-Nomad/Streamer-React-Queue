@@ -2082,7 +2082,8 @@ app.get('/api/media-stream', async (req, res) => {
   }
 
   // Double check if the url is a direct file extension we can play
-  if (cleanUrl.match(/\.(mp4|webm|m3u8|mp3|ogg|wav)$/i)) {
+  const cleanUrlPath = cleanUrl.split('?')[0].split('#')[0];
+  if (cleanUrlPath.match(/\.(mp4|webm|m3u8|mp3|ogg|wav)$/i)) {
     console.log(`[Media Stream Resolver Fallback] Clean URL has a direct extension. Playing natively: ${cleanUrl}`);
     res.json({ videoUrl: cleanUrl });
     return;

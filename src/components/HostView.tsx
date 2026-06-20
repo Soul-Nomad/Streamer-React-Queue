@@ -250,6 +250,8 @@ interface CustPlayerProps {
   getRatioClass: () => string;
   webcamStream: MediaStream | null;
   WebcamPreview: React.ComponentType;
+  playing?: boolean;
+  onEnded?: () => void;
 }
 
 function CustomInstagramPlayer({
@@ -409,11 +411,14 @@ function CustomExtractorPlayer({
   getRatioClass,
   webcamStream,
   WebcamPreview,
+  playing = true,
+  onEnded,
   platformName = "Vídeo",
 }: CustPlayerProps & { platformName?: string }) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -452,6 +457,18 @@ function CustomExtractorPlayer({
       active = false;
     };
   }, [url]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (playing) {
+        videoRef.current.play().catch((err) => {
+          console.warn("Autoplay / Play blocked:", err);
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [playing, videoUrl]);
 
   if (loading) {
     return (
@@ -518,11 +535,12 @@ function CustomExtractorPlayer({
         )}
       >
         <video
+          ref={videoRef}
           src={`/api/proxy-video?url=${encodeURIComponent(videoUrl)}`}
           className="w-full h-full rounded-sm bg-[#0A0A0A] object-contain z-10"
           controls
-          autoPlay
-          loop
+          autoPlay={playing}
+          onEnded={onEnded}
           playsInline
         />
       </div>
@@ -2146,29 +2164,15 @@ export default function HostView({ session }: { session: SessionState }) {
                           WebcamPreview={WebcamPreview}
                         />
                       ) : (
-                        <div
-                          className={clsx(
-                            "relative bg-black rounded-sm overflow-hidden pointer-events-auto flex flex-col items-center justify-center border border-zinc-800 shadow-2xl",
-                            getRatioClass(),
-                          )}
-                        >
-                          <WebcamPreview />
-                          <div
-                            className={clsx(
-                              "w-full h-full flex items-center justify-center p-0 transition-all duration-300",
-                              webcamStream ? "pt-[150px]" : "pt-0",
-                            )}
-                          >
-                            <Player
-                              url={resolvedUrl || currentVideo.url}
-                              playing={session.isPlaying}
-                              controls
-                              width="100%"
-                              height="100%"
-                              onEnded={() => playNext()}
-                            />
-                          </div>
-                        </div>
+                        <CustomExtractorPlayer
+                          url={resolvedUrl || currentVideo.url}
+                          getRatioClass={getRatioClass}
+                          webcamStream={webcamStream}
+                          WebcamPreview={WebcamPreview}
+                          playing={session.isPlaying}
+                          onEnded={() => playNext()}
+                          platformName="Mídia Direta"
+                        />
                       )}
                     </div>
                   ) : !optimisticLoading ? (
