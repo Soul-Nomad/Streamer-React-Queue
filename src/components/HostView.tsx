@@ -600,20 +600,20 @@ function CustomYouTubePlayer({
   return (
     <div
       className={clsx(
-        "relative w-full bg-[#0A0A0A] rounded-sm overflow-hidden pointer-events-auto flex flex-col items-center justify-center border border-[#1f1f1f]/80 shadow-2xl",
+        "relative w-full h-full bg-[#0A0A0A] rounded-sm overflow-hidden pointer-events-auto flex flex-col items-center justify-center border border-[#1f1f1f]/80 shadow-2xl",
         getRatioClass(),
       )}
     >
       <WebcamPreview />
       <div
         className={clsx(
-          "w-full h-full flex items-center justify-center p-2 transition-all duration-300",
-          webcamStream ? "pt-[150px]" : "pt-2",
+          "w-full h-full flex items-center justify-center p-0 transition-all duration-300 relative",
+          webcamStream ? "pt-[150px]" : "pt-0",
         )}
       >
         <iframe
           src={embedUrl}
-          className="w-full h-full min-h-[480px] md:min-h-[560px] xl:min-h-[88vh] border-0 rounded-sm bg-[#0A0A0A] aspect-video"
+          className="w-full h-full border-0 rounded-sm bg-[#0A0A0A]"
           allowFullScreen
           allow="autoplay; encrypted-media; picture-in-picture"
         ></iframe>
@@ -1213,7 +1213,7 @@ export default function HostView({ session }: { session: SessionState }) {
       case "1:1":
         return "aspect-square h-full max-h-full w-auto max-w-full";
       case "16:9":
-        return "aspect-video w-full max-w-[98%] max-h-full";
+        return "aspect-video w-full max-w-full h-full max-h-full";
       case "auto":
       default:
         if (currentVideo) {
@@ -1225,7 +1225,7 @@ export default function HostView({ session }: { session: SessionState }) {
             return "aspect-[9/16] h-full max-h-full w-auto shadow-2xl transition-all duration-300";
           }
         }
-        return "aspect-video w-full max-w-[98%] max-h-full";
+        return "aspect-video w-full max-w-full h-full max-h-full";
     }
   };
 
@@ -2104,7 +2104,7 @@ export default function HostView({ session }: { session: SessionState }) {
                         "relative w-full max-h-full h-full flex items-center justify-center select-none",
                         isFullscreen
                           ? "w-screen h-screen bg-black"
-                          : "p-2 bg-black/20 backdrop-blur-[1px]",
+                          : "p-0 bg-black/20 backdrop-blur-[1px]",
                       )}
                     >
                       {resolving && (

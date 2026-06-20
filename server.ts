@@ -92,6 +92,10 @@ const activeChannels = new Set<string>();
 const recentlyProcessedVideos = new Set<string>();
 const urlSpamCache = new Map<string, number>();
 
+const twitchAvatarCache = new Map<string, string>();
+const verifiedTokensCache = new Map<string, string>();
+const videoVerificationCache = new Map<string, { valid: boolean, error?: string, title?: string }>();
+
 const activeRoomsCache = new Map<string, string>();
 let lastRoomsCacheTime = 0;
 
@@ -177,19 +181,48 @@ async function joinAllActiveRooms() {
   }
 }
 
-// Helper to send messages safely back to Twitch chat (requires authenticated bot config)
-function sendBotMessage(channel: string, message: string) {
-  if (!botClient) return;
-  console.log(`[Twitch Bot Chat Feedback] Sending to ${channel}: ${message}`);
+// Helper to send messages safely back to Twitch chat (authenticated bot config OR fallback via broadcaster token Helix API)
+async function sendBotMessage(channel: string, message: string, broadcasterToken?: string, broadcasterId?: string) {
   const botUsername = process.env.TWITCH_BOT_USERNAME || '';
   const botOauthToken = process.env.TWITCH_BOT_OAUTH_TOKEN || '';
-  if (!botUsername || !botOauthToken) {
-    console.log('[Twitch Bot Chat Feedback] Skipping chat response because credentials are not configured (running in read-only anonymous mode).');
-    return;
+  
+  // 1. Try sending via standard bot client if configured
+  if (botClient && botUsername && botOauthToken) {
+    try {
+      console.log(`[Twitch Bot Chat Feedback] Sending to ${channel} via Bot client: ${message}`);
+      await botClient.say(channel, message);
+      return;
+    } catch (err: any) {
+      console.error(`[Twitch Bot Chat Feedback] Failed to send message via Bot IRC client:`, err.message);
+    }
   }
-  botClient.say(channel, message).catch((err) => {
-    console.error(`[Twitch Bot Chat Feedback] Failed to send message to Twitch chat channel ${channel}:`, err.message);
-  });
+
+  // 2. Fallback: send via Helix Chat API using the Broadcaster's credentials
+  if (broadcasterToken && broadcasterId && !expiredTokensCache.has(broadcasterToken)) {
+    try {
+      const clientId = await getTwitchClientId(broadcasterToken);
+      const url = 'https://api.twitch.tv/helix/chat/messages';
+      
+      const cleanBroadcasterId = broadcasterId;
+      await axios.post(url, {
+        broadcaster_id: cleanBroadcasterId,
+        sender_id: cleanBroadcasterId, // Broadcaster sends as themselves
+        message: message
+      }, {
+        headers: {
+          'Client-Id': clientId,
+          'Authorization': `Bearer ${broadcasterToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 4000
+      });
+      console.log(`[Twitch Chat Helix Feedback] Sent message to #${channel} successfully (Helix API): ${message}`);
+    } catch (err: any) {
+      console.warn(`[Twitch Chat Helix Feedback] Failed to send message via Helix API:`, err.response?.data || err.message);
+    }
+  } else {
+    console.log(`[Twitch Chat Feedback] Message skipped (no Bot config or Streamer OAuth token): "${message}"`);
+  }
 }
 
 // Ensure Twitch chatter is registered under session active users
@@ -199,7 +232,9 @@ async function registerOrUpdateTwitchChatterFromTags(
   username: string,
   displayName: string,
   tags: any,
-  broadcasterId: string
+  broadcasterId: string,
+  broadcasterToken?: string,
+  roomId?: string
 ): Promise<boolean> {
   if (!state.users) {
     state.users = [];
@@ -261,9 +296,27 @@ async function registerOrUpdateTwitchChatterFromTags(
     return false;
   }
 
-  let avatarUrl = existingUser?.twitchData?.avatarUrl;
-  if (!avatarUrl) {
-    avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
+  let avatarUrl = existingUser?.twitchData?.avatarUrl || '';
+  const lowerUser = username.toLowerCase();
+
+  if (!avatarUrl || avatarUrl.includes('dicebear')) {
+    const cached = twitchAvatarCache.get(lowerUser);
+    if (cached) {
+      avatarUrl = cached;
+    } else {
+      avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
+      // Resolve avatar asynchronously in the background so it doesn't block
+      if (roomId) {
+        resolveTwitchAvatar(
+          userId,
+          username,
+          broadcasterId,
+          broadcasterToken,
+          roomId,
+          state
+        ).catch(() => {});
+      }
+    }
   }
 
   const twitchData = {
@@ -317,6 +370,86 @@ async function registerOrUpdateTwitchChatterFromTags(
 }
 
 
+async function resolveTwitchAvatar(
+  userId: string,
+  username: string,
+  broadcasterId: string | undefined,
+  broadcasterToken: string | undefined,
+  roomId: string,
+  state: any
+) {
+  const lowerUser = username.toLowerCase();
+  
+  let avatarUrl: string | null = null;
+
+  // 1. Try Twitch Helix if token is present
+  if (broadcasterToken && !expiredTokensCache.has(broadcasterToken)) {
+    try {
+      const clientId = await getTwitchClientId(broadcasterToken);
+      const userRes = await axios.get(`https://api.twitch.tv/helix/users?id=${userId}`, {
+        headers: {
+          'Client-Id': clientId,
+          'Authorization': `Bearer ${broadcasterToken}`
+        },
+        timeout: 4000
+      });
+      const d = userRes.data?.data?.[0];
+      if (d && d.profile_image_url) {
+        avatarUrl = d.profile_image_url;
+      }
+    } catch (e: any) {
+      if (e.response?.status === 401) {
+        expiredTokensCache.add(broadcasterToken);
+      }
+    }
+  }
+
+  // 2. Try Fallback via Decapi
+  if (!avatarUrl) {
+    try {
+      const res = await axios.get(`https://decapi.me/twitch/avatar/${lowerUser}`, { timeout: 3000 });
+      if (res.data && typeof res.data === 'string' && res.data.startsWith('http')) {
+        avatarUrl = res.data.trim();
+      }
+    } catch (err: any) {
+      // Safe fallback
+    }
+  }
+
+  if (avatarUrl) {
+    twitchAvatarCache.set(lowerUser, avatarUrl);
+
+    // Fetch fresh state to prevent overwriting other recent updates
+    try {
+      const supabaseAdmin = getSupabaseAdmin();
+      const { data: freshSettings } = await supabaseAdmin
+        .from('room_settings')
+        .select('settings_json')
+        .eq('room_id', roomId)
+        .single();
+      
+      const currentState = freshSettings?.settings_json || state;
+      let userIndex = currentState.users?.findIndex((u: any) => u.userId === userId);
+      if (userIndex !== undefined && userIndex !== -1 && currentState.users) {
+        currentState.users[userIndex].twitchData = {
+          ...currentState.users[userIndex].twitchData,
+          avatarUrl: avatarUrl
+        };
+        
+        await supabaseAdmin.from('room_settings').update({ settings_json: currentState }).eq('room_id', roomId);
+        
+        if (ablyRest) {
+          const channelObj = ablyRest.channels.get(`session:${roomId}`);
+          await channelObj.publish('session_state', currentState);
+        }
+      }
+    } catch (dbErr: any) {
+      console.warn(`[resolveTwitchAvatar DB Update Failure]`, dbErr.message);
+    }
+  }
+}
+
+
 const expiredTokensCache = new Set<string>();
 
 async function ensureTwitchChatUserRegistered(
@@ -343,38 +476,52 @@ async function ensureTwitchChatUserRegistered(
   let login = existingUser?.twitchData?.login || username.toLowerCase();
   let finalDisplayName = existingUser?.twitchData?.displayName || displayName;
 
-  // Retrieve user profiles via Helix if token is present and details are missing
-  if (broadcasterToken && !expiredTokensCache.has(broadcasterToken) && (!avatarUrl || avatarUrl.includes('dicebear'))) {
-    try {
-      let clientId = process.env.TWITCH_CLIENT_ID || 'gp762nuuoqcoxypju8c569th9wz7q5';
-      const rootRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
-        headers: { 'Authorization': `OAuth ${broadcasterToken}` },
-        timeout: 3000
-      }).catch(() => null);
-      if (rootRes && rootRes.data && rootRes.data.client_id) {
-        clientId = rootRes.data.client_id;
-      }
-
-      const userRes = await axios.get(`https://api.twitch.tv/helix/users?id=${userId}`, {
-        headers: {
-          'Client-Id': clientId,
-          'Authorization': `Bearer ${broadcasterToken}`
-        },
-        timeout: 4000
-      });
-      const d = userRes.data?.data?.[0];
-      if (d) {
-        avatarUrl = d.profile_image_url || avatarUrl;
-        login = d.login || login;
-        finalDisplayName = d.display_name || finalDisplayName;
-      }
-    } catch (e: any) {
-      if (e.response?.status === 401) {
-        expiredTokensCache.add(broadcasterToken);
-      } else {
-        console.warn(`[Twitch Profile Service Sync] id=${userId} issue:`, e.message);
+  if (!avatarUrl || avatarUrl.includes('dicebear')) {
+    const cached = twitchAvatarCache.get(username.toLowerCase());
+    if (cached) {
+      avatarUrl = cached;
+    } else if (broadcasterToken && !expiredTokensCache.has(broadcasterToken)) {
+      try {
+        const clientId = await getTwitchClientId(broadcasterToken);
+        const userRes = await axios.get(`https://api.twitch.tv/helix/users?id=${userId}`, {
+          headers: {
+            'Client-Id': clientId,
+            'Authorization': `Bearer ${broadcasterToken}`
+          },
+          timeout: 4000
+        });
+        const d = userRes.data?.data?.[0];
+        if (d) {
+          avatarUrl = d.profile_image_url || avatarUrl;
+          login = d.login || login;
+          finalDisplayName = d.display_name || finalDisplayName;
+          twitchAvatarCache.set(username.toLowerCase(), avatarUrl);
+        }
+      } catch (e: any) {
+        if (e.response?.status === 401) {
+          expiredTokensCache.add(broadcasterToken);
+        } else {
+          console.warn(`[Twitch Profile Service Sync] id=${userId} issue:`, e.message);
+        }
       }
     }
+  }
+
+  // Fallback direct Decapi avatar scrape
+  if (!avatarUrl || avatarUrl.includes('dicebear')) {
+    try {
+      const res = await axios.get(`https://decapi.me/twitch/avatar/${username.toLowerCase()}`, { timeout: 3000 });
+      if (res.data && typeof res.data === 'string' && res.data.startsWith('http')) {
+        avatarUrl = res.data.trim();
+        twitchAvatarCache.set(username.toLowerCase(), avatarUrl);
+      }
+    } catch (fallbackErr: any) {
+      // Safe fallback
+    }
+  }
+
+  if (!avatarUrl) {
+    avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
   }
 
   // ALWAYS fetch Karma from DB to ensure it's not 0 or stale if not in memory
@@ -395,10 +542,6 @@ async function ensureTwitchChatUserRegistered(
     }
   } catch (err) {
     console.warn(`[ensureTwitchChatUserRegistered Karma Fetch Error]`, err);
-  }
-
-  if (!avatarUrl) {
-    avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
   }
 
   const rawBadges = tags && tags.badges ? Object.keys(tags.badges) : [];
@@ -657,13 +800,29 @@ setTimeout(() => {
           const state: any = roomSettings.settings_json || {};
           const twitchChannelId = (roomSettings.rooms as any)?.twitch_channel_id;
 
+          const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
+          const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
+          let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || twitchChannelId;
+          if (broadcasterId && typeof broadcasterId === 'string' && broadcasterId.includes('-')) {
+             broadcasterId = twitchChannelId;
+          }
+
             // Process Presence Update
             if (state.settings) {
               const username = tags['username'] || 'TwitchUser';
               const displayName = tags['display-name'] || username;
               const userId = tags['user-id'] || 'usr_' + crypto.randomUUID();
 
-              const changed = await registerOrUpdateTwitchChatterFromTags(state, userId, username, displayName, tags, twitchChannelId);
+              const changed = await registerOrUpdateTwitchChatterFromTags(
+                state,
+                userId,
+                username,
+                displayName,
+                tags,
+                broadcasterId || '',
+                broadcasterToken,
+                roomId
+              );
               if (changed && !isLinkSubmission) {
                 await supabaseAdmin.from('room_settings').update({ settings_json: state }).eq('room_id', roomId);
                 if (ablyRest) {
@@ -683,7 +842,7 @@ setTimeout(() => {
               if (!result.valid || !result.normalizedUrl) {
                 console.warn(`[Twitch Bot] URL validation failed: ${url}. Reason: ${result.error}`);
                 const reason = result.error || 'Mala formatação ou plataforma não suportada';
-                sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`);
+                sendBotMessage(channel, `@${displayName} ❌ Link inválido: ${reason}`, broadcasterToken, broadcasterId);
                 continue;
               }
               const platform = result.platform || 'other';
@@ -703,7 +862,7 @@ setTimeout(() => {
               if (duplicateVideo) {
                 const isRecent = duplicateVideo.timestamp && (Date.now() - duplicateVideo.timestamp < 60000);
                 if (!isRecent) {
-                  sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`);
+                  sendBotMessage(channel, `@${displayName} ⚠️ Este vídeo já está na fila.`, broadcasterToken, broadcasterId);
                 } else {
                   console.warn(`[Twitch Bot] Silently dropped duplicated duplicate message for ${canonicalId} (added recently to DB)`);
                 }
@@ -719,7 +878,7 @@ setTimeout(() => {
               if (!verifyState.valid) {
                 console.warn(`[Twitch Bot] Video content verification failed: ${result.normalizedUrl}. Reason: ${verifyState.error}`);
                 const reason = verifyState.error || 'Falha ao analisar o vídeo';
-                sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`);
+                sendBotMessage(channel, `@${displayName} ❌ Erro no vídeo: ${reason}`, broadcasterToken, broadcasterId);
                 clearTimeout(timeoutId);
                 recentlyProcessedVideos.delete(uniqKey);
                 continue;
@@ -732,35 +891,15 @@ setTimeout(() => {
               const isHost = userId === state.hostId || actualBadges.includes('broadcaster');
               if (!isHost) {
                 if (state.blacklistUsernames?.includes(username.toLowerCase())) {
-                  continue;
+                   continue;
                 }
                 const userActive = (state.queue || []).filter((v: any) => v.submitterId === userId).length;
                 const maxVideos = state.settings?.maxVideosPerUser !== undefined ? state.settings.maxVideosPerUser : (state.settings?.max_videos_per_user ?? 0);
                 if (maxVideos > 0 && userActive >= maxVideos) {
-                  sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`);
+                  sendBotMessage(channel, `@${displayName} ⚠️ Limite de ${maxVideos} vídeo(s) atingido.`, broadcasterToken, broadcasterId);
                   continue;
                 }
               }
-
-              const hostUser = (state.users || []).find((u: any) => u.isHost || u.userId === state.hostId);
-              let broadcasterId = state.twitchData?.twitchUserId || hostUser?.twitchData?.twitchUserId || twitchChannelId;
-              const broadcasterToken = state.twitchData?.providerToken || hostUser?.twitchData?.providerToken;
-
-              if (broadcasterId && typeof broadcasterId === 'string' && broadcasterId.includes('-')) {
-                 broadcasterId = twitchChannelId;
-              }
-
-              try {
-                await ensureTwitchChatUserRegistered(
-                  state,
-                  userId,
-                  username,
-                  displayName,
-                  tags,
-                  broadcasterId || '',
-                  broadcasterToken
-                );
-              } catch (regErr: any) {}
 
               const newVideo = {
                 id: `vid_${canonicalId}_${Date.now()}`,
@@ -774,11 +913,12 @@ setTimeout(() => {
                 timestamp: Date.now()
               };
 
+              // Fast Queue Save & Ably broadcast (non-blocking, instant visual arrival in frontend!)
               const updatedQueue = [...(state.queue || []), newVideo];
-              const updatedState = { ...state, queue: updatedQueue, users: state.users };
+              const updatedState = { ...state, queue: updatedQueue };
 
               await supabaseAdmin.from('room_settings').update({ settings_json: updatedState }).eq('room_id', roomId);
-              console.log(`[Twitch Bot] Added new video "${newVideo.title}" (${platform}) to room ${roomId} submitted by Chat user @${displayName}`);
+              console.log(`[Twitch Bot] Added new video "${newVideo.title}" (${platform}) instantly to room ${roomId} submitted by Chat user @${displayName}`);
 
               if (ablyRest) {
                 const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
@@ -786,11 +926,45 @@ setTimeout(() => {
               }
 
               if (newVideo.status === 'pending') {
-                sendBotMessage(channel, `@${displayName} 📝 Vídeo enviado para moderação.`);
+                sendBotMessage(channel, `@${displayName} 📝 Vídeo enviado para moderação.`, broadcasterToken, broadcasterId);
               } else {
                 const approvedCount = updatedQueue.filter(v => v.status === 'approved').length;
-                sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Posição: #${approvedCount}`);
+                sendBotMessage(channel, `@${displayName} ✅ Vídeo adicionado! Posição: #${approvedCount}`, broadcasterToken, broadcasterId);
               }
+
+              // Non-blocking Lazy background registration and sub/follower check
+              (async () => {
+                try {
+                  const { data: freshSettings } = await supabaseAdmin
+                    .from('room_settings')
+                    .select('settings_json')
+                    .eq('room_id', roomId)
+                    .single();
+                  
+                  const freshState = freshSettings?.settings_json || updatedState;
+                  
+                  await ensureTwitchChatUserRegistered(
+                    freshState,
+                    userId,
+                    username,
+                    displayName,
+                    tags,
+                    broadcasterId || '',
+                    broadcasterToken
+                  );
+
+                  await supabaseAdmin.from('room_settings').update({ settings_json: freshState }).eq('room_id', roomId);
+                  
+                  if (ablyRest) {
+                    const ablyChannel = ablyRest.channels.get(`session:${roomId}`);
+                    await ablyChannel.publish('session_state', freshState);
+                  }
+                  console.log(`[Twitch Bot Sync Worker] Lazy profile synced for @${displayName}`);
+                } catch (bgErr: any) {
+                  console.warn(`[Twitch Bot Sync Worker Failure] @${displayName}:`, bgErr.message);
+                }
+              })();
+
               break;
             }
           }
@@ -1133,51 +1307,62 @@ export async function verifyVideoContent(
   platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other',
   blockLive: boolean
 ): Promise<{ valid: boolean, error?: string, title?: string }> {
-  try {
-    if (platform === 'youtube') {
-      // Catch live occurrences
-      if (blockLive && (url.includes('/live/') || url.includes('live'))) {
-        return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão bloqueadas nesta sala.' };
-      }
-      
-      const res = await axios.get(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
-      if (res.status === 200) {
-        // Double check live streams via keyword if check exists
-        if (blockLive && (res.data.title || '').toLowerCase().includes('live')) {
-          return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão desabilitadas nas configurações.' };
-        }
-        return { valid: true, title: res.data.title || 'Vídeo do YouTube' };
-      }
-    } else if (platform === 'tiktok') {
-      const res = await axios.get(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
-      if (res.status === 200) {
-        return { valid: true, title: res.data.title || 'Vídeo do TikTok' };
-      }
-    } else if (platform === 'instagram') {
-      const match = url.match(/(?:instagram\.com)\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_\-]+)/i);
-      if (!match) return { valid: false, error: 'Identificador do Instagram mal formado.' };
-      
-      const checkUrl = `https://www.instagram.com/p/${match[1]}/embed/`;
-      const res = await axios.get(checkUrl, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (res.status === 200) {
-        return { valid: true, title: 'Instagram Reel' };
-      }
-    } else if (platform === 'twitter') {
-      return { valid: true, title: 'Vídeo do X/Twitter' };
-    } else if (platform === 'other') {
-      const res = await axios.head(url, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (res.status >= 200 && res.status < 400) {
-        return { valid: true, title: 'Arquivo de Mídia Direta' };
-      }
-    }
-  } catch (err: any) {
-    if (err.response && (err.response.status === 404 || err.response.status === 410)) {
-      return { valid: false, error: 'O link enviado é inválido ou quebrado (Erro 404 / 410 no servidor).' };
-    }
-    console.warn(`[Content Check Warning] ${url}:`, err.message);
+  const cacheKey = `${platform}:${blockLive}:${url}`;
+  if (videoVerificationCache.has(cacheKey)) {
+    return videoVerificationCache.get(cacheKey)!;
   }
-  // Safe fallback if target server prevents scraping headers but exists
-  return { valid: true, title: 'Conteúdo Sincronizado' };
+  
+  const runVerify = async (): Promise<{ valid: boolean, error?: string, title?: string }> => {
+    try {
+      if (platform === 'youtube') {
+        // Catch live occurrences
+        if (blockLive && (url.includes('/live/') || url.includes('live'))) {
+          return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão bloqueadas nesta sala.' };
+        }
+        
+        const res = await axios.get(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
+        if (res.status === 200) {
+          // Double check live streams via keyword if check exists
+          if (blockLive && (res.data.title || '').toLowerCase().includes('live')) {
+            return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão desabilitadas nas configurações.' };
+          }
+          return { valid: true, title: res.data.title || 'Vídeo do YouTube' };
+        }
+      } else if (platform === 'tiktok') {
+        const res = await axios.get(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
+        if (res.status === 200) {
+          return { valid: true, title: res.data.title || 'Vídeo do TikTok' };
+        }
+      } else if (platform === 'instagram') {
+        const match = url.match(/(?:instagram\.com)\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_\-]+)/i);
+        if (!match) return { valid: false, error: 'Identificador do Instagram mal formado.' };
+        
+        const checkUrl = `https://www.instagram.com/p/${match[1]}/embed/`;
+        const res = await axios.get(checkUrl, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (res.status === 200) {
+          return { valid: true, title: 'Instagram Reel' };
+        }
+      } else if (platform === 'twitter') {
+        return { valid: true, title: 'Vídeo do X/Twitter' };
+      } else if (platform === 'other') {
+        const res = await axios.head(url, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (res.status >= 200 && res.status < 400) {
+          return { valid: true, title: 'Arquivo de Mídia Direta' };
+        }
+      }
+    } catch (err: any) {
+      if (err.response && (err.response.status === 404 || err.response.status === 410)) {
+        return { valid: false, error: 'O link enviado é inválido ou quebrado (Erro 404 / 410 no servidor).' };
+      }
+      console.warn(`[Content Check Warning] ${url}:`, err.message);
+    }
+    // Safe fallback if target server prevents scraping headers but exists
+    return { valid: true, title: 'Conteúdo Sincronizado' };
+  };
+
+  const result = await runVerify();
+  videoVerificationCache.set(cacheKey, result);
+  return result;
 }
 
 // Canonical identification to prevent double entries (youtu.be vs youtube.com, etc)
@@ -1206,6 +1391,8 @@ async function getTwitchClientId(token: string): Promise<string> {
   if (expiredTokensCache.has(token)) {
     return 'gp762nuuoqcoxypju8c569th9wz7q5';
   }
+  const cached = verifiedTokensCache.get(token);
+  if (cached) return cached;
   try {
      const valRes = await axios.get('https://id.twitch.tv/oauth2/validate', {
         headers: {
@@ -1214,6 +1401,7 @@ async function getTwitchClientId(token: string): Promise<string> {
          timeout: 4000
      });
      if (valRes.data && valRes.data.client_id) {
+        verifiedTokensCache.set(token, valRes.data.client_id);
         return valRes.data.client_id;
      }
   } catch (e: any) {
