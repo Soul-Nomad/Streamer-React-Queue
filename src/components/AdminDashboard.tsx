@@ -36,51 +36,7 @@ const renderUserAvatarAdmin = (user: any, sizeClass = "w-8 h-8") => {
 };
 
 const renderTwitchBadgesAdmin = (user: any) => {
-  const twitch = user?.twitchData;
-  if (!twitch) return null;
-
-  const badges = [...(twitch.badges || [])];
-  if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
-  if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
-  if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
-  if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
-
-  if (badges.length === 0) return null;
-  return (
-    <div className="flex flex-wrap gap-1 shrink-0 mt-0.5">
-      {badges.map((b: string) => {
-        if (b === 'broadcaster' || b === 'founder') {
-          return (
-            <span key={b} className="bg-[#FF3B30] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse" title="Broadcaster (Streamer)">
-              👑 STR
-            </span>
-          );
-        }
-        if (b === 'moderator') {
-          return (
-            <span key={b} className="bg-[#4CAF50] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30" title="Moderador">
-              MOD
-            </span>
-          );
-        }
-        if (b === 'vip') {
-          return (
-            <span key={b} className="bg-[#E25CFF] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30" title="VIP">
-              VIP
-            </span>
-          );
-        }
-        if (b === 'subscriber') {
-          return (
-            <span key={b} className="bg-[#FFD700] text-black text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FFB300]/30" title="Inscrito">
-              SUB
-            </span>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
+  return null;
 };
 
 export default function AdminDashboard({ session }: { session: SessionState }) {

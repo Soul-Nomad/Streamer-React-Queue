@@ -166,59 +166,7 @@ const renderUserAvatar = (user: any, sizeClass = "w-6 h-6") => {
 };
 
 const renderTwitchBadgesHost = (user: any) => {
-  const badges = user?.twitchData?.badges || [];
-  if (badges.length === 0) return null;
-  return (
-    <div className="flex items-center gap-1 shrink-0">
-      {badges.map((b: string) => {
-        if (b === "broadcaster") {
-          return (
-            <span
-              key={b}
-              className="bg-[#FF3B30] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse"
-              title="Broadcaster (Streamer)"
-            >
-              👑 STR
-            </span>
-          );
-        }
-        if (b === "moderator") {
-          return (
-            <span
-              key={b}
-              className="bg-[#4CAF50] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30"
-              title="Moderador"
-            >
-              MOD
-            </span>
-          );
-        }
-        if (b === "vip") {
-          return (
-            <span
-              key={b}
-              className="bg-[#E25CFF] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30"
-              title="VIP"
-            >
-              VIP
-            </span>
-          );
-        }
-        if (b === "subscriber") {
-          return (
-            <span
-              key={b}
-              className="bg-[#FFD700] text-black text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FFB300]/30"
-              title="Inscrito"
-            >
-              SUB
-            </span>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
+  return null;
 };
 
 const getKarmaInfoHost = (score: number) => {

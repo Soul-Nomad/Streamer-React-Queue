@@ -42,27 +42,7 @@ const renderUserAvatarDesktop = (user: any, sizeClass = "w-8 h-8") => {
 };
 
 const renderTwitchBadges = (user: any) => {
-  const twitch = user?.twitchData;
-  if (!twitch) return null;
-  
-  const badges = [...(twitch.badges || [])];
-  if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
-  if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
-  if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
-  if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
-
-  if (badges.length === 0) return null;
-  return (
-    <div className="flex items-center gap-1 shrink-0">
-      {badges.map((b: string) => {
-        if (b === 'broadcaster' || b === 'founder') return <span key={b} className="bg-[#FF3B30] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse">👑 STR</span>;
-        if (b === 'moderator') return <span key={b} className="bg-[#4CAF50] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#4CAF50]/30">MOD</span>;
-        if (b === 'vip') return <span key={b} className="bg-[#E25CFF] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#E25CFF]/30">VIP</span>;
-        if (b === 'subscriber') return <span key={b} className="bg-[#FFD700] text-black text-[9px] font-black uppercase px-1 rounded-sm border border-[#FFB300]/30">SUB</span>;
-        return null;
-      })}
-    </div>
-  );
+  return null;
 };
 
 const getPlatformIcon = (url: string) => {
@@ -260,16 +240,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
       const approvedVideosInQueue = queue.filter((v: any) => v.status === 'approved' || v.status === 'playing');
       const itemsBeforeMe = approvedVideosInQueue.length;
 
-      // Calculate estimate in minutes using actual video times of elements preceding this one
-      const precedingVideos = approvedVideosInQueue.slice(0, -1);
-      const precedingSecondsSum = precedingVideos.reduce((acc: number, v: any) => acc + (v.duration || 180), 0);
-      const estimateMins = Math.ceil(precedingSecondsSum / 60);
-
       setSubmitFeedback({
         type: 'success',
         msg: isManualApprovalRequired ? 'Vídeo enviado para aprovação!' : 'Vídeo adicionado com sucesso!',
-        position: isManualApprovalRequired ? undefined : itemsBeforeMe,
-        estimate: isManualApprovalRequired ? undefined : estimateMins
+        position: isManualApprovalRequired ? undefined : itemsBeforeMe
       });
 
       setUrl('');
@@ -815,7 +789,6 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     {submitFeedback.type !== 'error' && submitFeedback.position && (
                       <div className="flex items-center gap-4 mt-1.5 text-xs text-emerald-200/70 font-mono">
                         <span>POSIÇÃO: <strong className="text-emerald-300">#{submitFeedback.position}</strong></span>
-                        <span>ESTIMATIVA: <strong className="text-emerald-300">~{submitFeedback.estimate} min</strong></span>
                       </div>
                     )}
                   </div>

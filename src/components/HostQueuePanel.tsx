@@ -23,7 +23,6 @@ interface HostQueuePanelProps {
 export default function HostQueuePanel({ session, playVideo, reject, approve, unwatchVideo }: HostQueuePanelProps) {
   const [tab, setTab] = useState<'pending' | 'watched' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
-  const [badgeFilter, setBadgeFilter] = useState<string>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
 
@@ -49,51 +48,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
   };
 
   const renderTwitchBadges = (user: any) => {
-    const twitch = user?.twitchData;
-    if (!twitch) return null;
-    
-    const badges = [...(twitch.badges || [])];
-    if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
-    if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
-    if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
-    if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
-
-    if (badges.length === 0) return null;
-    return (
-      <div className="flex items-center gap-1 shrink-0">
-        {badges.map((b: string) => {
-          if (b === 'broadcaster' || b === 'founder') {
-            return (
-              <span key={b} className="bg-red-600 text-white text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-red-500/30" title="Streamer (Broadcaster)">
-                👑 STR
-              </span>
-            );
-          }
-          if (b === 'moderator') {
-            return (
-              <span key={b} className="bg-green-600 text-white text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-green-500/30" title="Moderator">
-                MOD
-              </span>
-            );
-          }
-          if (b === 'vip') {
-            return (
-              <span key={b} className="bg-purple-600 text-white text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-purple-500/30" title="VIP">
-                VIP
-              </span>
-            );
-          }
-          if (b === 'subscriber') {
-            return (
-              <span key={b} className="bg-amber-500 text-black text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-amber-400/30" title="Inscrito (Subscriber)">
-                SUB
-              </span>
-            );
-          }
-          return null;
-        })}
-      </div>
-    );
+    return null;
   };
 
   const renderAvatar = (user: any, name: string) => {
@@ -142,19 +97,6 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
 
       const sender = session.users.find(u => u.name === v.submitter || u.userId === v.submitterId);
       const twitch = sender?.twitchData;
-      const badges = twitch ? [...(twitch.badges || [])] : [];
-      if (twitch) {
-        if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
-        if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
-        if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
-        if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
-      }
-      
-      let matchBadge = true;
-      if (badgeFilter !== 'all') {
-        matchBadge = badges.includes(badgeFilter);
-      }
-
       const platform = getPlatformLabel(v.url).toLowerCase();
       let matchPlatform = true;
       if (platformFilter !== 'all') {
@@ -176,7 +118,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         }
       }
 
-      return matchSearch && matchBadge && matchPlatform && matchSource;
+      return matchSearch && matchPlatform && matchSource;
     })
     .sort((a: Video, b: Video) => {
       // For unwatched/pending list, order chronologically by timestamp ASC
@@ -194,22 +136,9 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const activeQueue = queue.filter((v: Video) => v.status !== 'watched');
   const totalVideos = queue.length;
   const watchedVideos = queue.filter((v: Video) => v.status === 'watched').length;
   const currentProgressNum = session.currentVideoId ? watchedVideos + 1 : watchedVideos;
-  
-  const totalDurationSecs = activeQueue.reduce((acc, v) => acc + (v.duration || 0), 0);
-  const fallbackDurationSecs = activeQueue.reduce((acc, v) => acc + (v.duration || 180), 0);
-
-  const formatQueueDuration = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
-  };
 
   return (
     <div className="flex flex-col h-full bg-black/40 backdrop-blur-md text-zinc-100 font-sans select-none" id="host_queue_panel">
@@ -229,14 +158,10 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         </div>
       </div>
 
-      {/* Progresso e Estimativa Banner */}
+      {/* Progresso Banner */}
       <div className="px-3 py-2 bg-black/20 border-b border-white/10 flex items-center justify-between text-[10.5px] font-mono">
-        <div className="text-zinc-300 font-bold">
-          Progresso: <span className="text-orange-400">{currentProgressNum} de {totalVideos}</span>
-        </div>
-        <div className="text-zinc-300 font-bold flex items-center gap-1" title="Soma das durações dos vídeos restantes">
-          <Clock className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-          <span>Fila: {formatQueueDuration(totalDurationSecs || fallbackDurationSecs)}</span>
+        <div className="text-zinc-300 font-bold mx-auto">
+          Progresso da Fila: <span className="text-orange-400">{currentProgressNum} de {totalVideos}</span>
         </div>
       </div>
 
@@ -292,21 +217,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
             className="w-full bg-black/35 hover:bg-black/45 border border-white/10 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-white/20 text-zinc-100 placeholder-zinc-500 font-mono transition-colors backdrop-blur-sm"
           />
         </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-1.5 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
-            <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
-            <select
-              value={badgeFilter}
-              onChange={(e) => setBadgeFilter(e.target.value)}
-              className="w-full bg-transparent text-[9.5px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
-            >
-              <option value="all" className="bg-zinc-950 text-zinc-100">Badge: Todos</option>
-              <option value="broadcaster" className="bg-zinc-950 text-zinc-100">Broadcasters</option>
-              <option value="moderator" className="bg-zinc-950 text-zinc-100">Moderadores</option>
-              <option value="vip" className="bg-zinc-950 text-zinc-100">VIPs</option>
-              <option value="subscriber" className="bg-zinc-950 text-zinc-100">Inscritos</option>
-            </select>
-          </div>
+        <div className="grid grid-cols-2 gap-1.5">
           <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-1.5 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
             <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
             <select
@@ -408,23 +319,6 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               const platform = getPlatformLabel(vid.url);
               const platformColor = getPlatformColor(platform);
               
-              // Calculate progress/time indicators
-              const duration = vid.duration || 0;
-              let progressPercent = 0;
-              let progressText = '--:-- / --:--';
-
-              if (isCurrent) {
-                const currentSeconds = Math.floor(session.currentTime || 0);
-                progressPercent = duration > 0 ? Math.min(100, (currentSeconds / duration) * 100) : 0;
-                progressText = `${formatTime(currentSeconds)} / ${formatTime(duration)}`;
-              } else if (vid.status === 'watched') {
-                progressPercent = 100;
-                progressText = `Visto (${formatTime(duration || 180)})`;
-              } else {
-                progressPercent = 0;
-                progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
-              }
-              
               const spectatorColor = sender?.twitchData?.color || (vid.source === 'twitch' ? '#9146ff' : vid.source === 'discord' ? '#5865F2' : '#00FA6D');
               
               return (
@@ -467,12 +361,6 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                             Visto
                           </span>
                         ) : null}
-                        
-                        {duration > 0 && (
-                          <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
-                            {formatTime(duration)}
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {vid.source === 'twitch' && (
