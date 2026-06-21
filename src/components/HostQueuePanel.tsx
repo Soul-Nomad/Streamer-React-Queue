@@ -298,22 +298,25 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         <AnimatePresence initial={false}>
           {processedVideos.map((vid: Video, index: number) => {
             const isCurrent = session.currentVideoId === vid.id;
-            const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
+            const sender = session.users.find(u => 
+              u.userId === vid.submitterId || 
+              u.name?.toLowerCase() === vid.submitter?.toLowerCase()
+            );
             const platform = getPlatformLabel(vid.url);
             
             // Calculate dynamic Karma ranking position amongst spectators
             const sortedSpectators = [...session.users]
               .filter(u => !u.isHost && u.userId !== session.hostId && u.id !== session.hostId)
               .sort((a, b) => {
-                const scoreA = a.karmaDetails?.karma_score ?? (a.reputation ?? 50);
-                const scoreB = b.karmaDetails?.karma_score ?? (b.reputation ?? 50);
+                const scoreA = a.karmaDetails?.karma_score ?? a.reputation ?? 0;
+                const scoreB = b.karmaDetails?.karma_score ?? b.reputation ?? 0;
                 return scoreB - scoreA;
               });
             
             const karmaRank = sender 
-              ? sortedSpectators.findIndex(u => u.userId === sender.userId || u.name === sender.name) + 1 
+              ? sortedSpectators.findIndex(u => u.userId === sender.userId || u.name?.toLowerCase() === sender.name?.toLowerCase()) + 1 
               : 999;
-            const karmaScore = sender?.karmaDetails?.karma_score ?? (sender?.reputation ?? 50);
+            const karmaScore = sender?.karmaDetails?.karma_score ?? sender?.reputation ?? 0;
 
             // Calculate progress/time indicators
             const duration = vid.duration || 0;
@@ -332,7 +335,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
             }
 
-            // Beautiful customized color coding for platforms
+            // Text-only origin platform badge
             const getPlatformBadge = (url: string) => {
               const p = getPlatformLabel(url).toUpperCase();
               let bg = "text-red-400 bg-red-500/10 border-red-500/25";
@@ -347,156 +350,51 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               }
               return (
                 <span className={`text-[8px] px-1.5 py-0.5 rounded-sm border font-mono tracking-wider font-extrabold shrink-0 ${bg}`}>
-                  🎬 {p}
+                  {p}
                 </span>
               );
             };
 
-            // Styled Submission Path Badge (Twitch Chat vs Discord vs Web Panel)
+            // Styled Submission Path Badge (Only icon)
             const getSourceBadge = (src?: string) => {
               if (src === 'twitch') {
                 return (
-                  <span className="text-[#9146FF] bg-[#9146FF]/10 border border-[#9146FF]/20 text-[8px] px-1.5 py-0.5 rounded-sm font-mono tracking-wider font-extrabold flex items-center gap-1 shrink-0">
-                    <Twitch className="w-2.5 h-2.5 fill-current" /> CH 1: TWITCH
+                  <span className="text-[#9146FF] bg-[#9146FF]/10 border border-[#9146FF]/20 p-1 rounded-sm flex items-center justify-center shrink-0" title="CH 1: TWITCH">
+                    <Twitch className="w-3 h-3 fill-current" />
                   </span>
                 );
               }
               if (src === 'discord') {
                 return (
-                  <span className="text-[#5865F2] bg-[#5865F2]/10 border border-[#5865F2]/20 text-[8px] px-1.5 py-0.5 rounded-sm font-mono tracking-wider font-extrabold flex items-center gap-1 shrink-0">
-                    <DiscordIcon className="w-2.5 h-2.5" /> CH 2: DISCORD
+                  <span className="text-[#5865F2] bg-[#5865F2]/10 border border-[#5865F2]/20 p-1 rounded-sm flex items-center justify-center shrink-0" title="CH 2: DISCORD">
+                    <DiscordIcon className="w-3 h-3" />
                   </span>
                 );
               }
               return (
-                <span className="text-[#00FF66] bg-[#00FF66]/10 border border-[#00FF66]/20 text-[8px] px-1.5 py-0.5 rounded-sm font-mono tracking-wider font-extrabold flex items-center gap-1 shrink-0">
-                  <Terminal className="w-2.5 h-2.5" /> SITE
+                <span className="text-[#00FF66] bg-[#00FF66]/10 border border-[#00FF66]/20 p-1 rounded-sm flex items-center justify-center shrink-0" title="SITE">
+                  <Terminal className="w-3 h-3" />
                 </span>
               );
             };
 
             // Card size, borders, styling and decorative elements predicated on Karma Ranking
             let cardPadding = "p-3";
-            let cardBg = "bg-zinc-950/60 border-[#1f1f2e] hover:border-zinc-700 hover:bg-zinc-900/50";
-            let topGradient = <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-zinc-800 to-zinc-900" />;
+            let cardBg = "bg-zinc-950/60 border-zinc-920 hover:border-zinc-800 hover:bg-zinc-900/30";
+            let topGradient = null;
             let rankPill = null;
-            let segmentedBar = null;
-            let telemetryLine = null;
 
             if (karmaRank === 1) {
-              cardPadding = "p-5";
-              cardBg = "bg-gradient-to-br from-[#121217] via-[#101015] to-black border-amber-500/25 shadow-[0_0_20px_rgba(245,158,11,0.12)] hover:border-amber-400/40";
-              topGradient = (
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-red-500 via-orange-500 via-yellow-400 via-green-500 via-blue-500 via-purple-600 to-pink-500"></div>
-              );
-              rankPill = (
-                <span className="bg-amber-500 text-black text-[8.5px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm border border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.3)] flex items-center gap-1 shrink-0">
-                  👑 TOP 1 KARMA ({karmaScore})
-                </span>
-              );
-              segmentedBar = (
-                <div className="flex overflow-hidden h-1.5 w-full mt-2.5 opacity-90 rounded-b-sm" id="segmented_rainbow_bar">
-                  {[...Array(24)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="flex-1 h-full -skew-x-12 translate-x-1" 
-                      style={{
-                        backgroundColor: `hsl(${(i * 15) % 360}, 85%, 55%)`
-                      }}
-                    />
-                  ))}
-                </div>
-              );
-              telemetryLine = (
-                <div className="flex items-center justify-between text-[7px] font-mono text-zinc-650 border-t border-zinc-800/60 pt-1.5 mt-2 uppercase tracking-widest leading-none select-none">
-                  <span>SP: ∞ HRS</span>
-                  <span>EXTRA QUALITY</span>
-                  <span>HQ RATED</span>
-                  <span>V-SYNC LOCKED</span>
-                </div>
-              );
-            } else if (karmaRank === 2) {
               cardPadding = "p-4.5";
-              cardBg = "bg-gradient-to-br from-[#101015] to-[#121217] border-sky-500/25 shadow-[0_0_12px_rgba(56,189,248,0.06)] hover:border-sky-400/45";
+              cardBg = "bg-gradient-to-br from-[#121217] via-[#101015] to-black border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.12)] hover:border-amber-400/30";
               topGradient = (
-                <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-500"></div>
+                <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400"></div>
               );
               rankPill = (
-                <span className="bg-sky-500/10 text-sky-400 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm border border-sky-500/30 flex items-center gap-1 shrink-0">
-                  💎 TOP 2 KARMA ({karmaScore})
+                <span className="bg-amber-500 text-black text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.25)] shrink-0">
+                  👑 TOP 1 ({karmaScore})
                 </span>
               );
-              segmentedBar = (
-                <div className="flex overflow-hidden h-1 w-full mt-2.5 opacity-70 rounded-b-sm" id="segmented_blue_bar">
-                  {[...Array(24)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="flex-1 h-full -skew-x-12 translate-x-0.5" 
-                      style={{
-                        backgroundColor: `hsl(${190 + (i * 3)}, 80%, 55%)`
-                      }}
-                    />
-                  ))}
-                </div>
-              );
-              telemetryLine = (
-                <div className="flex items-center justify-between text-[7px] font-mono text-zinc-700 border-t border-zinc-850/60 pt-1 mt-1.5 uppercase tracking-widest leading-none select-none">
-                  <span>T-120</span>
-                  <span>HQ rated</span>
-                  <span>V-SYNC APPROVED</span>
-                </div>
-              );
-            } else if (karmaRank === 3) {
-              cardPadding = "p-4.5";
-              cardBg = "bg-[#111116] border-orange-500/20 shadow-[0_0_11px_rgba(249,115,22,0.06)] hover:border-orange-400/40";
-              topGradient = (
-                <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-orange-500 via-red-500 to-purple-500"></div>
-              );
-              rankPill = (
-                <span className="bg-orange-500/10 text-orange-400 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm border border-orange-500/25 flex items-center gap-1 shrink-0">
-                  ⚡ TOP 3 KARMA ({karmaScore})
-                </span>
-              );
-              segmentedBar = (
-                <div className="flex overflow-hidden h-1 w-full mt-2.5 opacity-60 rounded-b-sm" id="segmented_orange_bar">
-                  {[...Array(24)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="flex-1 h-full -skew-x-12 translate-x-0.5" 
-                      style={{
-                        backgroundColor: `hsl(${15 + (i * 2)}, 85%, 55%)`
-                      }}
-                    />
-                  ))}
-                </div>
-              );
-              telemetryLine = (
-                <div className="flex items-center justify-between text-[7px] font-mono text-zinc-700 border-t border-zinc-850/65 pt-1 mt-1.5 uppercase tracking-widest leading-none select-none">
-                  <span>AUX IN</span>
-                  <span>HQ RATED</span>
-                  <span>V-STABLE</span>
-                </div>
-              );
-            } else {
-              // Standard Cards (Simplificados)
-              cardPadding = "p-3";
-              cardBg = "bg-zinc-950/60 border-[#1f1f2e] hover:border-zinc-700 hover:bg-zinc-900/50";
-              topGradient = (
-                <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-zinc-850 to-zinc-900" />
-              );
-              if (karmaRank <= 15) {
-                rankPill = (
-                  <span className="text-[8px] font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded-sm border border-zinc-800 shrink-0">
-                    🏆 #{karmaRank} Karma
-                  </span>
-                );
-              } else {
-                rankPill = (
-                  <span className="text-[8px] font-mono text-zinc-500 bg-zinc-900/40 px-1.5 py-0.5 rounded-sm border border-zinc-850 shrink-0">
-                    #{karmaRank} Karma
-                  </span>
-                );
-              }
             }
 
             return (
@@ -510,14 +408,14 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                 className={clsx(
                   "group relative border rounded-sm block text-left transition-all duration-300 overflow-hidden",
                   isCurrent 
-                    ? "bg-zinc-900/80 border-orange-500/45 shadow-[0_0_15px_rgba(255,107,53,0.12)] glow-orange" 
+                    ? "bg-zinc-900/80 border-orange-500/40 shadow-[0_0_15px_rgba(255,107,53,0.1)] glow-orange" 
                     : cardBg,
                   cardPadding
                 )}
               >
-                {/* HAIRLINE TOP GRADIENT BAR */}
+                {/* HAIRLINE TOP GRADIENT BAR FOR DEV CURRENT OR TOP 1 */}
                 {isCurrent ? (
-                  <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-orange-500 to-red-500"></div>
+                  <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-orange-500 to-red-500"></div>
                 ) : topGradient}
 
                 {/* Left indicator for current active video */}
@@ -525,67 +423,70 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                   <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-red-500"></div>
                 )}
 
-                {/* Top Details HUD */}
-                <div className="flex items-center justify-between gap-1.5 mb-2">
-                  <div className="flex items-center gap-1.5 text-[9px] font-mono">
-                    {tab === 'pending' && (
-                      <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
-                    )}
-                    {isCurrent ? (
-                      <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
-                        <span className="h-1 w-1 rounded-full bg-orange-500"></span>
-                        Em Reprodução
-                      </span>
-                    ) : vid.status === 'pending' ? (
-                      <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Pendente
-                      </span>
-                    ) : vid.status === 'approved' ? (
-                      <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Na Fila
-                      </span>
-                    ) : vid.status === 'watched' ? (
-                      <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Visto
-                      </span>
-                    ) : null}
-                    
-                    {duration > 0 && (
-                      <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded-sm border border-white/5 text-[8px] font-mono shrink-0">
-                        {formatTime(duration)}
-                      </span>
-                    )}
+                {/* Sender/Submitter Information row is the primary highlighted element in the card */}
+                <div className="flex items-center justify-between gap-2.5 mb-2.5">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    {renderAvatar(sender, vid.submitter)}
+                    <span 
+                      className="text-xs font-black truncate leading-none hover:text-white transition-colors cursor-pointer"
+                      style={{ color: sender?.twitchData?.color || '#eaeaea' }}
+                    >
+                      @{vid.submitter}
+                    </span>
+                    {renderTwitchBadges(sender)}
+                    {rankPill}
                   </div>
-                  
+
+                  {/* Badges metadata on right side */}
                   <div className="flex items-center gap-1 shrink-0">
                     {getSourceBadge(vid.source)}
                     {getPlatformBadge(vid.url)}
                   </div>
                 </div>
 
-                {/* Title & Link */}
-                <h4 className={clsx(
-                  "text-xs font-bold line-clamp-1 break-all mb-0.5 font-sans",
-                  isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
-                )}>
-                  {vid.title || "Mídia Sincronizada"}
-                </h4>
-                <p className="text-[10px] text-zinc-500 truncate font-mono mb-2" title={vid.url}>
-                  {vid.url}
-                </p>
+                {/* Video Title & Link - Secondary relative to the sender */}
+                <div className="pl-6.5 pr-2 mb-2">
+                  <h4 className={clsx(
+                    "text-[11px] font-bold line-clamp-1 break-all mb-0.5 font-sans",
+                    isCurrent ? "text-orange-300 animate-pulse" : "text-zinc-300 group-hover:text-amber-400 transition-colors"
+                  )}>
+                    {vid.title || "Mídia Sincronizada"}
+                  </h4>
+                  <p className="text-[9px] text-zinc-550 truncate font-mono" title={vid.url}>
+                    {vid.url}
+                  </p>
+                </div>
 
-                {/* Submitter User Profile Card Footer */}
-                <div className="flex items-center justify-between gap-1 border-t border-zinc-800/50 pt-2 mt-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {renderAvatar(sender, vid.submitter)}
-                    <span 
-                      className="text-[10.5px] font-bold truncate leading-none"
-                      style={{ color: sender?.twitchData?.color || '#a1a1aa' }}
-                    >
-                      @{vid.submitter}
-                    </span>
-                    {renderTwitchBadges(sender)}
-                    {rankPill}
+                {/* Footer section for player HUD state & individual admin control buttons */}
+                <div className="flex items-center justify-between gap-1 border-t border-zinc-900/50 pt-2 mt-1.5 pl-6.5">
+                  <div className="flex items-center gap-1.5 text-[8.5px] font-mono">
+                    {tab === 'pending' && (
+                      <span className="text-zinc-500 font-extrabold pr-0.5"># {index + 1}</span>
+                    )}
+                    {isCurrent ? (
+                      <span className="text-orange-500 bg-orange-500/5 px-1 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
+                        <span className="h-1 w-1 rounded-full bg-orange-500"></span>
+                        Em Reprodução
+                      </span>
+                    ) : vid.status === 'pending' ? (
+                      <span className="text-amber-500 bg-amber-500/5 px-1 rounded border border-amber-500/10 text-[8px] tracking-wide font-extrabold uppercase">
+                        Pendente
+                      </span>
+                    ) : vid.status === 'approved' ? (
+                      <span className="text-orange-400 bg-orange-500/5 px-1 rounded border border-orange-500/10 text-[8px] tracking-wide font-extrabold uppercase">
+                        Fila
+                      </span>
+                    ) : vid.status === 'watched' ? (
+                      <span className="text-green-500 bg-green-500/5 px-1 rounded border border-green-500/10 text-[8px] tracking-wide font-extrabold uppercase">
+                        Visto
+                      </span>
+                    ) : null}
+                    
+                    {duration > 0 && (
+                      <span className="text-zinc-500 bg-zinc-900/40 px-1 py-0.5 rounded-sm border border-white/5 text-[8px] font-mono shrink-0">
+                        {formatTime(duration)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Individual Action Controls */}
@@ -626,12 +527,6 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                     </button>
                   </div>
                 </div>
-
-                {/* Nostromo Retro Telemetry Label rows */}
-                {telemetryLine}
-
-                {/* Polaroid rainbow diagonal slanted stripe pattern */}
-                {segmentedBar}
               </motion.div>
             );
           })}
