@@ -587,7 +587,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {myPendingVideos.map(v => (
-                          <QueueCard key={v.id} video={v} type="pending" session={session} />
+                          <QueueCard key={v.id} video={v} type="pending" />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -610,7 +610,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {approvedVideos.map((v, i) => (
-                          <QueueCard key={v.id} video={v} type="queued" index={i + 1} session={session} />
+                          <QueueCard key={v.id} video={v} type="queued" index={i + 1} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -626,7 +626,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {historyVideos.slice(0, 5).map(v => (
-                          <QueueCard key={v.id} video={v} type="history" session={session} />
+                          <QueueCard key={v.id} video={v} type="history" />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -904,98 +904,7 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
   );
 }
 
-function QueueCard({ video, type, index, session }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number, session: SessionState }) {
-  const sender = session.users.find(u => 
-    u.userId === video.submitterId || 
-    u.name?.toLowerCase() === video.submitter?.toLowerCase()
-  );
-  const isCurrent = session.currentVideoId === video.id;
-
-  // Calculate dynamic Karma ranking position amongst spectators
-  const sortedSpectators = [...session.users]
-    .filter(u => !u.isHost && u.userId !== session.hostId && u.id !== session.hostId)
-    .sort((a, b) => {
-      const scoreA = a.karmaDetails?.karma_score ?? a.reputation ?? 0;
-      const scoreB = b.karmaDetails?.karma_score ?? b.reputation ?? 0;
-      return scoreB - scoreA;
-    });
-
-  const karmaRank = sender 
-    ? sortedSpectators.findIndex(u => u.userId === sender.userId || u.name?.toLowerCase() === sender.name?.toLowerCase()) + 1 
-    : 999;
-  const karmaScore = sender?.karmaDetails?.karma_score ?? sender?.reputation ?? 0;
-
-  // Text-only origin platform badge
-  const getPlatformBadge = (url: string) => {
-    let p = 'WEB';
-    if (url.includes('instagram.com')) p = 'INSTAGRAM';
-    else if (url.includes('tiktok.com')) p = 'TIKTOK';
-    else if (url.includes('youtube.com') || url.includes('youtu.be')) p = 'YOUTUBE';
-    else if (url.includes('twitch.tv')) p = 'TWITCH';
-    else if (url.includes('facebook.com') || url.includes('fb.watch')) p = 'FACEBOOK';
-    else if (url.includes('x.com') || url.includes('twitter.com')) p = 'X / TWITTER';
-
-    let bg = "text-red-400 bg-red-500/10 border-red-500/25";
-    if (p === "TIKTOK") {
-      bg = "text-cyan-400 bg-cyan-500/10 border-cyan-500/25";
-    } else if (p === "INSTAGRAM") {
-      bg = "text-purple-400 bg-purple-500/10 border-purple-500/25";
-    } else if (p === "TWITCH") {
-      bg = "text-violet-400 bg-violet-500/10 border-violet-500/25";
-    } else if (p === "X / TWITTER") {
-      bg = "text-sky-400 bg-sky-500/10 border-sky-450/25";
-    }
-    return (
-      <span className={`text-[8px] px-1.5 py-0.5 rounded-sm border font-mono tracking-wider font-extrabold shrink-0 ${bg}`}>
-        {p}
-      </span>
-    );
-  };
-
-  // Styled Submission Path Badge (Only icon)
-  const getSourceBadge = (src?: string) => {
-    if (src === 'twitch') {
-      return (
-        <span className="text-[#9146FF] bg-[#9146FF]/10 border border-[#9146FF]/20 p-1 rounded-sm flex items-center justify-center shrink-0" title="CH 1: TWITCH">
-          <Twitch className="w-3 h-3 fill-current" />
-        </span>
-      );
-    }
-    if (src === 'discord') {
-      return (
-        <span className="text-[#5865F2] bg-[#5865F2]/10 border border-[#5865F2]/20 p-1 rounded-sm flex items-center justify-center shrink-0" title="CH 2: DISCORD">
-          <DiscordIcon className="w-3 h-3" />
-        </span>
-      );
-    }
-    return (
-      <span className="text-[#00FF66] bg-[#00FF66]/10 border border-[#00FF66]/20 p-1 rounded-sm flex items-center justify-center shrink-0" title="SITE">
-        <Terminal className="w-3 h-3" />
-      </span>
-    );
-  };
-
-  // Card size, borders, styling and decorative elements predicated on Karma Ranking
-  let cardPadding = "p-3";
-  let cardBgClass = "bg-zinc-950/60 border-zinc-900 hover:border-zinc-800 hover:bg-zinc-900/30";
-  let topGradient = null;
-  let rankPill = null;
-
-  if (karmaRank === 1) {
-    cardPadding = "p-4.5";
-    cardBgClass = "bg-gradient-to-br from-[#121217] via-[#101015] to-black border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.12)] hover:border-amber-400/30";
-    topGradient = (
-      <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400" />
-    );
-    rankPill = (
-      <span className="bg-amber-500 text-black text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.25)] shrink-0">
-        👑 TOP 1 ({karmaScore})
-      </span>
-    );
-  }
-
-  const duration = video.duration || 0;
-
+function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number }) {
   return (
     <motion.div
       layout="position"
@@ -1003,101 +912,38 @@ function QueueCard({ video, type, index, session }: { video: Video, type: 'pendi
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
       transition={{ type: "spring", stiffness: 180, damping: 20 }}
-      whileHover={{ scale: 1.002, transition: { duration: 0.1 } }}
-      className={clsx(
-        "relative rounded-sm flex flex-col group transition-all duration-300 overflow-hidden text-left",
-        type === 'queued' ? "shadow-md hover:shadow-orange-500/5" : "opacity-85",
-        cardBgClass,
-        cardPadding
-      )}
+      whileHover={{ scale: 1.005, transition: { duration: 0.1 } }}
+      className={clsx("bg-zinc-950 border p-3 rounded-sm flex items-center justify-between group transition-all duration-300", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" : "border-zinc-800/50 opacity-85")}
     >
-      {/* Hairline top gradient border */}
-      {topGradient}
-
-      {/* Sender/Submitter Information row is the primary highlighted element in the card */}
-      <div className="flex items-center justify-between gap-2.5 mb-2.5">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          {sender?.twitchData?.avatarUrl ? (
-            <img 
-              src={sender.twitchData.avatarUrl} 
-              alt={video.submitter} 
-              referrerPolicy="no-referrer"
-              className="w-5 h-5 rounded-full object-cover border border-zinc-800 bg-[#121212] shrink-0"
-            />
-          ) : (
-            <div 
-              className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] text-white shrink-0 border border-zinc-805 bg-black/40"
-              style={{ backgroundColor: sender?.twitchData?.color || '#555555' }}
-            >
-              {(video.submitter || '?').substring(0, 2).toUpperCase()}
-            </div>
-          )}
-          <span 
-            className="text-xs font-black truncate leading-none hover:text-white transition-colors cursor-pointer"
-            style={{ color: sender?.twitchData?.color || '#eaeaea' }}
-          >
-            @{video.submitter}
-          </span>
-          {renderTwitchBadges(sender)}
-          {rankPill}
-        </div>
-
-        {/* Badges metadata on right side */}
-        <div className="flex items-center gap-1 shrink-0">
-          {getSourceBadge(video.source)}
-          {getPlatformBadge(video.url)}
+      <div className="flex items-center gap-3 overflow-hidden flex-1">
+        {index !== undefined && (
+          <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+             <span className="text-[10px] font-mono font-black text-orange-400">#{index}</span>
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">DE: @{video.submitter}</span>
+            {type === 'pending' && <StatusBadge status="pending" />}
+          </div>
         </div>
       </div>
-
-      {/* Video Title & Link - Secondary relative to the sender */}
-      <div className="pl-6.5 pr-2 mb-2">
-        <h4 className="text-[11px] font-bold line-clamp-1 break-all mb-0.5 font-sans text-zinc-300 group-hover:text-amber-400 transition-colors">
-          {video.title || "Mídia Sincronizada"}
-        </h4>
-        <p className="text-[9px] text-zinc-550 truncate font-mono" title={video.url}>
-          {video.url}
-        </p>
-      </div>
-
-      {/* Footer section for player HUD state & individual admin control buttons */}
-      <div className="flex items-center justify-between gap-1 border-t border-zinc-900/50 pt-2 mt-1.5 pl-6.5">
-        <div className="flex items-center gap-1.5 text-[8.5px] font-mono">
-          {index !== undefined && (
-            <span className="text-zinc-500 font-extrabold pr-0.5"># {index}</span>
-          )}
-          {type === 'pending' ? (
-            <span className="text-amber-500 bg-amber-500/5 px-1 rounded border border-amber-500/10 text-[8px] tracking-wide font-extrabold uppercase flex items-center gap-1">
-              <span className="h-1 w-1 rounded-full bg-amber-500 animate-pulse"></span>
-              Em Análise
-            </span>
-          ) : type === 'history' ? (
-            <span className="text-zinc-550 bg-zinc-900/40 px-1 rounded border border-zinc-800 text-[8px] tracking-wide font-extrabold uppercase">
-              Visto
-            </span>
-          ) : (
-            <span className="text-emerald-500 bg-emerald-500/5 px-1 rounded border border-emerald-500/10 text-[8px] tracking-wide font-extrabold uppercase">
-              Na Fila
-            </span>
-          )}
-
-          {duration > 0 && (
-            <span className="text-zinc-500 bg-zinc-900/40 px-1 py-0.5 rounded-sm border border-white/5 text-[8px] font-mono shrink-0">
-              {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <a 
-            href={video.url} 
-            target="_blank" 
-            rel="noreferrer" 
-            className="w-6 h-6 rounded border border-zinc-850 bg-zinc-900/30 flex items-center justify-center text-zinc-550 hover:text-white hover:border-zinc-750 transition-all shadow-sm cursor-pointer"
-            title="Assistir mídia original"
+      <div className="flex items-center gap-2 shrink-0 ml-3">
+        <div className="flex flex-col items-end gap-1.5">
+          <div 
+            className="text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-sm border border-zinc-800 flex items-center gap-1.5"
+            title={`Enviado via ${video.source === 'twitch' ? 'Twitch' : video.source === 'discord' ? 'Discord' : 'Site'}`}
           >
-            <ExternalLink className="w-3 h-3" />
-          </a>
+             {video.source === 'twitch' && <Twitch className="w-3 h-3 text-[#9146FF]" />}
+             {video.source === 'discord' && <DiscordIcon className="w-3 h-3 text-[#5865F2]" />}
+             {(!video.source || video.source === 'site') && <Terminal className="w-3 h-3 text-[#00FF66]" />}
+             {getPlatformIcon(video.url).split(' ')[1] || 'Web'}
+          </div>
         </div>
+        <a href={video.url} target="_blank" rel="noreferrer" className="w-7 h-7 rounded border border-zinc-800 bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
+          <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
     </motion.div>
   );
