@@ -181,15 +181,15 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#111116] border-r border-[#1f1f2e] text-zinc-100 font-sans select-none" id="host_queue_panel">
+    <div className="flex flex-col h-full bg-black/40 backdrop-blur-md text-zinc-100 font-sans select-none" id="host_queue_panel">
       {/* Session/Header statistics */}
-      <div className="p-3 bg-zinc-950 border-b border-[#1f1f2e] flex items-center justify-between">
+      <div className="p-3 bg-black/30 backdrop-blur-sm border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-mono text-xs font-black tracking-wider text-zinc-300">
           <List className="w-4 h-4 text-orange-500" />
           <span>Fila de Mídia</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono bg-zinc-900 border border-[#1f1f2e] px-1.5 py-0.5 rounded text-zinc-400">
+          <span className="text-[10px] font-mono bg-black/35 backdrop-blur-sm border border-white/10 px-1.5 py-0.5 rounded text-zinc-400">
             TOTAL: {queue.length}
           </span>
           <span className="text-[10px] font-mono bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded text-orange-400">
@@ -199,7 +199,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
       </div>
 
       {/* Progresso e Estimativa Banner */}
-      <div className="px-3 py-2 bg-zinc-900/30 border-b border-[#1f1f2e] flex items-center justify-between text-[10.5px] font-mono">
+      <div className="px-3 py-2 bg-black/20 border-b border-white/10 flex items-center justify-between text-[10.5px] font-mono">
         <div className="text-zinc-300 font-bold">
           Progresso: <span className="text-orange-400">{currentProgressNum} de {totalVideos}</span>
         </div>
@@ -210,14 +210,14 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-3 bg-zinc-950/40 p-1 border-b border-[#1f1f2e]">
+      <div className="grid grid-cols-3 bg-black/25 p-1 border-b border-white/10">
         <button
           onClick={() => setTab('pending')}
           className={clsx(
             "py-1.5 text-[11px] font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1 cursor-pointer",
             tab === 'pending' 
-              ? "text-orange-400 border-orange-500 bg-zinc-900/50" 
-              : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-zinc-900/20"
+              ? "text-orange-400 border-orange-500 bg-white/5" 
+              : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-white/5"
           )}
         >
           <Clock className="w-3.5 h-3.5" />
@@ -228,8 +228,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
           className={clsx(
             "py-1.5 text-[11px] font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1 cursor-pointer",
             tab === 'watched' 
-              ? "text-green-400 border-green-500 bg-zinc-900/50" 
-              : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-zinc-900/20"
+              ? "text-green-400 border-green-500 bg-white/5" 
+              : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-white/5"
           )}
         >
           <Eye className="w-3.5 h-3.5" />
@@ -240,8 +240,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
           className={clsx(
             "py-1.5 text-[11px] font-bold font-mono transition-all border-b-2 flex items-center justify-center gap-1 cursor-pointer",
             tab === 'all' 
-              ? "text-cyan-400 border-cyan-500 bg-zinc-900/50" 
-              : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-zinc-900/20"
+              ? "text-cyan-400 border-cyan-500 bg-white/5" 
+              : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-white/5"
           )}
         >
           <Compass className="w-3.5 h-3.5" />
@@ -250,7 +250,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
       </div>
 
       {/* Search and Filters panel */}
-      <div className="p-3 bg-[#111116] border-b border-[#1f1f2e] space-y-2">
+      <div className="p-3 bg-black/20 border-b border-white/10 space-y-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-500" />
           <input
@@ -258,36 +258,36 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
             placeholder="Busca instantânea..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-950/60 border border-[#1f1f2e] rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-zinc-700 text-zinc-100 placeholder-zinc-500 font-mono transition-colors"
+            className="w-full bg-black/35 hover:bg-black/45 border border-white/10 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-white/20 text-zinc-100 placeholder-zinc-500 font-mono transition-colors backdrop-blur-sm"
           />
         </div>
         <div className="grid grid-cols-2 gap-1.5">
-          <div className="flex items-center gap-1 bg-zinc-950/60 border border-[#1f1f2e] rounded px-2 py-1 focus-within:border-zinc-700 transition-colors">
+          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-2 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
             <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
             <select
               value={badgeFilter}
               onChange={(e) => setBadgeFilter(e.target.value)}
               className="w-full bg-transparent text-[10px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
             >
-              <option value="all" className="bg-zinc-900 text-zinc-100">Badge: Todos</option>
-              <option value="broadcaster" className="bg-zinc-900 text-zinc-100">Broadcasters</option>
-              <option value="moderator" className="bg-zinc-900 text-zinc-100">Moderadores</option>
-              <option value="vip" className="bg-zinc-900 text-zinc-100">VIPs</option>
-              <option value="subscriber" className="bg-zinc-900 text-zinc-100">Inscritos</option>
+              <option value="all" className="bg-zinc-950 text-zinc-100">Badge: Todos</option>
+              <option value="broadcaster" className="bg-zinc-950 text-zinc-100">Broadcasters</option>
+              <option value="moderator" className="bg-zinc-950 text-zinc-100">Moderadores</option>
+              <option value="vip" className="bg-zinc-950 text-zinc-100">VIPs</option>
+              <option value="subscriber" className="bg-zinc-950 text-zinc-100">Inscritos</option>
             </select>
           </div>
-          <div className="flex items-center gap-1 bg-zinc-950/60 border border-[#1f1f2e] rounded px-2 py-1 focus-within:border-zinc-700 transition-colors">
+          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-2 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
             <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
             <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
               className="w-full bg-transparent text-[10px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
             >
-              <option value="all" className="bg-zinc-900 text-zinc-100">Plataforma</option>
-              <option value="youtube" className="bg-zinc-900 text-zinc-100">YouTube</option>
-              <option value="tiktok" className="bg-zinc-900 text-zinc-100">TikTok</option>
-              <option value="instagram" className="bg-zinc-900 text-zinc-100">Instagram</option>
-              <option value="twitch" className="bg-zinc-900 text-zinc-100">Twitch</option>
+              <option value="all" className="bg-zinc-950 text-zinc-100">Plataforma</option>
+              <option value="youtube" className="bg-zinc-950 text-zinc-100">YouTube</option>
+              <option value="tiktok" className="bg-zinc-950 text-zinc-100">TikTok</option>
+              <option value="instagram" className="bg-zinc-950 text-zinc-100">Instagram</option>
+              <option value="twitch" className="bg-zinc-950 text-zinc-100">Twitch</option>
             </select>
           </div>
         </div>
@@ -330,8 +330,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                 className={clsx(
                   "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden",
                   isCurrent 
-                    ? "bg-zinc-900/80 border-orange-500/40 shadow-[0_0_15px_rgba(255,107,53,0.1)] glow-orange" 
-                    : "bg-zinc-950/60 border-[#1f1f2e] hover:border-zinc-700 hover:bg-zinc-900/50"
+                    ? "bg-orange-500/5 border-orange-500/40 shadow-[0_0_15px_rgba(255,107,53,0.08)] backdrop-blur-sm glow-orange" 
+                    : "bg-black/35 border-white/10 hover:border-white/20 hover:bg-black/50 backdrop-blur-sm"
                 )}
               >
                 {isCurrent && (
@@ -403,7 +403,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                 </p>
 
                 {/* Submitter User Profile */}
-                <div className="flex items-center justify-between gap-1 border-t border-[#1f1f2e] pt-2 mt-1">
+                <div className="flex items-center justify-between gap-1 border-t border-white/10 pt-2 mt-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     {renderAvatar(sender, vid.submitter)}
                     <span 
@@ -459,7 +459,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         </AnimatePresence>
 
         {processedVideos.length === 0 && (
-          <div className="py-12 px-4 text-center text-zinc-600 flex flex-col items-center justify-center space-y-2">
+          <div className="py-12 px-4 text-center text-zinc-650 flex flex-col items-center justify-center space-y-2">
             <AlertCircle className="w-6 h-6 text-zinc-700" />
             <p className="text-xs italic font-mono">Nenhum vídeo nesta aba</p>
           </div>
