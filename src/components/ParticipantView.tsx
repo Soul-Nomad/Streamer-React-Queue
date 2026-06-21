@@ -913,8 +913,19 @@ function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'qu
       exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
       transition={{ type: "spring", stiffness: 180, damping: 20 }}
       whileHover={{ scale: 1.005, transition: { duration: 0.1 } }}
-      className={clsx("bg-zinc-950 border p-3 rounded-sm flex items-center justify-between group transition-all duration-300", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" : "border-zinc-800/50 opacity-85")}
+      className={clsx("relative overflow-hidden bg-[#0c0c0e]/95 border p-3 pl-4 rounded-sm flex items-center justify-between group transition-all duration-300", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" : "border-zinc-800/50 opacity-85 hover:border-zinc-700")}
     >
+      {/* Left source-colored bar like image 1 in attachments */}
+      {video.source === 'twitch' && (
+        <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#9146ff] z-10" />
+      )}
+      {video.source === 'discord' && (
+        <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#5865F2] z-10" />
+      )}
+      {(!video.source || video.source === 'site') && (
+        <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#00FA6D] z-10" />
+      )}
+
       <div className="flex items-center gap-3 overflow-hidden flex-1">
         {index !== undefined && (
           <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
@@ -924,7 +935,7 @@ function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'qu
         <div className="min-w-0 flex-1">
           <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">DE: @{video.submitter}</span>
+            <span className="text-[11px] text-zinc-400 font-mono tracking-widest uppercase font-bold">DE: <span className="text-zinc-200">@{video.submitter}</span></span>
             {type === 'pending' && <StatusBadge status="pending" />}
           </div>
         </div>

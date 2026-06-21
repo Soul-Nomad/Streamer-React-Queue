@@ -328,14 +328,33 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                 exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
                 transition={{ type: "spring", stiffness: 180, damping: 20 }}
                 className={clsx(
-                  "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden",
+                  "group relative border rounded-sm p-3 pl-4 block text-left transition-all duration-300 overflow-hidden",
                   isCurrent 
-                    ? "bg-orange-500/5 border-orange-500/40 shadow-[0_0_15px_rgba(255,107,53,0.08)] backdrop-blur-sm glow-orange" 
-                    : "bg-black/35 border-white/10 hover:border-white/20 hover:bg-black/50 backdrop-blur-sm"
+                    ? "bg-[#0c0c0e]/95 border-orange-500/40 shadow-[0_4px_25px_rgba(255,107,53,0.12)] backdrop-blur-sm" 
+                    : "bg-[#0c0c0e]/85 border-zinc-800 hover:border-zinc-700 hover:bg-[#0c0c0e] backdrop-blur-sm shadow-md"
                 )}
               >
-                {isCurrent && (
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-red-500"></div>
+                {/* Visual references applied from attachments */}
+                {isCurrent ? (
+                  <>
+                    {/* Top Spectrum Palette Gradient Line (Matches active integrated player decoration) */}
+                    <div className="absolute top-0 left-0 right-0 h-[3.5px] bg-gradient-to-r from-[#FF5E33] via-[#E23F99] via-[#9446FF] via-[#486BFF] via-[#00B4D8] via-[#00E5A3] to-[#00FA6D] z-10" />
+                    {/* Left vertical glowing line */}
+                    <div className="absolute top-0 left-0 bottom-0 w-[4px] bg-gradient-to-b from-[#FF5E33] to-[#E23F99] z-10"></div>
+                  </>
+                ) : (
+                  <>
+                    {/* Left source-colored bar like image 1 in attachments */}
+                    {vid.source === 'twitch' && (
+                      <div className="absolute top-0 left-0 bottom-0 w-[3.5px] bg-[#9146ff] z-10" />
+                    )}
+                    {vid.source === 'discord' && (
+                      <div className="absolute top-0 left-0 bottom-0 w-[3.5px] bg-[#5865F2] z-10" />
+                    )}
+                    {(!vid.source || vid.source === 'site') && (
+                      <div className="absolute top-0 left-0 bottom-0 w-[3.5px] bg-[#00FA6D] z-10" />
+                    )}
+                  </>
                 )}
 
                 {/* Top Details */}
@@ -407,8 +426,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                   <div className="flex items-center gap-1.5 min-w-0">
                     {renderAvatar(sender, vid.submitter)}
                     <span 
-                      className="text-[10.5px] font-bold truncate leading-none"
-                      style={{ color: sender?.twitchData?.color || '#a1a1aa' }}
+                      className="text-[13px] font-extrabold truncate leading-tight tracking-tight"
+                      style={{ color: sender?.twitchData?.color || '#e4e4e7' }}
                     >
                       @{vid.submitter}
                     </span>
