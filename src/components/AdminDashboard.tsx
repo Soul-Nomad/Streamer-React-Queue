@@ -36,12 +36,20 @@ const renderUserAvatarAdmin = (user: any, sizeClass = "w-8 h-8") => {
 };
 
 const renderTwitchBadgesAdmin = (user: any) => {
-  const badges = user?.twitchData?.badges || [];
+  const twitch = user?.twitchData;
+  if (!twitch) return null;
+
+  const badges = [...(twitch.badges || [])];
+  if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
+  if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
+  if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
+  if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
+
   if (badges.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1 shrink-0 mt-0.5">
       {badges.map((b: string) => {
-        if (b === 'broadcaster') {
+        if (b === 'broadcaster' || b === 'founder') {
           return (
             <span key={b} className="bg-[#FF3B30] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse" title="Broadcaster (Streamer)">
               👑 STR
@@ -541,21 +549,23 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
 
         {activeView === 'history' && (
           <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 mb-6">
-               <div className="relative flex-1">
-                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 mb-6 shrink-0">
+               <div className="relative flex-1 group">
+                 <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                   <Search className="w-4 h-4 text-zinc-500 group-focus-within:text-orange-500 transition-colors" />
+                 </div>
                  <input 
                    type="text"
                    value={historySearchQuery}
                    onChange={e => setHistorySearchQuery(e.target.value)}
                    placeholder="BUSCAR HISTÓRICO GLOBAL DE REQUISICÕES (URL, USUÁRIO, PLATAFORMA)..."
-                   className="w-full bg-zinc-900 border border-zinc-800 rounded-sm pl-11 pr-4 py-3 text-[11px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-orange-500 font-mono font-bold tracking-widest"
+                   className="w-full bg-[#0c0c0e] border-[1.5px] border-zinc-800 rounded-sm pl-11 pr-4 py-3.5 text-xs text-zinc-200 placeholder-zinc-700/80 focus:outline-none focus:border-orange-500/80 focus:bg-[#121215] shadow-inner font-mono font-bold tracking-widest transition-all"
                  />
                </div>
                <select 
                   value={historyFilterStatus}
                   onChange={e => setHistoryFilterStatus(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-sm px-4 py-3 text-[11px] text-zinc-400 focus:outline-none focus:border-orange-500 cursor-pointer font-mono font-bold appearance-none transition-all h-10 min-w-[160px]"
+                  className="bg-[#0c0c0e] border-[1.5px] border-zinc-800 rounded-sm px-4 py-3.5 text-xs text-zinc-400 focus:outline-none focus:border-orange-500/80 cursor-pointer font-mono font-bold transition-all h-[50px] min-w-[200px] shadow-inner uppercase tracking-wider text-center"
                >
                   <option value="all">TODOS OS EVENTOS</option>
                   <option value="approved">SÓ APROVADOS</option>
@@ -564,71 +574,81 @@ export default function AdminDashboard({ session }: { session: SessionState }) {
                </select>
             </div>
             
-            <div className="flex-1 overflow-x-auto overflow-y-auto bg-zinc-900/30 border border-zinc-800 rounded-sm">
-              <table className="w-full text-left border-collapse min-w-max font-mono text-[11px]">
-                <thead className="bg-zinc-900/80 sticky top-0 z-10 border-b border-zinc-800">
-                  <tr>
-                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">DATA/HORA</th>
-                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">REMETENTE</th>
-                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">REQUISICÃO / MÍDIA</th>
-                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest">ESTADO</th>
-                    <th className="p-4 font-black text-zinc-500 uppercase tracking-widest text-right">CONTEXTO OPERACIONAL</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/40">
-                  {filteredHistory.map(log => (
-                    <tr key={log.id} className="hover:bg-zinc-800/20 transition-colors">
-                      <td className="p-4 text-zinc-500 font-mono tabular-nums">
-                         {format(new Date(log.timestamp), 'dd/MM HH:mm:ss')}
-                      </td>
-                      <td className="p-4">
-                          {(() => {
-                            const matchedUser = session.users?.find(u => u.name === log.submitterName || u.userId === log.submitterId || u.twitchData?.login === log.submitterName);
-                            const twitch = matchedUser?.twitchData;
-                            const displayName = twitch?.displayName || log.submitterName;
-                            const color = twitch?.color || '#FFFFFF';
-                            return (
-                              <div className="flex items-center gap-2">
-                                {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-7 h-7") : (
-                                  <div className="w-7 h-7 rounded-sm bg-zinc-950 flex items-center justify-center text-[8px] font-black border border-zinc-800 text-zinc-700">
-                                    NULL
-                                  </div>
-                                )}
-                                <div className="min-w-0">
-                                  <span className="font-bold text-zinc-200 truncate block" style={{ color: color }}>
-                                    {displayName}
-                                  </span>
-                                  {twitch?.login && (
-                                    <span className="text-[9px] text-zinc-600 block">@{twitch.login}</span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()}
-                       </td>
-                      <td className="p-4 max-w-sm">
-                         <div className="flex flex-col gap-0.5">
-                            <span className="text-zinc-300 truncate font-bold text-[10px]">{log.url}</span>
-                            <span className="text-[9px] text-[#FF6B35] font-black uppercase tracking-widest">{log.platform}</span>
-                         </div>
-                      </td>
-                      <td className="p-4">
-                         {log.status === 'approved' && <span className="text-[9px] text-emerald-500 font-black uppercase tracking-tighter">APROVADO</span>}
-                         {log.status === 'rejected' && <span className="text-[9px] text-red-600 font-black uppercase tracking-tighter">REJEITADO</span>}
-                         {log.status === 'pending' && <span className="text-[9px] text-orange-500 font-black uppercase tracking-tighter animate-pulse">PENDENTE</span>}
-                      </td>
-                      <td className="p-4 max-w-xs text-right italic font-mono text-[10px] text-zinc-600 group">
-                         {log.rejectionReason || log.actionDetails || 'No additional context.'}
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredHistory.length === 0 && (
+            <div className="flex-1 flex flex-col bg-[#0c0c0e] border-[1.5px] border-zinc-800 rounded-sm overflow-hidden shadow-2xl relative">
+              {/* Decorative top border */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#9146FF] to-orange-500 z-20 opacity-70"></div>
+              
+              <div className="flex-1 overflow-x-auto overflow-y-auto">
+                <table className="w-full text-left border-collapse min-w-max">
+                  <thead className="bg-[#0a0a0c] sticky top-0 z-10 before:content-[''] before:absolute before:bottom-0 before:left-0 before:right-0 before:h-[1px] before:bg-zinc-800">
                     <tr>
-                       <td colSpan={5} className="p-20 text-center text-zinc-700 text-[10px] uppercase font-mono tracking-[0.3em]">Buffer vazio. Nenhum registro disponível.</td>
+                      <th className="p-4 font-black font-mono text-zinc-500 text-[10px] uppercase tracking-[0.2em] whitespace-nowrap">Data / Hora</th>
+                      <th className="p-4 font-black font-mono text-zinc-500 text-[10px] uppercase tracking-[0.2em]">Remetente</th>
+                      <th className="p-4 font-black font-mono text-zinc-500 text-[10px] uppercase tracking-[0.2em]">Requisição / Mídia</th>
+                      <th className="p-4 font-black font-mono text-zinc-500 text-[10px] uppercase tracking-[0.2em] text-center w-32">Estado</th>
+                      <th className="p-4 font-black font-mono text-zinc-500 text-[10px] uppercase tracking-[0.2em] text-right w-64 pr-6">Contexto Operacional</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60 bg-gradient-to-b from-[#0c0c0e] to-[#08080a]">
+                    {filteredHistory.map(log => (
+                      <tr key={log.id} className="group transition-all hover:bg-zinc-900 border-b border-zinc-800/60">
+                        <td className="p-4 text-zinc-550 font-mono text-[10px] tabular-nums whitespace-nowrap">
+                           {format(new Date(log.timestamp), 'dd/MM HH:mm:ss')}
+                        </td>
+                        <td className="p-4">
+                            {(() => {
+                              const matchedUser = session.users?.find(u => u.name === log.submitterName || u.userId === log.submitterId || u.twitchData?.login === log.submitterName);
+                              const twitch = matchedUser?.twitchData;
+                              const displayName = twitch?.displayName || log.submitterName;
+                              const color = twitch?.color || '#FFFFFF';
+                              return (
+                                <div className="flex items-center gap-3">
+                                  {matchedUser ? renderUserAvatarAdmin(matchedUser, "w-8 h-8 border border-zinc- structure text-shadow shadow-lg") : (
+                                    <div className="w-8 h-8 rounded-sm bg-zinc-950 flex items-center justify-center text-[8px] font-black border border-zinc-800 text-zinc-600">
+                                      NULL
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex flex-col">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-bold text-xs text-zinc-200 truncate block mix-blend-screen" style={{ color: color, textShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
+                                        {displayName}
+                                      </span>
+                                      {matchedUser && renderTwitchBadgesAdmin(matchedUser)}
+                                    </div>
+                                    {twitch?.login && (
+                                      <span className="text-[9px] text-zinc-550 font-mono">@{twitch.login}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                         </td>
+                        <td className="p-4 max-w-sm">
+                           <div className="flex flex-col gap-1 text-left">
+                              <span className="text-zinc-350 truncate font-mono text-[10.5px] font-bold group-hover:text-white transition-colors">{log.url}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider bg-zinc-900 px-1 py-0.5 rounded border border-zinc-850">{log.platform || 'Youtube'}</span>
+                              </div>
+                           </div>
+                        </td>
+                        <td className="p-4 text-center whitespace-nowrap">
+                           {log.status === 'approved' && <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-sm uppercase font-bold">Aprovado</span>}
+                           {log.status === 'rejected' && <span className="bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-sm uppercase font-bold">Rejeitado</span>}
+                           {log.status === 'pending' && <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-sm uppercase font-bold animate-pulse">Pendente</span>}
+                        </td>
+                        <td className="p-4 max-w-xs text-right italic font-mono text-[10px] text-zinc-500 group-hover:text-zinc-400 transition-colors pr-6">
+                           {log.rejectionReason || log.actionDetails || 'No additional context.'}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredHistory.length === 0 && (
+                      <tr>
+                         <td colSpan={5} className="p-20 text-center text-zinc-600 text-[10px] uppercase font-mono tracking-[0.3em]">Buffer vazio. Nenhum registro disponível.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

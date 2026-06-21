@@ -1,6 +1,8 @@
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Twitch, Settings, Play, Volume2, VolumeX } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import TermosDeUso from "./TermosDeUso";
+import PoliticaDePrivacidade from "./PoliticaDePrivacidade";
 
 interface OnboardingProps {
   onStart: () => void;
@@ -10,6 +12,8 @@ interface OnboardingProps {
 export default function Onboarding({ onStart, onSecondary }: OnboardingProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -170,9 +174,34 @@ export default function Onboarding({ onStart, onSecondary }: OnboardingProps) {
                 </div>
               </div>
             </div>
+
+            {/* Subtle Terms and Privacy links */}
+            <div className="pt-2 text-center text-[10px] text-white/30 font-sans tracking-wide">
+              Ao conectar, você concorda com nossos{" "}
+              <button
+                onClick={() => setShowTerms(true)}
+                className="text-[#9146FF] hover:underline cursor-pointer focus:outline-none"
+              >
+                Termos de Uso
+              </button>{" "}
+              e{" "}
+              <button
+                onClick={() => setShowPrivacy(true)}
+                className="text-[#9146FF] hover:underline cursor-pointer focus:outline-none"
+              >
+                Política de Privacidade
+              </button>
+              .
+            </div>
+
           </motion.div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {showTerms && <TermosDeUso onClose={() => setShowTerms(false)} />}
+        {showPrivacy && <PoliticaDePrivacidade onClose={() => setShowPrivacy(false)} />}
+      </AnimatePresence>
 
       {/* Audio Control (Discreet) */}
       <motion.button

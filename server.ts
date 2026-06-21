@@ -94,7 +94,7 @@ const urlSpamCache = new Map<string, number>();
 
 const twitchAvatarCache = new Map<string, string>();
 const verifiedTokensCache = new Map<string, string>();
-const videoVerificationCache = new Map<string, { valid: boolean, error?: string, title?: string }>();
+const videoVerificationCache = new Map<string, { valid: boolean, error?: string, title?: string, duration?: number }>();
 
 const activeRoomsCache = new Map<string, string>();
 let lastRoomsCacheTime = 0;
@@ -910,7 +910,8 @@ setTimeout(() => {
                 source: 'twitch',
                 title: verifyState.title || 'Vídeo do Chat',
                 status: state.settings?.isManualApprovalRequired ? 'pending' : 'approved',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                duration: verifyState.duration || 180
               };
 
               // Fast Queue Save & Ably broadcast (non-blocking, instant visual arrival in frontend!)
@@ -1301,18 +1302,27 @@ async function checkDnsHost(urlStr: string): Promise<boolean> {
   }
 }
 
+function parseISODuration(isoDuration: string): number {
+  const matches = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!matches) return 0;
+  const hours = parseInt(matches[1] || '0', 10);
+  const minutes = parseInt(matches[2] || '0', 10);
+  const seconds = parseInt(matches[3] || '0', 10);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 // Live URL check using oembed or low-timeout HEAD queries to catch 404, 410, etc.
 export async function verifyVideoContent(
   url: string, 
   platform: 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'other',
   blockLive: boolean
-): Promise<{ valid: boolean, error?: string, title?: string }> {
+): Promise<{ valid: boolean, error?: string, title?: string, duration?: number }> {
   const cacheKey = `${platform}:${blockLive}:${url}`;
   if (videoVerificationCache.has(cacheKey)) {
     return videoVerificationCache.get(cacheKey)!;
   }
   
-  const runVerify = async (): Promise<{ valid: boolean, error?: string, title?: string }> => {
+  const runVerify = async (): Promise<{ valid: boolean, error?: string, title?: string, duration?: number }> => {
     try {
       if (platform === 'youtube') {
         // Catch live occurrences
@@ -1326,12 +1336,35 @@ export async function verifyVideoContent(
           if (blockLive && (res.data.title || '').toLowerCase().includes('live')) {
             return { valid: false, error: 'Transmissões ao vivo (Live Streams) estão desabilitadas nas configurações.' };
           }
-          return { valid: true, title: res.data.title || 'Vídeo do YouTube' };
+          
+          let durationSecs = 180; // default standard estimate if scrap fails
+          try {
+            const pageRes = await axios.get(url, {
+              timeout: 3000,
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+            });
+            const html = pageRes.data;
+            const durationMatch = html.match(/itemprop="duration"\s+content="([^"]+)"/i) || html.match(/<meta\s+itemprop="duration"\s+content="([^"]+)"/i);
+            if (durationMatch) {
+              const seconds = parseISODuration(durationMatch[1]);
+              if (seconds > 0) durationSecs = seconds;
+            } else {
+              const lengthMatch = html.match(/"lengthSeconds"\s*:\s*"(\d+)"/i);
+              if (lengthMatch) {
+                const seconds = parseInt(lengthMatch[1], 10);
+                if (seconds > 0) durationSecs = seconds;
+              }
+            }
+          } catch (scrapeErr: any) {
+            console.warn(`[YouTube Duration Scrape Failed] ${url}:`, scrapeErr.message);
+          }
+          
+          return { valid: true, title: res.data.title || 'Vídeo do YouTube', duration: durationSecs };
         }
       } else if (platform === 'tiktok') {
         const res = await axios.get(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, { timeout: 3500 });
         if (res.status === 200) {
-          return { valid: true, title: res.data.title || 'Vídeo do TikTok' };
+          return { valid: true, title: res.data.title || 'Vídeo do TikTok', duration: 15 };
         }
       } else if (platform === 'instagram') {
         const match = url.match(/(?:instagram\.com)\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_\-]+)/i);
@@ -1340,14 +1373,14 @@ export async function verifyVideoContent(
         const checkUrl = `https://www.instagram.com/p/${match[1]}/embed/`;
         const res = await axios.get(checkUrl, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
         if (res.status === 200) {
-          return { valid: true, title: 'Instagram Reel' };
+          return { valid: true, title: 'Instagram Reel', duration: 30 };
         }
       } else if (platform === 'twitter') {
-        return { valid: true, title: 'Vídeo do X/Twitter' };
+        return { valid: true, title: 'Vídeo do X/Twitter', duration: 45 };
       } else if (platform === 'other') {
         const res = await axios.head(url, { timeout: 3500, headers: { 'User-Agent': 'Mozilla/5.0' } });
         if (res.status >= 200 && res.status < 400) {
-          return { valid: true, title: 'Arquivo de Mídia Direta' };
+          return { valid: true, title: 'Arquivo de Mídia Direta', duration: 180 };
         }
       }
     } catch (err: any) {
@@ -1357,7 +1390,7 @@ export async function verifyVideoContent(
       console.warn(`[Content Check Warning] ${url}:`, err.message);
     }
     // Safe fallback if target server prevents scraping headers but exists
-    return { valid: true, title: 'Conteúdo Sincronizado' };
+    return { valid: true, title: 'Conteúdo Sincronizado', duration: 180 };
   };
 
   const result = await runVerify();
@@ -2372,7 +2405,8 @@ app.post(['/api/webhooks/livepix/:roomIdOrLogin', '/webhooks/livepix/:roomIdOrLo
         timestamp: Date.now(),
         priority_score,
         dataEnvio,
-        horaEnvio
+        horaEnvio,
+        duration: contentCheck.duration || 180
       };
 
       // Add to session queue
@@ -2938,7 +2972,8 @@ app.post(['/sessions/:id/submit_video', '/api/sessions/:id/submit_video'], async
       timestamp: Date.now(),
       priority_score,
       dataEnvio,
-      horaEnvio
+      horaEnvio,
+      duration: contentCheck.duration || 180
     };
 
     const updatedQueue = [...(state.queue || [])];

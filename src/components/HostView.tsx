@@ -807,6 +807,7 @@ export default function HostView({ session }: { session: SessionState }) {
   const [copied, setCopied] = useState<boolean>(false);
   const [optimisticLoading, setOptimisticLoading] = useState<boolean>(false);
   const [directUrl, setDirectUrl] = useState("");
+  const [showManualMenu, setShowManualMenu] = useState<boolean>(false);
 
   // Fila metrics calculations
   const hostQueue = session.queue || [];
@@ -1148,7 +1149,7 @@ export default function HostView({ session }: { session: SessionState }) {
     if (!directUrl.trim().startsWith("http")) return;
     socket.emit("submit_video", { url: directUrl.trim() });
     setDirectUrl("");
-    setActiveTab("player");
+    setShowManualMenu(false);
     showFeedback(
       "Injetando Mídia",
       "Vídeo enviado com prioridade de Host.",
@@ -1349,12 +1350,12 @@ export default function HostView({ session }: { session: SessionState }) {
           </button>
 
           <button
-            onClick={() => setActiveTab("submit")}
+            onClick={() => setShowManualMenu(prev => !prev)}
             className={clsx(
-              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer",
-              activeTab === "submit"
-                ? "bg-[#9146FF]/15 text-orange-400 border border-[#9146FF]/25 shadow-[0_0_15px_rgba(145,70,255,0.12)]"
-                : "text-zinc-455 hover:text-zinc-100 hover:bg-black/30 border border-transparent",
+              "px-3.5 py-1.5 rounded-sm text-[11px] font-black font-mono tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer relative",
+              showManualMenu
+                ? "bg-orange-500/15 text-orange-400 border border-orange-500/25 shadow-[0_0_15px_rgba(249,115,22,0.15)]"
+                : "text-zinc-455 hover:text-orange-450 hover:bg-black/30 border border-transparent",
             )}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -1461,208 +1462,73 @@ export default function HostView({ session }: { session: SessionState }) {
             <DiscordView session={session} />
           </div>
 
-          <div style={{ display: activeTab === "submit" ? "block" : "none" }} className="flex-1 w-full p-6 md:p-8 overflow-y-auto bg-black/10 backdrop-blur-sm">
-            {/* Centered card container for the Manual Submission modules */}
-            <div className="relative bg-[#0d0d0e]/60 border border-zinc-800/85 rounded-sm p-6 md:p-8 max-w-4xl mx-auto space-y-8 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {/* VHS-style orange gradient top-stripe */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 via-orange-500/50 to-orange-500/10" />
-              
-              {/* Centered Header inside the Card */}
-              <div className="space-y-2 pb-6 border-b border-zinc-800/80 text-center relative">
-                <div className="flex items-center justify-center gap-3">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                  <h2 className="text-lg md:text-xl font-black font-mono uppercase tracking-widest text-zinc-100 flex items-center gap-2">
-                    <CassetteTape className="w-5 h-5 text-orange-500" />
-                    MÓDULO CONSOLE DE INJEÇÃO MANUAL
-                  </h2>
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                </div>
-                <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider font-mono max-w-xl mx-auto leading-relaxed">
-                  PAINEL ANALÓGICO PARA TRANSFERÊNCIA IMEDIATA DE MÍDIAS EXTERNAS PARA O STREAMER
-                </p>
-              </div>
-
-              {/* Grid content container inside the Card */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          {showManualMenu && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200" id="manual_injection_modal">
+              <div className="relative w-full max-w-sm bg-[#0a0a0b] border border-zinc-800 rounded shadow-2xl overflow-hidden p-5 animate-in zoom-in-95 duration-200">
+                {/* Vintage VHS retro gradient stripe */}
+                <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500/10" />
                 
-                {/* Card 1: Console de Injeção */}
-                <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-orange-500/60 group rounded-sm p-5 min-h-[360px]">
-                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                  
-                  <div className="relative z-10 flex flex-col justify-between h-full space-y-6 flex-1">
-                    <div className="space-y-4">
-                      {/* Card Header matching Twitch/Discord layout */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <div className="text-[9px] font-black font-mono text-orange-500 uppercase tracking-[0.2em] mb-1 not-italic">
-                            CONSOLE AUXILIAR
-                          </div>
-                          <h3 className="text-lg font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
-                            INJEÇÃO DE FILA
-                          </h3>
-                        </div>
-                        <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
-                          <CassetteTape className="w-4 h-4 text-orange-500" />
-                        </div>
-                      </div>
+                {/* Header */}
+                <div className="flex items-start justify-between pb-3.5 border-b border-zinc-800 mb-4">
+                  <div className="space-y-1">
+                    <div className="text-[8px] font-black font-mono text-orange-500 uppercase tracking-widest leading-none">Console Auxiliar</div>
+                    <h3 className="text-xs font-black font-mono text-zinc-100 uppercase tracking-wider flex items-center gap-1.5 leading-none mt-1.5">
+                      <CassetteTape className="w-4 h-4 text-orange-500 animate-spin-slow" />
+                      Injeção Manual
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowManualMenu(false)}
+                    className="p-1 text-zinc-500 hover:text-white rounded border border-transparent hover:border-white/10 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase mb-4 text-left">
+                  Insira uma URL direta de vídeo (YouTube, TikTok, Instagram, Twitter/X, etc.). Esse console irá furar as regras normais de moderação automática recebendo prioridade máxima de Host.
+                </p>
 
-                      <div className="space-y-2 text-left">
-                        <p className="text-[10px] font-mono text-zinc-400 leading-relaxed uppercase font-semibold">
-                          Insira qualquer URL de vídeo suportada (YouTube, Twitch, Instagram, Twitter, TikTok, etc.). 
-                          <br />
-                          <br />
-                          Esse console transpassará de imediato quaisquer regras de moderação assistida ou cooldowns ativos de usuários da live.
-                        </p>
-                      </div>
-
-                      <div className="space-y-1 pt-2">
-                        <input
-                          type="text"
-                          value={directUrl}
-                          onChange={(e) => setDirectUrl(e.target.value)}
-                          placeholder="Insira a URL (ex: https://youtube.com/watch?...)"
-                          className="w-full bg-[#141416]/90 border border-zinc-800 rounded-sm px-3.5 py-3 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-orange-500 font-mono tracking-tight relative z-20"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-zinc-900/80 flex items-center justify-between gap-4 relative z-20">
-                      <div className="text-[9px] font-mono text-zinc-550 uppercase font-bold text-left leading-tight hidden sm:block">
-                        Status de Ingressão: <br/> <span className="text-orange-500/80 text-[8px] font-black tracking-widest">LIVRE // V-SYNC</span>
-                      </div>
-                      
-                      <button
-                        onClick={handleDirectSubmit}
-                        disabled={!directUrl.trim().startsWith("http")}
-                        className="flex-1 sm:flex-none uppercase text-[10px] font-mono font-black tracking-widest text-white disabled:text-zinc-600 bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-950 border border-transparent disabled:border-zinc-900 shadow-[0_0_20px_rgba(234,88,12,0.15)] hover:shadow-[0_0_25px_rgba(234,88,12,0.25)] transition-all px-6 py-2.5 rounded-sm cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        Injetar Vídeo
-                      </button>
-                    </div>
+                <div className="space-y-4">
+                  <div className="space-y-1 text-left">
+                    <label className="text-[9px] font-bold font-mono text-zinc-500 uppercase">Link de Mídia</label>
+                    <input
+                      type="text"
+                      value={directUrl}
+                      onChange={(e) => setDirectUrl(e.target.value)}
+                      placeholder="Ex: https://youtube.com/watch?v=..."
+                      className="w-full bg-[#111113] border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 placeholder-zinc-800 focus:outline-none focus:border-orange-500 font-mono tracking-tight"
+                    />
                   </div>
 
-                  {/* Skewed background stripes at bottom */}
-                  <div className="absolute bottom-0 left-0 right-0 h-8 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none">
-                    <div className="flex-1 bg-[#4a1d05]"></div>
-                    <div className="flex-1 bg-[#7c2d12]"></div>
-                    <div className="flex-1 bg-[#9a3412]"></div>
-                    <div className="flex-1 bg-[#ea580c]"></div>
-                    <div className="flex-1 bg-[#f97316]"></div>
+                  <div className="pt-2.5 border-t border-zinc-900 flex justify-end gap-2 text-xs font-mono font-bold uppercase transition-colors">
+                    <button
+                      onClick={() => setShowManualMenu(false)}
+                      className="text-[9.5px] font-black tracking-widest text-zinc-400 hover:text-white uppercase transition-colors px-3 py-1.5 cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleDirectSubmit}
+                      disabled={!directUrl.trim().startsWith("http")}
+                      className="uppercase text-[9.5px] font-black tracking-widest text-white disabled:text-zinc-650 bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-950 border border-transparent disabled:border-zinc-900 transition-all px-4 py-1.5 rounded-sm cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      Injetar Vídeo
+                    </button>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
                 </div>
 
-                {/* Card 2: Telemetria & Informações de Protocolo */}
-                <div className="space-y-6 flex flex-col justify-between">
-                  
-                  {/* Panel info */}
-                  <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-yellow-600/60 rounded-sm p-4 text-left">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                    
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <div className="text-[9px] font-black font-mono text-yellow-500 uppercase tracking-[0.2em] mb-1 not-italic">
-                            DIRETRIZ LIVE
-                          </div>
-                          <h3 className="text-lg font-bold font-sans text-zinc-200 uppercase tracking-tighter mix-blend-screen">
-                            REGRAS DE SOBREPOSIÇÃO
-                          </h3>
-                        </div>
-                        <div className="w-8 h-8 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
-                          <AlertCircle className="w-4 h-4 text-yellow-500" />
-                        </div>
-                      </div>
-
-                      <ul className="text-[9px] space-y-2 text-zinc-400 font-semibold uppercase font-mono">
-                        <li className="flex items-start gap-2">
-                          <span className="text-yellow-500 font-black shrink-0">✔</span>
-                          <span>Sobrepõe as Whitelists de origem ativas na configuração.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-yellow-500 font-black shrink-0">✔</span>
-                          <span>Ignora cooldowns globais ou de conta aplicados no chat.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-yellow-500 font-black shrink-0">✔</span>
-                          <span>Não necessita permissão de moderadores terceiros.</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-600 to-amber-500 opacity-80 z-10"></div>
-                  </div>
-
-                  {/* Active telemetries metrics sub-cards */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-cyan-500/60 rounded-sm p-4 text-left font-mono h-[105px]">
-                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                      
-                      <div className="relative z-10">
-                        <span className="text-[8px] text-cyan-400 block font-black uppercase tracking-widest">SESSÕES ATIVAS</span>
-                        <span className="text-xl font-black text-white block mt-1 uppercase tracking-tight">
-                          {session.users.length} ATIVOS
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-0 left-0 right-0 h-4 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none">
-                        <div className="flex-1 bg-cyan-950/40"></div>
-                        <div className="flex-1 bg-cyan-800/60"></div>
-                        <div className="flex-1 bg-cyan-600/80"></div>
-                        <div className="flex-1 bg-cyan-400"></div>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 h-4 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
-                    </div>
-
-                    <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-emerald-500/60 rounded-sm p-4 text-left font-mono h-[105px]">
-                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                      
-                      <div className="relative z-10">
-                        <span className="text-[8px] text-emerald-400 block font-black uppercase tracking-widest">TOTAL DE MÍDIAS FILA</span>
-                        <span className="text-xl font-black text-emerald-400 block mt-1 uppercase tracking-tight">
-                          {session.queue.length} FITAS
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-0 left-0 right-0 h-4 flex -skew-x-[20deg] scale-125 mb-[-4px] ml-[-10px] opacity-90 pointer-events-none">
-                        <div className="flex-1 bg-emerald-950/40"></div>
-                        <div className="flex-1 bg-emerald-800/60"></div>
-                        <div className="flex-1 bg-emerald-600/80"></div>
-                        <div className="flex-1 bg-emerald-400"></div>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 h-4 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] opacity-30 z-20 pointer-events-none mb-[-4px]"></div>
-                    </div>
-                  </div>
-
-                  {/* Quick instruction notice Card */}
-                  <div className="relative bg-[#0c0c0e] border-[1.5px] border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-[#9146ff]/60 rounded-sm p-4 text-left font-mono">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                    
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="text-[9px] font-black font-mono text-[#9146ff] uppercase tracking-[0.2em] mb-1 not-italic">
-                            PROCESSO EXTERNO
-                          </div>
-                          <h3 className="text-xs font-bold font-sans text-zinc-300 uppercase tracking-wider">
-                            MÉTODO ENVIOS DE CHAT
-                          </h3>
-                        </div>
-                        <div className="w-6 h-6 border border-zinc-700/50 rounded-full flex items-center justify-center opacity-70 bg-zinc-900/50">
-                          <Globe className="w-3 h-3 text-[#9146ff]" />
-                        </div>
-                      </div>
-                      <p className="text-[9px] text-zinc-400 font-semibold leading-relaxed uppercase">
-                        Os espectadores da live enviam mídias colando links diretamente no formulário do Lobby ou através do bot de comandos vinculados à sua conta da Twitch ou Discord.
-                      </p>
-                    </div>
-
-                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-700 to-indigo-500 opacity-80 z-10"></div>
-                  </div>
+                {/* Bottom skew pattern backing up visual balance */}
+                <div className="absolute bottom-0 left-0 right-0 h-1.5 flex -skew-x-[20deg] scale-110 mb-[-1px] opacity-70 pointer-events-none">
+                  <div className="flex-1 bg-[#4a1d05]"></div>
+                  <div className="flex-1 bg-[#7c2d12]"></div>
+                  <div className="flex-1 bg-[#9a3412]"></div>
+                  <div className="flex-1 bg-[#ea580c]"></div>
+                  <div className="flex-1 bg-[#f97316]"></div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div style={{ display: activeTab === "ranking" ? "block" : "none" }} className="w-full h-full overflow-y-auto bg-black/10 backdrop-blur-sm">
             <ViewerRanking 

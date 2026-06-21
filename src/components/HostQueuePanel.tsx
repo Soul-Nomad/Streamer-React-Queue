@@ -48,12 +48,20 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
   };
 
   const renderTwitchBadges = (user: any) => {
-    const badges = user?.twitchData?.badges || [];
+    const twitch = user?.twitchData;
+    if (!twitch) return null;
+    
+    const badges = [...(twitch.badges || [])];
+    if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
+    if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
+    if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
+    if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
+
     if (badges.length === 0) return null;
     return (
       <div className="flex items-center gap-1 shrink-0">
         {badges.map((b: string) => {
-          if (b === 'broadcaster') {
+          if (b === 'broadcaster' || b === 'founder') {
             return (
               <span key={b} className="bg-red-600 text-white text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-red-500/30" title="Streamer (Broadcaster)">
                 👑 STR
@@ -132,17 +140,30 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         v.url.toLowerCase().includes(searchQuery.toLowerCase());
 
       const sender = session.users.find(u => u.name === v.submitter || u.userId === v.submitterId);
-      const badges = sender?.twitchData?.badges || [];
+      const twitch = sender?.twitchData;
+      const badges = twitch ? [...(twitch.badges || [])] : [];
+      if (twitch) {
+        if (twitch.isBroadcaster && !badges.includes('broadcaster')) badges.push('broadcaster');
+        if (twitch.isModerator && !badges.includes('moderator')) badges.push('moderator');
+        if (twitch.isVip && !badges.includes('vip')) badges.push('vip');
+        if (twitch.isSubscriber && !badges.includes('subscriber')) badges.push('subscriber');
+      }
       
       let matchBadge = true;
       if (badgeFilter !== 'all') {
-        matchBadge = badges.includes(badgeFilter) || (badgeFilter === 'subscriber' && !!sender?.twitchData?.isSubscriber);
+        matchBadge = badges.includes(badgeFilter);
       }
 
       const platform = getPlatformLabel(v.url).toLowerCase();
       let matchPlatform = true;
       if (platformFilter !== 'all') {
-        matchPlatform = platform === platformFilter.toLowerCase();
+        if (platformFilter === 'x') {
+          matchPlatform = platform.includes('x') || platform.includes('twitter');
+        } else if (platformFilter === 'other') {
+          matchPlatform = platform.includes('web video') || platform.includes('facebook') || (!['youtube', 'tiktok', 'instagram', 'twitch'].some(p => platform.includes(p)));
+        } else {
+          matchPlatform = platform.includes(platformFilter.toLowerCase());
+        }
       }
 
       return matchSearch && matchBadge && matchPlatform;
@@ -288,6 +309,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               <option value="tiktok" className="bg-zinc-950 text-zinc-100">TikTok</option>
               <option value="instagram" className="bg-zinc-950 text-zinc-100">Instagram</option>
               <option value="twitch" className="bg-zinc-950 text-zinc-100">Twitch</option>
+              <option value="x" className="bg-zinc-950 text-zinc-100">Twitter / X</option>
+              <option value="other" className="bg-zinc-950 text-zinc-100">Outros / Direto</option>
             </select>
           </div>
         </div>
