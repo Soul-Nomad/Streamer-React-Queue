@@ -56,9 +56,9 @@ const renderTwitchBadges = (user: any) => {
     <div className="flex items-center gap-1 shrink-0">
       {badges.map((b: string) => {
         if (b === 'broadcaster' || b === 'founder') return <span key={b} className="bg-[#FF3B30] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#FF3B30]/30 animate-pulse">👑 STR</span>;
-        if (b === 'moderator') return <span key={b} className="bg-[#4CAF50] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#4CAF50]/30">🛡️ MOD</span>;
-        if (b === 'vip') return <span key={b} className="bg-[#E25CFF] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#E25CFF]/30">💎 VIP</span>;
-        if (b === 'subscriber') return <span key={b} className="bg-[#FFD700] text-black text-[9px] font-black uppercase px-1 rounded-sm border border-[#FFB300]/30">⭐ SUB</span>;
+        if (b === 'moderator') return <span key={b} className="bg-[#4CAF50] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#4CAF50]/30">MOD</span>;
+        if (b === 'vip') return <span key={b} className="bg-[#E25CFF] text-white text-[9px] font-black uppercase px-1 rounded-sm border border-[#E25CFF]/30">VIP</span>;
+        if (b === 'subscriber') return <span key={b} className="bg-[#FFD700] text-black text-[9px] font-black uppercase px-1 rounded-sm border border-[#FFB300]/30">SUB</span>;
         return null;
       })}
     </div>

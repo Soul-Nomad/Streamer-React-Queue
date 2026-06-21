@@ -25,6 +25,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
   const [searchQuery, setSearchQuery] = useState('');
   const [badgeFilter, setBadgeFilter] = useState<string>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
 
   const getPlatformLabel = (url: string) => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
@@ -71,21 +72,21 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
           if (b === 'moderator') {
             return (
               <span key={b} className="bg-green-600 text-white text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-green-500/30" title="Moderator">
-                ⚔️ MOD
+                MOD
               </span>
             );
           }
           if (b === 'vip') {
             return (
               <span key={b} className="bg-purple-600 text-white text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-purple-500/30" title="VIP">
-                💎 VIP
+                VIP
               </span>
             );
           }
           if (b === 'subscriber') {
             return (
               <span key={b} className="bg-amber-500 text-black text-[8px] font-black uppercase tracking-wider px-1 rounded-sm border border-amber-400/30" title="Inscrito (Subscriber)">
-                ⭐ SUB
+                SUB
               </span>
             );
           }
@@ -166,7 +167,16 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         }
       }
 
-      return matchSearch && matchBadge && matchPlatform;
+      let matchSource = true;
+      if (sourceFilter !== 'all') {
+        if (sourceFilter === 'site') {
+          matchSource = !v.source || v.source === 'site' || v.source === 'api';
+        } else {
+          matchSource = v.source === sourceFilter;
+        }
+      }
+
+      return matchSearch && matchBadge && matchPlatform && matchSource;
     })
     .sort((a: Video, b: Video) => {
       // For unwatched/pending list, order chronologically by timestamp ASC
@@ -282,13 +292,13 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
             className="w-full bg-black/35 hover:bg-black/45 border border-white/10 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-white/20 text-zinc-100 placeholder-zinc-500 font-mono transition-colors backdrop-blur-sm"
           />
         </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-2 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-1.5 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
             <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
             <select
               value={badgeFilter}
               onChange={(e) => setBadgeFilter(e.target.value)}
-              className="w-full bg-transparent text-[10px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
+              className="w-full bg-transparent text-[9.5px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
             >
               <option value="all" className="bg-zinc-950 text-zinc-100">Badge: Todos</option>
               <option value="broadcaster" className="bg-zinc-950 text-zinc-100">Broadcasters</option>
@@ -297,12 +307,12 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               <option value="subscriber" className="bg-zinc-950 text-zinc-100">Inscritos</option>
             </select>
           </div>
-          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-2 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
+          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-1.5 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
             <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
             <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
-              className="w-full bg-transparent text-[10px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
+              className="w-full bg-transparent text-[9.5px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
             >
               <option value="all" className="bg-zinc-950 text-zinc-100">Plataforma</option>
               <option value="youtube" className="bg-zinc-950 text-zinc-100">YouTube</option>
@@ -311,6 +321,19 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               <option value="twitch" className="bg-zinc-950 text-zinc-100">Twitch</option>
               <option value="x" className="bg-zinc-950 text-zinc-100">Twitter / X</option>
               <option value="other" className="bg-zinc-950 text-zinc-100">Outros / Direto</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1 bg-black/35 border border-white/10 rounded px-1.5 py-1 focus-within:border-white/20 transition-colors backdrop-blur-sm">
+            <Filter className="w-3 h-3 text-zinc-500 shrink-0" />
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full bg-transparent text-[9.5px] text-zinc-400 focus:outline-none border-0 p-0 leading-tight cursor-pointer"
+            >
+              <option value="all" className="bg-zinc-950 text-zinc-100">Origem: Todas</option>
+              <option value="twitch" className="bg-zinc-950 text-zinc-100">Chat Twitch</option>
+              <option value="discord" className="bg-zinc-950 text-zinc-100">Bot Discord</option>
+              <option value="site" className="bg-zinc-950 text-zinc-100">Site / Manual</option>
             </select>
           </div>
         </div>

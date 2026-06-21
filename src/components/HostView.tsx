@@ -189,7 +189,7 @@ const renderTwitchBadgesHost = (user: any) => {
               className="bg-[#4CAF50] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30"
               title="Moderador"
             >
-              🛡️ MOD
+              MOD
             </span>
           );
         }
@@ -200,7 +200,7 @@ const renderTwitchBadgesHost = (user: any) => {
               className="bg-[#E25CFF] text-white text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30"
               title="VIP"
             >
-              💎 VIP
+              VIP
             </span>
           );
         }
@@ -211,7 +211,7 @@ const renderTwitchBadgesHost = (user: any) => {
               className="bg-[#FFD700] text-black text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FFB300]/30"
               title="Inscrito"
             >
-              ⭐ SUB
+              SUB
             </span>
           );
         }

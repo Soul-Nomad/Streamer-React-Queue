@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "../lib/supabase";
 import { SessionState, User } from "../types";
 import { 
   Trophy, Award, RefreshCw, Sparkles, Zap, ChevronUp, Check, Play, Heart, Star, Flame, Loader2, ArrowUpRight
@@ -11,7 +12,48 @@ interface ViewerRankingProps {
 }
 
 export default function ViewerRanking({ session, onSelectUser }: ViewerRankingProps) {
-  const users = session.users || [];
+  const [dbKarmaList, setDbKarmaList] = useState<any[]>([]);
+  const [loadingDb, setLoadingDb] = useState(false);
+
+  useEffect(() => {
+    async function fetchAllKarma() {
+      setLoadingDb(true);
+      try {
+        const { data, error } = await supabase
+          .from('user_karma')
+          .select('*');
+        if (data && !error) {
+          setDbKarmaList(data);
+        }
+      } catch (e) {
+        console.error("Error loading user karma list:", e);
+      } finally {
+        setLoadingDb(false);
+      }
+    }
+    fetchAllKarma();
+  }, []);
+
+  const users = useMemo(() => {
+    // Merge session.users (now persistent across streams!) with the latest actual karma values from user_karma in DB
+    const sessionUsers = session.users || [];
+    return sessionUsers.map((u: User) => {
+      const dbRecord = dbKarmaList.find(d => d.user_id === u.userId || d.user_id === u.id);
+      if (dbRecord) {
+        return {
+          ...u,
+          reputation: dbRecord.karma_score,
+          karmaDetails: {
+            karma_score: dbRecord.karma_score,
+            positive_ratings: dbRecord.positive_ratings,
+            negative_ratings: dbRecord.negative_ratings,
+            total_rated_submissions: dbRecord.total_rated_submissions,
+          }
+        };
+      }
+      return u;
+    });
+  }, [session.users, dbKarmaList]);
 
   // Filter and sort users by karma score
   const sortedRanking = useMemo(() => {

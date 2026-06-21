@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { socket } from '../socket';
 import { SessionState } from '../types';
-import { Settings, Save, ShieldCheck, Layers, Award, Compass, History, Link, RefreshCw, Trash2, CheckCircle, MessageSquare, X, AlertCircle } from 'lucide-react';
+import { Settings, Save, ShieldCheck, Layers, Award, Compass, History, Link, RefreshCw, Trash2, CheckCircle, MessageSquare, X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsView({ session }: { session: SessionState }) {
@@ -9,6 +9,7 @@ export default function SettingsView({ session }: { session: SessionState }) {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [livepixCopied, setLivepixCopied] = useState(false);
+  const [showWebhookUrl, setShowWebhookUrl] = useState(false);
 
   useEffect(() => {
     if (session?.id) {
@@ -588,15 +589,25 @@ export default function SettingsView({ session }: { session: SessionState }) {
                     <div className="space-y-2">
                       <label className="block text-zinc-500 font-mono uppercase text-[9px] font-bold tracking-widest text-left">SUA URL DO WEBHOOK DE SEGURANÇA</label>
                       <div className="flex gap-2">
-                        <div className="relative flex-1">
+                        <div className="relative flex-1 flex items-center">
                           <input 
-                            type="text" 
+                            type={showWebhookUrl ? "text" : "password"} 
                             readOnly
                             value={roomSettings?.room_id ? `${window.location.origin}/api/webhooks/livepix/${roomSettings.room_id}` : 'Carregando URL...'} 
-                            className="w-full bg-zinc-950 border border-zinc-900 rounded px-3 py-2 text-zinc-300 outline-none text-[10px] font-mono select-all select-text pr-10"
+                            className="w-full bg-zinc-950 border border-zinc-900 rounded pl-3 pr-20 py-2 text-zinc-300 outline-none text-[10px] font-mono select-all select-text"
                             id="livepix_url_input"
                           />
-                          <span className="absolute right-3 top-2.5 text-[8px] font-mono text-emerald-500 font-bold tracking-wider">LIVE</span>
+                          <div className="absolute right-2 flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setShowWebhookUrl(!showWebhookUrl)}
+                              className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                              title={showWebhookUrl ? "Ocultar URL" : "Visualizar URL"}
+                            >
+                              {showWebhookUrl ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <span className="text-[8px] font-mono text-emerald-500 font-bold tracking-wider mr-1">LIVE</span>
+                          </div>
                         </div>
                         <button
                           type="button"

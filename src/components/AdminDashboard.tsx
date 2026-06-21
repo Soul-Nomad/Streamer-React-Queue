@@ -59,21 +59,21 @@ const renderTwitchBadgesAdmin = (user: any) => {
         if (b === 'moderator') {
           return (
             <span key={b} className="bg-[#4CAF50] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#4CAF50]/30" title="Moderador">
-              🛡️ MOD
+              MOD
             </span>
           );
         }
         if (b === 'vip') {
           return (
             <span key={b} className="bg-[#E25CFF] text-zinc-100 text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#E25CFF]/30" title="VIP">
-              💎 VIP
+              VIP
             </span>
           );
         }
         if (b === 'subscriber') {
           return (
             <span key={b} className="bg-[#FFD700] text-black text-[8px] font-black uppercase tracking-tight px-1 rounded-sm border border-[#FFB300]/30" title="Inscrito">
-              ⭐ SUB
+              SUB
             </span>
           );
         }
