@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
+import QueueVideoCard from './QueueVideoCard';
 
 const DiscordIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -298,162 +299,19 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         <AnimatePresence initial={false}>
           {processedVideos.map((vid: Video, index: number) => {
             const isCurrent = session.currentVideoId === vid.id;
-            const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
-            const platform = getPlatformLabel(vid.url);
-            const platformColor = getPlatformColor(platform);
-            
-            // Calculate progress/time indicators
-            const duration = vid.duration || 0;
-            let progressPercent = 0;
-            let progressText = '--:-- / --:--';
-
-            if (isCurrent) {
-              const currentSeconds = Math.floor(session.currentTime || 0);
-              progressPercent = duration > 0 ? Math.min(100, (currentSeconds / duration) * 100) : 0;
-              progressText = `${formatTime(currentSeconds)} / ${formatTime(duration)}`;
-            } else if (vid.status === 'watched') {
-              progressPercent = 100;
-              progressText = `Visto (${formatTime(duration || 180)})`;
-            } else {
-              progressPercent = 0;
-              progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
-            }
-            
             return (
-              <motion.div
+              <QueueVideoCard
                 key={vid.id}
-                layout="position"
-                initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
-                transition={{ type: "spring", stiffness: 180, damping: 20 }}
-                className={clsx(
-                  "group relative border rounded-sm p-3 block text-left transition-all duration-300 overflow-hidden",
-                  isCurrent 
-                    ? "bg-zinc-900/80 border-orange-500/40 shadow-[0_0_15px_rgba(255,107,53,0.1)] glow-orange" 
-                    : "bg-zinc-950/60 border-[#1f1f2e] hover:border-zinc-700 hover:bg-zinc-900/50"
-                )}
-              >
-                {isCurrent && (
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-red-500"></div>
-                )}
-
-                {/* Top Details */}
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1.5 text-[9px] font-mono">
-                    {tab === 'pending' && (
-                      <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
-                    )}
-                    {isCurrent ? (
-                      <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
-                        <span className="h-1 w-1 rounded-full bg-orange-500"></span>
-                        Em Reprodução
-                      </span>
-                    ) : vid.status === 'pending' ? (
-                      <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Pendente
-                      </span>
-                    ) : vid.status === 'approved' ? (
-                      <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Na Fila
-                      </span>
-                    ) : vid.status === 'watched' ? (
-                      <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Visto
-                      </span>
-                    ) : null}
-                    
-                    {duration > 0 && (
-                      <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
-                        {formatTime(duration)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {vid.source === 'twitch' && (
-                      <div className="text-[#9146FF] bg-[#9146FF]/10 p-0.5 rounded" title="Enviado pela Twitch">
-                        <Twitch className="w-3.5 h-3.5 fill-current" />
-                      </div>
-                    )}
-                    {vid.source === 'discord' && (
-                      <div className="text-[#5865F2] bg-[#5865F2]/10 p-0.5 rounded" title="Enviado pelo Discord">
-                        <DiscordIcon className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                    {(!vid.source || vid.source === 'site') && (
-                      <div className="text-[#00FF66] bg-[#00FF66]/10 p-0.5 rounded" title="Enviado pelo Site">
-                        <Terminal className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                    <span className={clsx("text-[8px] px-1 py-0.5 rounded border font-mono tracking-wider uppercase font-bold", platformColor)}>
-                      {platform}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Title & Link */}
-                <h4 className={clsx(
-                  "text-xs font-bold line-clamp-1 break-all mb-1 font-sans",
-                  isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
-                )}>
-                  {vid.title || "Mídia Sincronizada"}
-                </h4>
-                <p className="text-[10px] text-zinc-500 truncate font-mono mb-2" title={vid.url}>
-                  {vid.url}
-                </p>
-
-                {/* Submitter User Profile */}
-                <div className="flex items-center justify-between gap-1 border-t border-[#1f1f2e] pt-2 mt-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {renderAvatar(sender, vid.submitter)}
-                    <span 
-                      className="text-[10.5px] font-bold truncate leading-none"
-                      style={{ color: sender?.twitchData?.color || '#a1a1aa' }}
-                    >
-                      @{vid.submitter}
-                    </span>
-                    {renderTwitchBadges(sender)}
-                  </div>
-
-                  {/* Individual Action Controls */}
-                  <div className="flex gap-1 shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    {vid.status === 'pending' && (
-                      <button 
-                        onClick={() => approve(vid.id)} 
-                        className="p-1 items-center justify-center bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white border border-green-500/20 rounded transition-all cursor-pointer" 
-                        title="Aprovar Vídeo"
-                      >
-                        <Check className="w-3 h-3" />
-                      </button>
-                    )}
-                    {!isCurrent && (vid.status === 'approved' || vid.status === 'pending') && (
-                      <button 
-                        onClick={() => playVideo(vid.id)} 
-                        className="p-1 items-center justify-center bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-500/20 rounded transition-all cursor-pointer" 
-                        title="Tocar Agora"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                      </button>
-                    )}
-                    {vid.status === 'watched' && (
-                      <button 
-                        onClick={() => unwatchVideo(vid.id)} 
-                        className="p-1 items-center justify-center bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-white border border-cyan-500/20 rounded transition-all cursor-pointer" 
-                        title="Restaurar para Fila"
-                      >
-                        <Clock className="w-3 h-3" />
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => reject(vid.id)} 
-                      className="p-1 items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-550/20 rounded transition-all cursor-pointer" 
-                      title="Excluir / Rejeitar"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
+                video={vid}
+                session={session}
+                index={tab === 'pending' ? index + 1 : undefined}
+                isCurrent={isCurrent}
+                isHostView={true}
+                onPlay={playVideo}
+                onReject={reject}
+                onApprove={approve}
+                onUnwatch={unwatchVideo}
+              />
             );
           })}
         </AnimatePresence>

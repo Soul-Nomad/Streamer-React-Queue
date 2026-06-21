@@ -9,6 +9,7 @@ import { clsx } from 'clsx';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import logoTransparent from "@/public/CASSETE-TAPE.png";
+import QueueVideoCard from './QueueVideoCard';
 
 const DiscordIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -584,10 +585,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="flex items-center gap-2">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">Meus Envios Pendentes</h3>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3">
                       <AnimatePresence initial={false}>
                         {myPendingVideos.map(v => (
-                          <QueueCard key={v.id} video={v} type="pending" />
+                          <QueueVideoCard key={v.id} video={v} session={session} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -607,10 +608,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       <span className="text-xs text-zinc-500 uppercase tracking-widest font-mono">A Fila está vazia.</span>
                     </div>
                   ) : (
-                    <div className="grid gap-2">
+                    <div className="grid gap-3">
                       <AnimatePresence initial={false}>
                         {approvedVideos.map((v, i) => (
-                          <QueueCard key={v.id} video={v} type="queued" index={i + 1} />
+                          <QueueVideoCard key={v.id} video={v} session={session} index={i + 1} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -623,10 +624,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="flex items-center gap-2">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 font-mono">Últimos Reproduzidos</h3>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3">
                       <AnimatePresence initial={false}>
                         {historyVideos.slice(0, 5).map(v => (
-                          <QueueCard key={v.id} video={v} type="history" />
+                          <QueueVideoCard key={v.id} video={v} session={session} />
                         ))}
                       </AnimatePresence>
                     </div>
