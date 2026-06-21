@@ -182,7 +182,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#111116] border-r border-[#1f1f2e] text-zinc-100 font-sans select-none" id="host_queue_panel">
+    <div className="flex flex-col h-full bg-[#0c0e12]/75 backdrop-blur-md border-r border-[#1f1f2e] text-zinc-100 font-sans select-none" id="host_queue_panel">
       {/* Session/Header statistics */}
       <div className="p-3 bg-zinc-950 border-b border-[#1f1f2e] flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-mono text-xs font-black tracking-wider text-zinc-300">
