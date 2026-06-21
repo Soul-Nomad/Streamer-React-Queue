@@ -319,6 +319,15 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
             }
             
+            const spectatorColor = sender?.twitchData?.color || (vid.source === 'twitch' ? '#9146ff' : vid.source === 'discord' ? '#5865F2' : '#00FA6D');
+            const getSidebarGradient = (color: string) => {
+              if (color.startsWith('#') && color.length === 7) {
+                return `linear-gradient(to bottom, ${color}, ${color}22)`;
+              }
+              return `linear-gradient(to bottom, ${color}, rgba(255,255,255,0.05))`;
+            };
+            const sidebarGradient = getSidebarGradient(spectatorColor);
+            
             return (
               <motion.div
                 key={vid.id}
@@ -327,133 +336,124 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
                 transition={{ type: "spring", stiffness: 180, damping: 20 }}
-                className={clsx(
-                  "group relative border rounded-sm p-3 pl-4 block text-left transition-all duration-300 overflow-hidden",
-                  isCurrent 
-                    ? "bg-[#0c0c0e]/95 border-orange-500/40 shadow-[0_4px_25px_rgba(255,107,53,0.12)] backdrop-blur-sm" 
-                    : "bg-[#0c0c0e]/85 border-zinc-800 hover:border-zinc-700 hover:bg-[#0c0c0e] backdrop-blur-sm shadow-md"
-                )}
+                className="flex items-stretch gap-1.5 w-full text-left"
               >
-                {/* Visual references applied from attachments */}
-                {isCurrent ? (
-                  <>
-                    {/* Top Spectrum Palette Gradient Line (Matches active integrated player decoration) */}
-                    <div className="absolute top-0 left-0 right-0 h-[3.5px] bg-gradient-to-r from-[#FF5E33] via-[#E23F99] via-[#9446FF] via-[#486BFF] via-[#00B4D8] via-[#00E5A3] to-[#00FA6D] z-10" />
-                    {/* Left vertical glowing line */}
-                    <div className="absolute top-0 left-0 bottom-0 w-[4px] bg-gradient-to-b from-[#FF5E33] to-[#E23F99] z-10"></div>
-                  </>
-                ) : (
-                  <>
-                    {/* Left source-colored bar like image 1 in attachments */}
-                    {vid.source === 'twitch' && (
-                      <div className="absolute top-0 left-0 bottom-0 w-[3.5px] bg-[#9146ff] z-10" />
-                    )}
-                    {vid.source === 'discord' && (
-                      <div className="absolute top-0 left-0 bottom-0 w-[3.5px] bg-[#5865F2] z-10" />
-                    )}
-                    {(!vid.source || vid.source === 'site') && (
-                      <div className="absolute top-0 left-0 bottom-0 w-[3.5px] bg-[#00FA6D] z-10" />
-                    )}
-                  </>
-                )}
+                {/* Separated left vertical bar with sharp angles */}
+                <div 
+                  className={clsx(
+                    "w-[4px] shrink-0 rounded-none transition-all duration-300",
+                    isCurrent ? "shadow-[0_0_12px_rgba(255,107,53,0.3)] border border-orange-500/20" : "border border-zinc-900"
+                  )}
+                  style={{ background: sidebarGradient }}
+                />
 
-                {/* Top Details */}
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1.5 text-[9px] font-mono">
-                    {tab === 'pending' && (
-                      <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
-                    )}
-                    {isCurrent ? (
-                      <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
-                        <span className="h-1 w-1 rounded-full bg-orange-500"></span>
-                        Em Reprodução
+                {/* Main Card Body */}
+                <div
+                  className={clsx(
+                    "group relative flex-1 border p-3 block text-left transition-all duration-300 overflow-hidden",
+                    // Left side sharp (right angle), right side rounded
+                    "rounded-l-none rounded-r-md",
+                    isCurrent 
+                      ? "bg-[#0c0c0e]/95 border-orange-500/40 shadow-[0_4px_25px_rgba(255,107,53,0.12)] backdrop-blur-sm" 
+                      : "bg-[#0c0c0e]/85 border-zinc-800 hover:border-zinc-700 hover:bg-[#0c0c0e] backdrop-blur-sm shadow-md"
+                  )}
+                >
+                  {/* Top Details */}
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5 text-[9px] font-mono">
+                      {tab === 'pending' && (
+                        <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
+                      )}
+                      {isCurrent ? (
+                        <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-orange-500"></span>
+                          Em Reprodução
+                        </span>
+                      ) : vid.status === 'pending' ? (
+                        <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                          Pendente
+                        </span>
+                      ) : vid.status === 'approved' ? (
+                        <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                          Na Fila
+                        </span>
+                      ) : vid.status === 'watched' ? (
+                        <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                          Visto
+                        </span>
+                      ) : null}
+                      
+                      {duration > 0 && (
+                        <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
+                          {formatTime(duration)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {vid.source === 'twitch' && (
+                        <div className="text-[#9146FF] bg-[#9146FF]/10 p-0.5 rounded" title="Enviado pela Twitch">
+                          <Twitch className="w-3.5 h-3.5 fill-current" />
+                        </div>
+                      )}
+                      {vid.source === 'discord' && (
+                        <div className="text-[#5865F2] bg-[#5865F2]/10 p-0.5 rounded" title="Enviado pelo Discord">
+                          <DiscordIcon className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      {(!vid.source || vid.source === 'site') && (
+                        <div className="text-[#00FF66] bg-[#00FF66]/10 p-0.5 rounded" title="Enviado pelo Site">
+                          <Terminal className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      <span className={clsx("text-[8px] px-1 py-0.5 rounded border font-mono tracking-wider uppercase font-bold", platformColor)}>
+                        {platform}
                       </span>
-                    ) : vid.status === 'pending' ? (
-                      <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Pendente
-                      </span>
-                    ) : vid.status === 'approved' ? (
-                      <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Na Fila
-                      </span>
-                    ) : vid.status === 'watched' ? (
-                      <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                        Visto
-                      </span>
-                    ) : null}
-                    
-                    {duration > 0 && (
-                      <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
-                        {formatTime(duration)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {vid.source === 'twitch' && (
-                      <div className="text-[#9146FF] bg-[#9146FF]/10 p-0.5 rounded" title="Enviado pela Twitch">
-                        <Twitch className="w-3.5 h-3.5 fill-current" />
-                      </div>
-                    )}
-                    {vid.source === 'discord' && (
-                      <div className="text-[#5865F2] bg-[#5865F2]/10 p-0.5 rounded" title="Enviado pelo Discord">
-                        <DiscordIcon className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                    {(!vid.source || vid.source === 'site') && (
-                      <div className="text-[#00FF66] bg-[#00FF66]/10 p-0.5 rounded" title="Enviado pelo Site">
-                        <Terminal className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                    <span className={clsx("text-[8px] px-1 py-0.5 rounded border font-mono tracking-wider uppercase font-bold", platformColor)}>
-                      {platform}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Title & Link */}
-                <h4 className={clsx(
-                  "text-xs font-bold line-clamp-1 break-all mb-1 font-sans",
-                  isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
-                )}>
-                  {vid.title || "Mídia Sincronizada"}
-                </h4>
-                <p className="text-[10px] text-zinc-500 truncate font-mono mb-2" title={vid.url}>
-                  {vid.url}
-                </p>
-
-                {/* Submitter User Profile */}
-                <div className="flex items-center justify-between gap-1 border-t border-white/10 pt-2 mt-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {renderAvatar(sender, vid.submitter)}
-                    <span 
-                      className="text-[13px] font-extrabold truncate leading-tight tracking-tight"
-                      style={{ color: sender?.twitchData?.color || '#e4e4e7' }}
-                    >
-                      @{vid.submitter}
-                    </span>
-                    {renderTwitchBadges(sender)}
+                    </div>
                   </div>
 
-                  {/* Individual Action Controls */}
-                  <div className="flex gap-1 shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    {vid.status === 'pending' && (
-                      <button 
-                        onClick={() => approve(vid.id)} 
-                        className="p-1 items-center justify-center bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white border border-green-500/20 rounded transition-all cursor-pointer" 
-                        title="Aprovar Vídeo"
+                  {/* Title & Link */}
+                  <h4 className={clsx(
+                    "text-xs font-bold line-clamp-1 break-all mb-1 font-sans",
+                    isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
+                  )}>
+                    {vid.title || "Mídia Sincronizada"}
+                  </h4>
+                  <p className="text-[10px] text-zinc-500 truncate font-mono mb-2" title={vid.url}>
+                    {vid.url}
+                  </p>
+
+                  {/* Submitter User Profile */}
+                  <div className="flex items-center justify-between gap-1 border-t border-white/10 pt-2 mt-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {renderAvatar(sender, vid.submitter)}
+                      <span 
+                        className="text-[13.5px] font-extrabold text-white truncate leading-tight tracking-tight"
                       >
-                        <Check className="w-3 h-3" />
-                      </button>
-                    )}
-                    {!isCurrent && (vid.status === 'approved' || vid.status === 'pending') && (
-                      <button 
-                        onClick={() => playVideo(vid.id)} 
-                        className="p-1 items-center justify-center bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-500/20 rounded transition-all cursor-pointer" 
-                        title="Tocar Agora"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                      </button>
-                    )}
+                        @{vid.submitter}
+                      </span>
+                      {renderTwitchBadges(sender)}
+                    </div>
+
+                    {/* Individual Action Controls */}
+                    <div className="flex gap-1 shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {vid.status === 'pending' && (
+                        <button 
+                          onClick={() => approve(vid.id)} 
+                          className="p-1 items-center justify-center bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white border border-green-500/20 rounded transition-all cursor-pointer" 
+                          title="Aprovar Vídeo"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      )}
+                      {!isCurrent && (vid.status === 'approved' || vid.status === 'pending') && (
+                        <button 
+                          onClick={() => playVideo(vid.id)} 
+                          className="p-1 items-center justify-center bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-500/20 rounded transition-all cursor-pointer" 
+                          title="Tocar Agora"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                        </button>
+                      )}
                     {vid.status === 'watched' && (
                       <button 
                         onClick={() => unwatchVideo(vid.id)} 
@@ -472,7 +472,8 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </div>
+            </motion.div>
             );
           })}
         </AnimatePresence>

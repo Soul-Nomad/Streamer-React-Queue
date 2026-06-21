@@ -905,6 +905,15 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
 }
 
 function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number }) {
+  const spectatorColor = video.source === 'twitch' ? '#9146ff' : video.source === 'discord' ? '#5865F2' : '#00FA6D';
+  const getSidebarGradient = (color: string) => {
+    if (color.startsWith('#') && color.length === 7) {
+      return `linear-gradient(to bottom, ${color}, ${color}22)`;
+    }
+    return `linear-gradient(to bottom, ${color}, rgba(255,255,255,0.05))`;
+  };
+  const sidebarGradient = getSidebarGradient(spectatorColor);
+
   return (
     <motion.div
       layout="position"
@@ -912,49 +921,54 @@ function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'qu
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
       transition={{ type: "spring", stiffness: 180, damping: 20 }}
-      whileHover={{ scale: 1.005, transition: { duration: 0.1 } }}
-      className={clsx("relative overflow-hidden bg-[#0c0c0e]/95 border p-3 pl-4 rounded-sm flex items-center justify-between group transition-all duration-300", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" : "border-zinc-800/50 opacity-85 hover:border-zinc-700")}
+      whileHover={{ scale: 1.002, transition: { duration: 0.1 } }}
+      className="flex items-stretch gap-1.5 w-full text-left font-sans"
     >
-      {/* Left source-colored bar like image 1 in attachments */}
-      {video.source === 'twitch' && (
-        <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#9146ff] z-10" />
-      )}
-      {video.source === 'discord' && (
-        <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#5865F2] z-10" />
-      )}
-      {(!video.source || video.source === 'site') && (
-        <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#00FA6D] z-10" />
-      )}
+      {/* Separated left vertical bar with sharp angles */}
+      <div 
+        className="w-[4px] shrink-0 rounded-none border border-zinc-900 transition-all duration-300"
+        style={{ background: sidebarGradient }}
+      />
 
-      <div className="flex items-center gap-3 overflow-hidden flex-1">
-        {index !== undefined && (
-          <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-             <span className="text-[10px] font-mono font-black text-orange-400">#{index}</span>
-          </div>
+      {/* Main Card Body */}
+      <div
+        className={clsx(
+          "flex-1 flex items-center justify-between group bg-[#0c0c0e]/95 border p-3 rounded-l-none rounded-r-md transition-all duration-300",
+          type === 'queued' 
+            ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" 
+            : "border-zinc-800/50 opacity-85 hover:border-zinc-700"
         )}
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[11px] text-zinc-400 font-mono tracking-widest uppercase font-bold">DE: <span className="text-zinc-200">@{video.submitter}</span></span>
-            {type === 'pending' && <StatusBadge status="pending" />}
+      >
+        <div className="flex items-center gap-3 overflow-hidden flex-1">
+          {index !== undefined && (
+            <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-805 flex items-center justify-center shrink-0">
+               <span className="text-[10px] font-mono font-black text-orange-400">#{index}</span>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] text-zinc-400 font-mono tracking-widest uppercase font-bold">DE: <span className="text-white text-xs font-extrabold font-sans">@{video.submitter}</span></span>
+              {type === 'pending' && <StatusBadge status="pending" />}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0 ml-3">
-        <div className="flex flex-col items-end gap-1.5">
-          <div 
-            className="text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-sm border border-zinc-800 flex items-center gap-1.5"
-            title={`Enviado via ${video.source === 'twitch' ? 'Twitch' : video.source === 'discord' ? 'Discord' : 'Site'}`}
-          >
-             {video.source === 'twitch' && <Twitch className="w-3 h-3 text-[#9146FF]" />}
-             {video.source === 'discord' && <DiscordIcon className="w-3 h-3 text-[#5865F2]" />}
-             {(!video.source || video.source === 'site') && <Terminal className="w-3 h-3 text-[#00FF66]" />}
-             {getPlatformIcon(video.url).split(' ')[1] || 'Web'}
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          <div className="flex flex-col items-end gap-1.5">
+            <div 
+              className="text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-sm border border-zinc-800 flex items-center gap-1.5"
+              title={`Enviado via ${video.source === 'twitch' ? 'Twitch' : video.source === 'discord' ? 'Discord' : 'Site'}`}
+            >
+               {video.source === 'twitch' && <Twitch className="w-3 h-3 text-[#9146FF]" />}
+               {video.source === 'discord' && <DiscordIcon className="w-3 h-3 text-[#5865F2]" />}
+               {(!video.source || video.source === 'site') && <Terminal className="w-3 h-3 text-[#00FF66]" />}
+               {getPlatformIcon(video.url).split(' ')[1] || 'Web'}
+            </div>
           </div>
+          <a href={video.url} target="_blank" rel="noreferrer" className="w-7 h-7 rounded border border-zinc-800 bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
-        <a href={video.url} target="_blank" rel="noreferrer" className="w-7 h-7 rounded border border-zinc-800 bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
-          <ExternalLink className="w-3 h-3" />
-        </a>
       </div>
     </motion.div>
   );

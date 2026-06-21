@@ -189,7 +189,7 @@ export default function ViewerRanking({ session, onSelectUser }: ViewerRankingPr
 
                 <div className="mt-4">
                   {renderPodiumAvatar(topThree[1], 2)}
-                  <h3 className="text-base font-black tracking-tight text-white mt-4 truncate" style={{ color: topThree[1].twitchData?.color }}>
+                  <h3 className="text-base font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-200 via-zinc-400 to-slate-200 mt-4 truncate font-sans">
                     @{topThree[1].name}
                   </h3>
                   <p className="text-[9px] font-mono text-zinc-500 font-bold uppercase tracking-widest mt-0.5">
@@ -230,7 +230,7 @@ export default function ViewerRanking({ session, onSelectUser }: ViewerRankingPr
 
                 <div className="mt-4">
                   {renderPodiumAvatar(topThree[0], 1)}
-                  <h2 className="text-lg font-black tracking-tight text-white mt-4 truncate" style={{ color: topThree[0].twitchData?.color }}>
+                  <h2 className="text-lg font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-100 mt-4 truncate font-sans">
                     @{topThree[0].name}
                   </h2>
                   <p className="text-[9px] font-mono text-amber-400 font-bold uppercase tracking-widest mt-1">
@@ -284,7 +284,7 @@ export default function ViewerRanking({ session, onSelectUser }: ViewerRankingPr
 
                 <div className="mt-4">
                   {renderPodiumAvatar(topThree[2], 3)}
-                  <h3 className="text-base font-black tracking-tight text-white mt-4 truncate" style={{ color: topThree[2].twitchData?.color }}>
+                  <h3 className="text-base font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-700 to-orange-300 mt-4 truncate font-sans">
                     @{topThree[2].name}
                   </h3>
                   <p className="text-[9px] font-mono text-zinc-500 font-bold uppercase tracking-widest mt-0.5">
