@@ -170,3 +170,36 @@
   50% { opacity: 0.45; }
 }
 
+/* Liquid ink paint-spreading dynamic gooey animation keyframes */
+@keyframes ink-drift-1 {
+  0%, 100% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+  33% { transform: translate(8px, -4px) scale(1.15) rotate(120deg); }
+  66% { transform: translate(-6px, 6px) scale(0.9) rotate(240deg); }
+}
+
+@keyframes ink-drift-2 {
+  0%, 100% { transform: translate(0px, 0px) scale(1.1) rotate(0deg); }
+  50% { transform: translate(-8px, -6px) scale(0.85) rotate(-180deg); }
+}
+
+@keyframes ink-drift-3 {
+  0%, 100% { transform: translate(0px, 0px) scale(0.95) rotate(0deg); }
+  45% { transform: translate(6px, 8px) scale(1.2) rotate(135deg); }
+  90% { transform: translate(-4px, -4px) scale(1.05) rotate(270deg); }
+}
+
+.animate-ink-1 {
+  animation: ink-drift-1 5s ease-in-out infinite;
+}
+.animate-ink-2 {
+  animation: ink-drift-2 6.5s ease-in-out infinite;
+}
+.animate-ink-3 {
+  animation: ink-drift-3 8s ease-in-out infinite;
+}
+
+/* Custom utility for gooey containers and hidden handles */
+.liquid-gooey-container {
+  filter: url(#liquid-goo-ink);
+}
+

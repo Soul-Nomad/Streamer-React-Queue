@@ -9,7 +9,7 @@ import { clsx } from 'clsx';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import logoTransparent from "@/public/CASSETE-TAPE.png";
-import QueueVideoCard from './QueueVideoCard';
+import InteractiveQueueCard from './InteractiveQueueCard';
 
 const DiscordIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -585,10 +585,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="flex items-center gap-2">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">Meus Envios Pendentes</h3>
                     </div>
-                    <div className="grid gap-3">
+                    <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {myPendingVideos.map(v => (
-                          <QueueVideoCard key={v.id} video={v} session={session} />
+                          <InteractiveQueueCard key={v.id} video={v} session={session} variant="participant" type="pending" isCurrent={session.currentVideoId === v.id} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -608,10 +608,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                       <span className="text-xs text-zinc-500 uppercase tracking-widest font-mono">A Fila está vazia.</span>
                     </div>
                   ) : (
-                    <div className="grid gap-3">
+                    <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {approvedVideos.map((v, i) => (
-                          <QueueVideoCard key={v.id} video={v} session={session} index={i + 1} />
+                          <InteractiveQueueCard key={v.id} video={v} session={session} variant="participant" type="queued" index={i + 1} isCurrent={session.currentVideoId === v.id} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -624,10 +624,10 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="flex items-center gap-2">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 font-mono">Últimos Reproduzidos</h3>
                     </div>
-                    <div className="grid gap-3">
+                    <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {historyVideos.slice(0, 5).map(v => (
-                          <QueueVideoCard key={v.id} video={v} session={session} />
+                          <InteractiveQueueCard key={v.id} video={v} session={session} variant="participant" type="history" isCurrent={session.currentVideoId === v.id} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -899,54 +899,9 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
       
       {/* Tooltip for collapsed sidebar */}
       <div className="hidden md:block lg:hidden absolute left-full ml-3 px-2 py-1 bg-black/80 text-white text-[10px] rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap border border-white/10 z-50">
-        {label} {badge !== undefined && badge > 0 ? `(${badge})` : ''}
+        {label} {badge !== undefined && badge > 0 ? ` (${badge})` : ''}
       </div>
     </button>
-  );
-}
-
-function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number }) {
-  return (
-    <motion.div
-      layout="position"
-      initial={{ opacity: 0, scale: 0.98, y: 10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
-      transition={{ type: "spring", stiffness: 180, damping: 20 }}
-      whileHover={{ scale: 1.005, transition: { duration: 0.1 } }}
-      className={clsx("bg-zinc-950 border p-3 rounded-sm flex items-center justify-between group transition-all duration-300", type === 'queued' ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" : "border-zinc-800/50 opacity-85")}
-    >
-      <div className="flex items-center gap-3 overflow-hidden flex-1">
-        {index !== undefined && (
-          <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-             <span className="text-[10px] font-mono font-black text-orange-400">#{index}</span>
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">DE: @{video.submitter}</span>
-            {type === 'pending' && <StatusBadge status="pending" />}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0 ml-3">
-        <div className="flex flex-col items-end gap-1.5">
-          <div 
-            className="text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-sm border border-zinc-800 flex items-center gap-1.5"
-            title={`Enviado via ${video.source === 'twitch' ? 'Twitch' : video.source === 'discord' ? 'Discord' : 'Site'}`}
-          >
-             {video.source === 'twitch' && <Twitch className="w-3 h-3 text-[#9146FF]" />}
-             {video.source === 'discord' && <DiscordIcon className="w-3 h-3 text-[#5865F2]" />}
-             {(!video.source || video.source === 'site') && <Terminal className="w-3 h-3 text-[#00FF66]" />}
-             {getPlatformIcon(video.url).split(' ')[1] || 'Web'}
-          </div>
-        </div>
-        <a href={video.url} target="_blank" rel="noreferrer" className="w-7 h-7 rounded border border-zinc-800 bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
-          <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
-    </motion.div>
   );
 }
 

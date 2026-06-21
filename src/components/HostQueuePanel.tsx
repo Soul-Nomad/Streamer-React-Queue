@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
-import QueueVideoCard from './QueueVideoCard';
+import InteractiveQueueCard from './InteractiveQueueCard';
 
 const DiscordIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -299,18 +299,39 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
         <AnimatePresence initial={false}>
           {processedVideos.map((vid: Video, index: number) => {
             const isCurrent = session.currentVideoId === vid.id;
+            const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
+            const platform = getPlatformLabel(vid.url);
+            const platformColor = getPlatformColor(platform);
+            
+            // Calculate progress/time indicators
+            const duration = vid.duration || 0;
+            let progressPercent = 0;
+            let progressText = '--:-- / --:--';
+
+            if (isCurrent) {
+              const currentSeconds = Math.floor(session.currentTime || 0);
+              progressPercent = duration > 0 ? Math.min(100, (currentSeconds / duration) * 100) : 0;
+              progressText = `${formatTime(currentSeconds)} / ${formatTime(duration)}`;
+            } else if (vid.status === 'watched') {
+              progressPercent = 100;
+              progressText = `Visto (${formatTime(duration || 180)})`;
+            } else {
+              progressPercent = 0;
+              progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
+            }
+            
             return (
-              <QueueVideoCard
+              <InteractiveQueueCard
                 key={vid.id}
                 video={vid}
                 session={session}
+                variant="host"
                 index={tab === 'pending' ? index + 1 : undefined}
                 isCurrent={isCurrent}
-                isHostView={true}
-                onPlay={playVideo}
-                onReject={reject}
-                onApprove={approve}
-                onUnwatch={unwatchVideo}
+                playVideo={playVideo}
+                reject={reject}
+                approve={approve}
+                unwatchVideo={unwatchVideo}
               />
             );
           })}
