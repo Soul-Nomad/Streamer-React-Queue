@@ -380,7 +380,6 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               }
               
               const spectatorColor = sender?.twitchData?.color || (vid.source === 'twitch' ? '#9146ff' : vid.source === 'discord' ? '#5865F2' : '#00FA6D');
-              const sidebarGradient = getCloseTonsGradient(spectatorColor);
               
               return (
                 <motion.div
@@ -392,13 +391,13 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                   transition={{ type: "spring", stiffness: 180, damping: 20 }}
                   className="flex items-stretch gap-[3px] w-full text-left"
                 >
-                  {/* Separated left vertical bar with sharp angles: thicker, borderless, and closer */}
+                  {/* Separated left vertical bar with sharp angles: slightly reduced width, solid color, borderless, and closer */}
                   <div 
                     className={clsx(
-                      "w-[6px] shrink-0 rounded-none transition-all duration-300",
+                      "w-[4px] shrink-0 rounded-none transition-all duration-300",
                       isCurrent ? "shadow-[0_0_12px_rgba(255,107,53,0.4)]" : ""
                     )}
-                    style={{ background: sidebarGradient }}
+                    style={{ backgroundColor: spectatorColor }}
                   />
 
                   {/* Main Card Body */}

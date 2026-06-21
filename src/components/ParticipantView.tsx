@@ -954,8 +954,6 @@ function QueueCard({ video, type, index, session }: { video: Video, type: 'pendi
     return `linear-gradient(to bottom, hsl(${h1}, ${s1}%, ${l1}%), hsl(${h2}, ${s2}%, ${l2}%))`;
   };
 
-  const sidebarGradient = getCloseTonsGradient(spectatorColor);
-
   return (
     <motion.div
       layout="position"
@@ -966,10 +964,10 @@ function QueueCard({ video, type, index, session }: { video: Video, type: 'pendi
       whileHover={{ scale: 1.002, transition: { duration: 0.1 } }}
       className="flex items-stretch gap-[3px] w-full text-left font-sans"
     >
-      {/* Separated left vertical bar with sharp angles: thicker and borderless */}
+      {/* Separated left vertical bar with sharp angles: slightly reduced width, solid color, borderless, and closer */}
       <div 
-        className="w-[6px] shrink-0 rounded-none transition-all duration-300"
-        style={{ background: sidebarGradient }}
+        className="w-[4px] shrink-0 rounded-none transition-all duration-300"
+        style={{ backgroundColor: spectatorColor }}
       />
 
       {/* Main Card Body */}
