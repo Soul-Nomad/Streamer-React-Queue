@@ -587,7 +587,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {myPendingVideos.map(v => (
-                          <QueueCard key={v.id} video={v} type="pending" />
+                          <QueueCard key={v.id} video={v} type="pending" session={session} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -610,7 +610,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {approvedVideos.map((v, i) => (
-                          <QueueCard key={v.id} video={v} type="queued" index={i + 1} />
+                          <QueueCard key={v.id} video={v} type="queued" index={i + 1} session={session} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -626,7 +626,7 @@ export default function ParticipantView({ session }: { session: SessionState }) 
                     <div className="grid gap-2">
                       <AnimatePresence initial={false}>
                         {historyVideos.slice(0, 5).map(v => (
-                          <QueueCard key={v.id} video={v} type="history" />
+                          <QueueCard key={v.id} video={v} type="history" session={session} />
                         ))}
                       </AnimatePresence>
                     </div>
@@ -904,15 +904,57 @@ function NavItem({ active, onClick, icon, label, badge }: { active: boolean, onC
   );
 }
 
-function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number }) {
-  const spectatorColor = video.source === 'twitch' ? '#9146ff' : video.source === 'discord' ? '#5865F2' : '#00FA6D';
-  const getSidebarGradient = (color: string) => {
-    if (color.startsWith('#') && color.length === 7) {
-      return `linear-gradient(to bottom, ${color}, ${color}22)`;
+function QueueCard({ video, type, index, session }: { video: Video, type: 'pending' | 'queued' | 'history', index?: number, session: SessionState }) {
+  const sender = session.users.find(u => u.name === video.submitter || u.userId === video.submitterId);
+  const spectatorColor = sender?.twitchData?.color || (video.source === 'twitch' ? '#9146ff' : video.source === 'discord' ? '#5865F2' : '#00FA6D');
+  
+  const getCloseTonsGradient = (color: string) => {
+    let hex = color ? color.trim() : '#555555';
+    if (!hex.startsWith('#')) {
+      return `linear-gradient(to bottom, ${hex}, rgba(255, 255, 255, 0.02))`;
     }
-    return `linear-gradient(to bottom, ${color}, rgba(255,255,255,0.05))`;
+    if (hex.length === 4) {
+      hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+    }
+    const r = parseInt(hex.substring(1, 3), 16);
+    const g = parseInt(hex.substring(3, 5), 16);
+    const b = parseInt(hex.substring(5, 7), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) {
+      return `linear-gradient(to bottom, ${color}, rgba(255, 255, 255, 0.02))`;
+    }
+
+    const rNorm = r / 255;
+    const gNorm = g / 255;
+    const bNorm = b / 255;
+    const max = Math.max(rNorm, gNorm, bNorm);
+    const min = Math.min(rNorm, gNorm, bNorm);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+        case gNorm: h = (bNorm - rNorm) / d + 2; break;
+        case bNorm: h = (rNorm - gNorm) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    const h1 = Math.round(h * 360);
+    const s1 = Math.round(s * 100);
+    const l1 = Math.round(l * 100);
+
+    const h2 = (h1 + 12) % 360;
+    const s2 = s1;
+    const l2 = Math.max(12, l1 - 25);
+
+    return `linear-gradient(to bottom, hsl(${h1}, ${s1}%, ${l1}%), hsl(${h2}, ${s2}%, ${l2}%))`;
   };
-  const sidebarGradient = getSidebarGradient(spectatorColor);
+
+  const sidebarGradient = getCloseTonsGradient(spectatorColor);
 
   return (
     <motion.div
@@ -922,11 +964,11 @@ function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'qu
       exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
       transition={{ type: "spring", stiffness: 180, damping: 20 }}
       whileHover={{ scale: 1.002, transition: { duration: 0.1 } }}
-      className="flex items-stretch gap-1.5 w-full text-left font-sans"
+      className="flex items-stretch gap-[3px] w-full text-left font-sans"
     >
-      {/* Separated left vertical bar with sharp angles */}
+      {/* Separated left vertical bar with sharp angles: thicker and borderless */}
       <div 
-        className="w-[4px] shrink-0 rounded-none border border-zinc-900 transition-all duration-300"
+        className="w-[6px] shrink-0 rounded-none transition-all duration-300"
         style={{ background: sidebarGradient }}
       />
 
@@ -948,7 +990,52 @@ function QueueCard({ video, type, index }: { video: Video, type: 'pending' | 'qu
           <div className="min-w-0 flex-1">
             <p className="text-xs text-zinc-300 truncate font-medium group-hover:text-white transition-colors">{video.url}</p>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[11px] text-zinc-400 font-mono tracking-widest uppercase font-bold">DE: <span className="text-white text-xs font-extrabold font-sans">@{video.submitter}</span></span>
+              <span className="text-[11px] text-zinc-400 font-mono tracking-widest uppercase font-bold">
+                DE:{" "}
+                {(() => {
+                  const sortedUsers = [...(session?.users || [])]
+                    .filter(u => !u.isHost)
+                    .sort((a, b) => {
+                      const scoreA = a.karmaDetails?.karma_score ?? a.reputation ?? 0;
+                      const scoreB = b.karmaDetails?.karma_score ?? b.reputation ?? 0;
+                      return scoreB - scoreA;
+                    });
+                  const top1 = sortedUsers[0];
+                  const top2 = sortedUsers[1];
+                  const top3 = sortedUsers[2];
+
+                  const isTop1 = top1 && (video.submitterId === top1.userId || video.submitter === top1.name);
+                  const isTop2 = top2 && (video.submitterId === top2.userId || video.submitter === top2.name);
+                  const isTop3 = top3 && (video.submitterId === top3.userId || video.submitter === top3.name);
+
+                  if (isTop1) {
+                    return (
+                      <span className="font-sans text-xs font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-450 to-orange-500 [text-shadow:_0_1px_5px_rgba(245,158,11,0.15)]">
+                        @{video.submitter} ★
+                      </span>
+                    );
+                  }
+                  if (isTop2) {
+                    return (
+                      <span className="font-sans text-xs font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-200 via-zinc-400 to-slate-200 [text-shadow:_0_1px_5px_rgba(203,213,225,0.15)]">
+                        @{video.submitter} ★
+                      </span>
+                    );
+                  }
+                  if (isTop3) {
+                    return (
+                      <span className="font-sans text-xs font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-400 via-amber-700 to-orange-300 [text-shadow:_0_1px_5px_rgba(180,83,9,0.15)]">
+                        @{video.submitter} ★
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-white text-xs font-extrabold font-sans">
+                      @{video.submitter}
+                    </span>
+                  );
+                })()}
+              </span>
               {type === 'pending' && <StatusBadge status="pending" />}
             </div>
           </div>

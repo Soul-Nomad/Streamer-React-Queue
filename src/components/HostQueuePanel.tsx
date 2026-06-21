@@ -296,155 +296,236 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
       {/* Video Cards Grid/List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-180px)]">
         <AnimatePresence initial={false}>
-          {processedVideos.map((vid: Video, index: number) => {
-            const isCurrent = session.currentVideoId === vid.id;
-            const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
-            const platform = getPlatformLabel(vid.url);
-            const platformColor = getPlatformColor(platform);
-            
-            // Calculate progress/time indicators
-            const duration = vid.duration || 0;
-            let progressPercent = 0;
-            let progressText = '--:-- / --:--';
+          {(() => {
+            // Sort users once by karma score to identify top 1, 2, 3 premium viewers
+            const sortedUsers = [...(session.users || [])]
+              .filter(u => !u.isHost)
+              .sort((a, b) => {
+                const scoreA = a.karmaDetails?.karma_score ?? a.reputation ?? 0;
+                const scoreB = b.karmaDetails?.karma_score ?? b.reputation ?? 0;
+                return scoreB - scoreA;
+              });
 
-            if (isCurrent) {
-              const currentSeconds = Math.floor(session.currentTime || 0);
-              progressPercent = duration > 0 ? Math.min(100, (currentSeconds / duration) * 100) : 0;
-              progressText = `${formatTime(currentSeconds)} / ${formatTime(duration)}`;
-            } else if (vid.status === 'watched') {
-              progressPercent = 100;
-              progressText = `Visto (${formatTime(duration || 180)})`;
-            } else {
-              progressPercent = 0;
-              progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
-            }
-            
-            const spectatorColor = sender?.twitchData?.color || (vid.source === 'twitch' ? '#9146ff' : vid.source === 'discord' ? '#5865F2' : '#00FA6D');
-            const getSidebarGradient = (color: string) => {
-              if (color.startsWith('#') && color.length === 7) {
-                return `linear-gradient(to bottom, ${color}, ${color}22)`;
+            const top1 = sortedUsers[0];
+            const top2 = sortedUsers[1];
+            const top3 = sortedUsers[2];
+
+            const getCloseTonsGradient = (color: string) => {
+              let hex = color ? color.trim() : '#555555';
+              if (!hex.startsWith('#')) {
+                return `linear-gradient(to bottom, ${hex}, rgba(255, 255, 255, 0.02))`;
               }
-              return `linear-gradient(to bottom, ${color}, rgba(255,255,255,0.05))`;
+              if (hex.length === 4) {
+                hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+              }
+              const r = parseInt(hex.substring(1, 3), 16);
+              const g = parseInt(hex.substring(3, 5), 16);
+              const b = parseInt(hex.substring(5, 7), 16);
+              if (isNaN(r) || isNaN(g) || isNaN(b)) {
+                return `linear-gradient(to bottom, ${color}, rgba(255, 255, 255, 0.02))`;
+              }
+
+              const rNorm = r / 255;
+              const gNorm = g / 255;
+              const bNorm = b / 255;
+              const max = Math.max(rNorm, gNorm, bNorm);
+              const min = Math.min(rNorm, gNorm, bNorm);
+              let h = 0;
+              let s = 0;
+              const l = (max + min) / 2;
+
+              if (max !== min) {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                  case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+                  case gNorm: h = (bNorm - rNorm) / d + 2; break;
+                  case bNorm: h = (rNorm - gNorm) / d + 4; break;
+                }
+                h /= 6;
+              }
+
+              const h1 = Math.round(h * 360);
+              const s1 = Math.round(s * 100);
+              const l1 = Math.round(l * 100);
+
+              const h2 = (h1 + 12) % 360;
+              const s2 = s1;
+              const l2 = Math.max(12, l1 - 25);
+
+              return `linear-gradient(to bottom, hsl(${h1}, ${s1}%, ${l1}%), hsl(${h2}, ${s2}%, ${l2}%))`;
             };
-            const sidebarGradient = getSidebarGradient(spectatorColor);
-            
-            return (
-              <motion.div
-                key={vid.id}
-                layout="position"
-                initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
-                transition={{ type: "spring", stiffness: 180, damping: 20 }}
-                className="flex items-stretch gap-1.5 w-full text-left"
-              >
-                {/* Separated left vertical bar with sharp angles */}
-                <div 
-                  className={clsx(
-                    "w-[4px] shrink-0 rounded-none transition-all duration-300",
-                    isCurrent ? "shadow-[0_0_12px_rgba(255,107,53,0.3)] border border-orange-500/20" : "border border-zinc-900"
-                  )}
-                  style={{ background: sidebarGradient }}
-                />
 
-                {/* Main Card Body */}
-                <div
-                  className={clsx(
-                    "group relative flex-1 border p-3 block text-left transition-all duration-300 overflow-hidden",
-                    // Left side sharp (right angle), right side rounded
-                    "rounded-l-none rounded-r-md",
-                    isCurrent 
-                      ? "bg-[#0c0c0e]/95 border-orange-500/40 shadow-[0_4px_25px_rgba(255,107,53,0.12)] backdrop-blur-sm" 
-                      : "bg-[#0c0c0e]/85 border-zinc-800 hover:border-zinc-700 hover:bg-[#0c0c0e] backdrop-blur-sm shadow-md"
-                  )}
+            return processedVideos.map((vid: Video, index: number) => {
+              const isCurrent = session.currentVideoId === vid.id;
+              const sender = session.users.find(u => u.name === vid.submitter || u.userId === vid.submitterId);
+              const platform = getPlatformLabel(vid.url);
+              const platformColor = getPlatformColor(platform);
+              
+              // Calculate progress/time indicators
+              const duration = vid.duration || 0;
+              let progressPercent = 0;
+              let progressText = '--:-- / --:--';
+
+              if (isCurrent) {
+                const currentSeconds = Math.floor(session.currentTime || 0);
+                progressPercent = duration > 0 ? Math.min(100, (currentSeconds / duration) * 100) : 0;
+                progressText = `${formatTime(currentSeconds)} / ${formatTime(duration)}`;
+              } else if (vid.status === 'watched') {
+                progressPercent = 100;
+                progressText = `Visto (${formatTime(duration || 180)})`;
+              } else {
+                progressPercent = 0;
+                progressText = duration > 0 ? `Duração: ${formatTime(duration)}` : 'Duração: --:--';
+              }
+              
+              const spectatorColor = sender?.twitchData?.color || (vid.source === 'twitch' ? '#9146ff' : vid.source === 'discord' ? '#5865F2' : '#00FA6D');
+              const sidebarGradient = getCloseTonsGradient(spectatorColor);
+              
+              return (
+                <motion.div
+                  key={vid.id}
+                  layout="position"
+                  initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
+                  transition={{ type: "spring", stiffness: 180, damping: 20 }}
+                  className="flex items-stretch gap-[3px] w-full text-left"
                 >
-                  {/* Top Details */}
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-1.5 text-[9px] font-mono">
-                      {tab === 'pending' && (
-                        <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
-                      )}
-                      {isCurrent ? (
-                        <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
-                          <span className="h-1 w-1 rounded-full bg-orange-500"></span>
-                          Em Reprodução
-                        </span>
-                      ) : vid.status === 'pending' ? (
-                        <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                          Pendente
-                        </span>
-                      ) : vid.status === 'approved' ? (
-                        <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                          Na Fila
-                        </span>
-                      ) : vid.status === 'watched' ? (
-                        <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
-                          Visto
-                        </span>
-                      ) : null}
-                      
-                      {duration > 0 && (
-                        <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
-                          {formatTime(duration)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {vid.source === 'twitch' && (
-                        <div className="text-[#9146FF] bg-[#9146FF]/10 p-0.5 rounded" title="Enviado pela Twitch">
-                          <Twitch className="w-3.5 h-3.5 fill-current" />
-                        </div>
-                      )}
-                      {vid.source === 'discord' && (
-                        <div className="text-[#5865F2] bg-[#5865F2]/10 p-0.5 rounded" title="Enviado pelo Discord">
-                          <DiscordIcon className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                      {(!vid.source || vid.source === 'site') && (
-                        <div className="text-[#00FF66] bg-[#00FF66]/10 p-0.5 rounded" title="Enviado pelo Site">
-                          <Terminal className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                      <span className={clsx("text-[8px] px-1 py-0.5 rounded border font-mono tracking-wider uppercase font-bold", platformColor)}>
-                        {platform}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Separated left vertical bar with sharp angles: thicker, borderless, and closer */}
+                  <div 
+                    className={clsx(
+                      "w-[6px] shrink-0 rounded-none transition-all duration-300",
+                      isCurrent ? "shadow-[0_0_12px_rgba(255,107,53,0.4)]" : ""
+                    )}
+                    style={{ background: sidebarGradient }}
+                  />
 
-                  {/* Title & Link */}
-                  <h4 className={clsx(
-                    "text-xs font-bold line-clamp-1 break-all mb-1 font-sans",
-                    isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
-                  )}>
-                    {vid.title || "Mídia Sincronizada"}
-                  </h4>
-                  <p className="text-[10px] text-zinc-500 truncate font-mono mb-2" title={vid.url}>
-                    {vid.url}
-                  </p>
-
-                  {/* Submitter User Profile */}
-                  <div className="flex items-center justify-between gap-1 border-t border-white/10 pt-2 mt-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {renderAvatar(sender, vid.submitter)}
-                      <span 
-                        className="text-[13.5px] font-extrabold text-white truncate leading-tight tracking-tight"
-                      >
-                        @{vid.submitter}
-                      </span>
-                      {renderTwitchBadges(sender)}
+                  {/* Main Card Body */}
+                  <div
+                    className={clsx(
+                      "group relative flex-1 border p-3 block text-left transition-all duration-300 overflow-hidden",
+                      // Left side sharp (right angle), right side rounded
+                      "rounded-l-none rounded-r-md",
+                      isCurrent 
+                        ? "bg-[#0c0c0e]/95 border-orange-500/40 shadow-[0_4px_25px_rgba(255,107,53,0.12)] backdrop-blur-sm" 
+                        : "bg-[#0c0c0e]/85 border-zinc-800 hover:border-zinc-700 hover:bg-[#0c0c0e] backdrop-blur-sm shadow-md"
+                    )}
+                  >
+                    {/* Top Details */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-1.5 text-[9px] font-mono">
+                        {tab === 'pending' && (
+                          <span className="text-orange-400 font-extrabold pr-0.5"># {index + 1}</span>
+                        )}
+                        {isCurrent ? (
+                          <span className="text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/30 text-[8px] tracking-wide font-extrabold uppercase animate-pulse flex items-center gap-1">
+                            <span className="h-1 w-1 rounded-full bg-orange-500"></span>
+                            Em Reprodução
+                          </span>
+                        ) : vid.status === 'pending' ? (
+                          <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                            Pendente
+                          </span>
+                        ) : vid.status === 'approved' ? (
+                          <span className="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                            Na Fila
+                          </span>
+                        ) : vid.status === 'watched' ? (
+                          <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 text-[8px] tracking-wide font-extrabold uppercase">
+                            Visto
+                          </span>
+                        ) : null}
+                        
+                        {duration > 0 && (
+                          <span className="text-zinc-400 bg-zinc-800/40 px-1.5 py-0.5 rounded border border-white/5 text-[8px] font-mono shrink-0">
+                            {formatTime(duration)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {vid.source === 'twitch' && (
+                          <div className="text-[#9146FF] bg-[#9146FF]/10 p-0.5 rounded" title="Enviado pela Twitch">
+                            <Twitch className="w-3.5 h-3.5 fill-current" />
+                          </div>
+                        )}
+                        {vid.source === 'discord' && (
+                          <div className="text-[#5865F2] bg-[#5865F2]/10 p-0.5 rounded" title="Enviado pelo Discord">
+                            <DiscordIcon className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                        {(!vid.source || vid.source === 'site') && (
+                          <div className="text-[#00FF66] bg-[#00FF66]/10 p-0.5 rounded" title="Enviado pelo Site">
+                            <Terminal className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                        <span className={clsx("text-[8px] px-1 py-0.5 rounded border font-mono tracking-wider uppercase font-bold", platformColor)}>
+                          {platform}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Individual Action Controls */}
-                    <div className="flex gap-1 shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      {vid.status === 'pending' && (
-                        <button 
-                          onClick={() => approve(vid.id)} 
-                          className="p-1 items-center justify-center bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white border border-green-500/20 rounded transition-all cursor-pointer" 
-                          title="Aprovar Vídeo"
-                        >
-                          <Check className="w-3 h-3" />
-                        </button>
-                      )}
+                    {/* Title & Link */}
+                    <h4 className={clsx(
+                      "text-xs font-bold line-clamp-1 break-all mb-1 font-sans",
+                      isCurrent ? "text-orange-300" : "text-zinc-100 group-hover:text-orange-400"
+                    )}>
+                      {vid.title || "Mídia Sincronizada"}
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 truncate font-mono mb-2" title={vid.url}>
+                      {vid.url}
+                    </p>
+
+                    {/* Submitter User Profile */}
+                    <div className="flex items-center justify-between gap-1 border-t border-white/10 pt-2 mt-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {renderAvatar(sender, vid.submitter)}
+                        {(() => {
+                          const isTop1 = top1 && (vid.submitterId === top1.userId || vid.submitter === top1.name);
+                          const isTop2 = top2 && (vid.submitterId === top2.userId || vid.submitter === top2.name);
+                          const isTop3 = top3 && (vid.submitterId === top3.userId || vid.submitter === top3.name);
+
+                          if (isTop1) {
+                            return (
+                              <span className="text-[13.5px] font-black truncate leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-450 to-orange-500 [text-shadow:_0_1px_5px_rgba(245,158,11,0.15)] shrink-0">
+                                @{vid.submitter} ★
+                              </span>
+                            );
+                          }
+                          if (isTop2) {
+                            return (
+                              <span className="text-[13.5px] font-black truncate leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-200 via-zinc-400 to-slate-200 [text-shadow:_0_1px_5px_rgba(203,213,225,0.15)] shrink-0">
+                                @{vid.submitter} ★
+                              </span>
+                            );
+                          }
+                          if (isTop3) {
+                            return (
+                              <span className="text-[13.5px] font-black truncate leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 via-amber-700 to-orange-300 [text-shadow:_0_1px_5px_rgba(180,83,9,0.15)] shrink-0">
+                                @{vid.submitter} ★
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="text-[13.5px] font-extrabold text-white truncate leading-tight tracking-tight shrink-0">
+                              @{vid.submitter}
+                            </span>
+                          );
+                        })()}
+                        {renderTwitchBadges(sender)}
+                      </div>
+
+                      {/* Individual Action Controls */}
+                      <div className="flex gap-1 shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {vid.status === 'pending' && (
+                          <button 
+                            onClick={() => approve(vid.id)} 
+                            className="p-1 items-center justify-center bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white border border-green-500/20 rounded transition-all cursor-pointer" 
+                            title="Aprovar Vídeo"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                        )}
                       {!isCurrent && (vid.status === 'approved' || vid.status === 'pending') && (
                         <button 
                           onClick={() => playVideo(vid.id)} 
@@ -475,8 +556,9 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
               </div>
             </motion.div>
             );
-          })}
-        </AnimatePresence>
+          })
+        })()}
+      </AnimatePresence>
 
         {processedVideos.length === 0 && (
           <div className="py-12 px-4 text-center text-zinc-650 flex flex-col items-center justify-center space-y-2">
