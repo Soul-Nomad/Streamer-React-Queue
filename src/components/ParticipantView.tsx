@@ -961,24 +961,14 @@ function QueueCard({ video, type, index, session }: { video: Video, type: 'pendi
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
       transition={{ type: "spring", stiffness: 180, damping: 20 }}
-      whileHover={{ scale: 1.002, transition: { duration: 0.1 } }}
-      className="flex items-stretch gap-[3px] w-full text-left font-sans"
+      whileHover={{ scale: 1.015, y: -2, transition: { duration: 0.12 } }}
+      className={clsx(
+        "group relative w-full flex items-center justify-between p-3 rounded-md transition-all duration-300 text-left font-sans cursor-pointer select-none",
+        type === 'queued' 
+          ? "bg-[#0d0d11]/95 border border-[#16161c] hover:border-orange-500/35 shadow-md hover:shadow-orange-500/5" 
+          : "bg-[#0a0a0d]/90 border border-zinc-900/60 opacity-85 hover:opacity-100 hover:border-zinc-800 hover:bg-[#0d0d11]"
+      )}
     >
-      {/* Separated left vertical bar with sharp angles: slightly reduced width, solid color, borderless, and closer */}
-      <div 
-        className="w-[4px] shrink-0 rounded-none transition-all duration-300"
-        style={{ backgroundColor: spectatorColor }}
-      />
-
-      {/* Main Card Body */}
-      <div
-        className={clsx(
-          "flex-1 flex items-center justify-between group bg-[#0c0c0e]/95 border p-3 rounded-l-none rounded-r-md transition-all duration-300",
-          type === 'queued' 
-            ? "border-zinc-800 hover:border-orange-500/50 shadow-md hover:shadow-orange-500/5" 
-            : "border-zinc-800/50 opacity-85 hover:border-zinc-700"
-        )}
-      >
         <div className="flex items-center gap-3 overflow-hidden flex-1">
           {index !== undefined && (
             <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-805 flex items-center justify-center shrink-0">
@@ -1054,7 +1044,6 @@ function QueueCard({ video, type, index, session }: { video: Video, type: 'pendi
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
-      </div>
     </motion.div>
   );
 }

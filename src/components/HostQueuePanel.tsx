@@ -389,28 +389,14 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.98, y: -5, transition: { duration: 0.15 } }}
                   transition={{ type: "spring", stiffness: 180, damping: 20 }}
-                  className="flex items-stretch gap-[3px] w-full text-left"
+                  whileHover={{ scale: 1.015, y: -2, transition: { duration: 0.12 } }}
+                  className={clsx(
+                    "group relative w-full text-left p-3 block transition-all duration-300 overflow-hidden rounded-md cursor-pointer select-none",
+                    isCurrent 
+                      ? "bg-[#0d0d11]/95 border border-orange-500/25 shadow-[0_4px_25px_rgba(255,107,53,0.1)] backdrop-blur-sm" 
+                      : "bg-[#0a0a0d]/90 border border-[#16161c] hover:border-zinc-800/80 hover:bg-[#0d0d11] backdrop-blur-sm shadow-md"
+                  )}
                 >
-                  {/* Separated left vertical bar with sharp angles: slightly reduced width, solid color, borderless, and closer */}
-                  <div 
-                    className={clsx(
-                      "w-[4px] shrink-0 rounded-none transition-all duration-300",
-                      isCurrent ? "shadow-[0_0_12px_rgba(255,107,53,0.4)]" : ""
-                    )}
-                    style={{ backgroundColor: spectatorColor }}
-                  />
-
-                  {/* Main Card Body */}
-                  <div
-                    className={clsx(
-                      "group relative flex-1 border p-3 block text-left transition-all duration-300 overflow-hidden",
-                      // Left side sharp (right angle), right side rounded
-                      "rounded-l-none rounded-r-md",
-                      isCurrent 
-                        ? "bg-[#0c0c0e]/95 border-orange-500/40 shadow-[0_4px_25px_rgba(255,107,53,0.12)] backdrop-blur-sm" 
-                        : "bg-[#0c0c0e]/85 border-zinc-800 hover:border-zinc-700 hover:bg-[#0c0c0e] backdrop-blur-sm shadow-md"
-                    )}
-                  >
                     {/* Top Details */}
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-1.5 text-[9px] font-mono">
@@ -552,8 +538,7 @@ export default function HostQueuePanel({ session, playVideo, reject, approve, un
                     </button>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
             );
           })
         })()}
